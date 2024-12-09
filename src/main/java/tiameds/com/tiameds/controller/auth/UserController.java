@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @RestController
 @RequestMapping("/public")
-@Tag(name = "User Controller", description = "Operations pertaining to user management")
+@Tag(name = "User Controller", description = "Operations pertaining to user management ")
 public class UserController {
 
     private final UserService userService;
