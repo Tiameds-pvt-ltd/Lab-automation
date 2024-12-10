@@ -53,7 +53,7 @@ public class UserController {
 
     @GetMapping("/health-check")
     public String healthCheck() {
-        return "Service is up and running ${new Date() and time}   ";
+        return "Service is up  and running";
     }
 
     @PostMapping("/register")

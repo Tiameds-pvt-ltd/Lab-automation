@@ -44,3 +44,8 @@ logging:
     com:
       fasterxml:
         jackson: DEBUG  # Enable detailed logging for Jackson
+
+
+server:
+  servlet:
+    context-path: /api/v1

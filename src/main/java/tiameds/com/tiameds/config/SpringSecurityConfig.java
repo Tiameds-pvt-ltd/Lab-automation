@@ -3,13 +3,11 @@ package tiameds.com.tiameds.config;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -79,22 +77,23 @@ public class SpringSecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())  // Disable CSRF for stateless JWT authentication
-                .cors(cors -> cors.configurationSource(new CorsConfig().corsConfigurationSource()))// Enable CORS with a custom source
+                .cors(cors -> cors.configurationSource(new CorsConfig().corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
 //                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()  // Permit CORS preflight requests
-                        .requestMatchers("/admin/**").hasRole("ADMIN")  // Restrict /admin/** to ADMIN role
-                        .requestMatchers("/lab/**").hasRole("ADMIN")    // Restrict /lab/** to ADMIN role
-                        .requestMatchers("/lab-super-admin/**").hasRole("SUPERADMIN") // SUPERADMIN-only endpoints
-                        .requestMatchers("/error").permitAll()          // Allow error endpoint without authentication
-                        .requestMatchers("/login/**", "/register/**").permitAll()  // Public login & registration
-                        .requestMatchers(
-                                "/v3/api-docs/**",
-                                "/doc/**",
-                                "/swagger-ui/**",
-                                "/swagger-ui.html",
-                                "/public/**"
-                        ).permitAll()  // Allow Swagger and public resources
-                        .anyRequest().authenticated()  // All other requests must be authenticated
+                                .requestMatchers("/admin/**").hasRole("ADMIN")  // Restrict /admin/** to ADMIN role
+                                .requestMatchers("/lab/**").hasRole("ADMIN")    // Restrict /lab/** to ADMIN role
+                                .requestMatchers("/lab-super-admin/**").hasRole("SUPERADMIN") // SUPERADMIN-only endpoints
+                                .requestMatchers("/error").permitAll()          // Allow error endpoint without authentication
+                                .requestMatchers("/login/**", "/register/**").permitAll()  // Public login & registration
+                                .requestMatchers("/api/v1/public/health-check").permitAll()
+                                .requestMatchers(
+                                        "/v3/api-docs/**",
+                                        "/doc/**",
+                                        "/swagger-ui/**",
+                                        "/swagger-ui.html",
+                                        "/public/**"
+                                ).permitAll()  // Allow Swagger and public resources
+                                .anyRequest().authenticated()  // All other requests must be authenticated
                 )
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))  // Stateless (JWT) sessions
