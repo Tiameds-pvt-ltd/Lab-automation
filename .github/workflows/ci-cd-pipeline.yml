@@ -78,6 +78,7 @@ jobs:
         run: |
           docker push ${{ secrets.AWS_ECR_URI }}:${{ github.sha }}
 
+
       # Step 12: Deploy the Docker image to ECS (Fargate)
       - name: Deploy to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
