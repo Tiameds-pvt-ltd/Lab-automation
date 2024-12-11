@@ -188,13 +188,19 @@ jobs:
         run: |
           docker push ${{ secrets.AWS_ECR_URI }}:${{ github.sha }}
 
+
       # Step 12: Update ECS Task Definition with new image
       - name: Update ECS Task Definition
         run: |
-          TASK_DEF=$(aws ecs describe-task-definition --task-definition lab_automation)
+          TASK_DEF=$(aws ecs describe-task-definition --task-definition lab_automation --region ${{ secrets.AWS_REGION }})
           NEW_TASK_DEF=$(echo $TASK_DEF | jq '.taskDefinition | .containerDefinitions[0].image = "${{ secrets.AWS_ECR_URI }}:${{ github.sha }}"' | jq '.taskDefinition | del(.status, .revision, .registeredAt, .registeredBy, .compatibilities)')
           echo "$NEW_TASK_DEF" > updated-task-definition.json
-          aws ecs register-task-definition --cli-input-json file://updated-task-definition.json
+          aws ecs register-task-definition --cli-input-json file://updated-task-definition.json --region ${{ secrets.AWS_REGION }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+
 
       # Step 13: Deploy to ECS using the new task definition
       - name: Deploy to ECS
