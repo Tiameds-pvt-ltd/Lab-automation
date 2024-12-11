@@ -8,7 +8,6 @@ on:
     branches:
       - main
 
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -80,7 +79,7 @@ jobs:
 
       # Step 12: Deploy the Docker image to ECS (Fargate)
       - name: Deploy to ECS
-        uses: aws-actions/amazon-ecs-update-service@v1
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
           cluster: lab_automation         # Replace with your ECS Cluster name
           service: your-ecs-service-name           # Replace with your ECS Service name
@@ -90,4 +89,4 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: 'N. Virginia'
+          AWS_REGION: 'us-west-2'  # Replace with your AWS region (e.g., us-east-1, eu-west-1)
