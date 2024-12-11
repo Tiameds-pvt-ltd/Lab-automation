@@ -66,6 +66,8 @@ jobs:
       # Step 9: Log in to AWS ECR
       - name: Log in to AWS ECR
         uses: aws-actions/amazon-ecr-login@v1
+        with:
+          region: ${{ secrets.AWS_REGION }}  # Replace with your AWS region if you prefer hardcoding (e.g., 'us-west-2')
 
       # Step 10: Tag Docker image for ECR
       - name: Tag Docker image for ECR
@@ -89,4 +91,4 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: 'N. Virginia'
+          AWS_REGION: ${{ secrets.AWS_REGION }}  # Set region from GitHub secrets
