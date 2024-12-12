@@ -206,38 +206,36 @@ jobs:
         run: |
           docker push ${{ secrets.AWS_ECR_URI }}:${{ github.sha }}
 
-      # Step 12: Fetch ECS task definition, update the image and register it
+      # Step 12: Fetch ECS task definition and update the image with the new ECR image
       - name: Update ECS Task Definition
         run: |
           # Fetch the current ECS task definition
           TASK_DEF=$(aws ecs describe-task-definition --task-definition lab_automation --region ${{ secrets.AWS_REGION }})
 
-          # Use jq to modify the container definitions with the new Docker image
-          UPDATED_TASK_DEF=$(echo "$TASK_DEF" | jq '.taskDefinition.containerDefinitions[0].image = "${{ secrets.AWS_ECR_URI }}:${{ github.sha }}"')
+          # Remove unwanted fields like taskDefinitionArn and requiresAttributes
+          NEW_TASK_DEF=$(echo "$TASK_DEF" | jq 'del(.taskDefinitionArn, .requiresAttributes)')
 
-          # Debugging: Output updated task definition to ensure the image is set correctly
-          echo "UPDATED_TASK_DEF: $UPDATED_TASK_DEF"
+          # Update the image in containerDefinitions
+          NEW_TASK_DEF=$(echo "$NEW_TASK_DEF" | jq '.containerDefinitions[0].image = "${{ secrets.AWS_ECR_URI }}:${{ github.sha }}"')
 
-          # Check if the updated task definition is valid
-          if [ -z "$UPDATED_TASK_DEF" ]; then
-            echo "Error: Task definition update failed."
+          # Debugging step: print the updated task definition
+          echo "NEW_TASK_DEF: $NEW_TASK_DEF"
+
+          # Save the updated task definition to a file
+          if [ -z "$NEW_TASK_DEF" ]; then
+            echo "Error: New task definition is empty."
             exit 1
           fi
+          echo "$NEW_TASK_DEF" > updated-task-definition.json
 
-          # Register the updated ECS task definition
+          # Register the updated ECS task definition with 'family' and 'containerDefinitions'
           REGISTERED_TASK_DEF=$(aws ecs register-task-definition \
             --family lab_automation \
-            --container-definitions "$UPDATED_TASK_DEF" \
+            --cli-input-json file://updated-task-definition.json \
             --region ${{ secrets.AWS_REGION }})
 
-          # Extract the task definition revision ARN for deployment
+          # Extract the task definition ARN or revision for use in the deploy step
           TASK_DEF_REVISION=$(echo "$REGISTERED_TASK_DEF" | jq -r .taskDefinition.taskDefinitionArn)
-
-          # Ensure task definition revision is available
-          if [ -z "$TASK_DEF_REVISION" ]; then
-            echo "Error: Task definition revision could not be extracted."
-            exit 1
-          fi
 
           echo "TASK_DEF_REVISION: $TASK_DEF_REVISION"
           echo "TASK_DEF_REVISION=$TASK_DEF_REVISION" >> $GITHUB_ENV
@@ -247,13 +245,13 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
 
-      # Step 13: Deploy the updated task definition to ECS
+      # Step 13: Deploy to ECS using the new task definitionc
       - name: Deploy to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
           cluster: lab_automation
           service: lab_deploy
-          task-definition: ${{ env.TASK_DEF_REVISION }}  # Using the registered task definition ARN
+          task-definition: ${{ env.TASK_DEF_REVISION }}  # Use the dynamically fetched task definition revision
           wait-for-service-stability: true
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
