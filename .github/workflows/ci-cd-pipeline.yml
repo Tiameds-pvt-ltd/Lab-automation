@@ -215,6 +215,9 @@ jobs:
           # Remove unwanted fields like taskDefinitionArn and requiresAttributes
           NEW_TASK_DEF=$(echo "$TASK_DEF" | jq 'del(.taskDefinitionArn, .requiresAttributes)')
 
+          # Update the image in containerDefinitions
+          NEW_TASK_DEF=$(echo "$NEW_TASK_DEF" | jq '.containerDefinitions[0].image = "${{ secrets.AWS_ECR_URI }}:${{ github.sha }}"')
+
           # Debugging step: print the updated task definition
           echo "NEW_TASK_DEF: $NEW_TASK_DEF"
 
@@ -226,13 +229,16 @@ jobs:
           echo "$NEW_TASK_DEF" > updated-task-definition.json
 
           # Register the updated ECS task definition
-          REGISTERED_TASK_DEF=$(aws ecs register-task-definition --cli-input-json file://updated-task-definition.json --region ${{ secrets.AWS_REGION }})
+          REGISTERED_TASK_DEF=$(aws ecs register-task-definition \
+            --cli-input-json file://updated-task-definition.json \
+            --region ${{ secrets.AWS_REGION }})
 
           # Extract the task definition ARN or revision for use in the deploy step
           TASK_DEF_REVISION=$(echo "$REGISTERED_TASK_DEF" | jq -r .taskDefinition.taskDefinitionArn)
 
           echo "TASK_DEF_REVISION: $TASK_DEF_REVISION"
           echo "TASK_DEF_REVISION=$TASK_DEF_REVISION" >> $GITHUB_ENV
+
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -250,4 +256,3 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
-
