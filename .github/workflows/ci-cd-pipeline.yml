@@ -213,7 +213,7 @@ jobs:
           TASK_DEF=$(aws ecs describe-task-definition --task-definition lab_automation --region ${{ secrets.AWS_REGION }})
 
           # Update the image in the task definition JSON
-          NEW_TASK_DEF=$(echo "$TASK_DEF" | jq '.taskDefinition.containerDefinitions[0].image = "'"${{ secrets.AWS_ECR_URI }}:${{ github.sha }}"'" | del(.taskDefinition.status, .taskDefinition.revision, .taskDefinition.registeredAt, .taskDefinition.registeredBy, .taskDefinition.compatibilities)')
+          NEW_TASK_DEF=$(echo "$TASK_DEF" | jq '.taskDefinition | del(.status, .revision, .registeredAt, .registeredBy, .compatibilities) | .containerDefinitions[0].image = "'"${{ secrets.AWS_ECR_URI }}:${{ github.sha }}"'"')
 
           # Debugging step: print the updated task definition
           echo "NEW_TASK_DEF: $NEW_TASK_DEF"
@@ -233,7 +233,6 @@ jobs:
 
           echo "TASK_DEF_REVISION: $TASK_DEF_REVISION"
           echo "TASK_DEF_REVISION=$TASK_DEF_REVISION" >> $GITHUB_ENV
-
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
