@@ -1,4 +1,3 @@
-
 #name: CI/CD Pipeline
 #on:
 #  push:
@@ -227,7 +226,14 @@ jobs:
           echo "$NEW_TASK_DEF" > updated-task-definition.json
 
           # Register the updated ECS task definition
-          aws ecs register-task-definition --cli-input-json file://updated-task-definition.json --region ${{ secrets.AWS_REGION }}
+          REGISTERED_TASK_DEF=$(aws ecs register-task-definition --cli-input-json file://updated-task-definition.json --region ${{ secrets.AWS_REGION }})
+
+          # Extract the task definition ARN or revision for use in the deploy step
+          TASK_DEF_REVISION=$(echo "$REGISTERED_TASK_DEF" | jq -r .taskDefinition.taskDefinitionArn)
+
+          echo "TASK_DEF_REVISION: $TASK_DEF_REVISION"
+          echo "TASK_DEF_REVISION=$TASK_DEF_REVISION" >> $GITHUB_ENV
+
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -239,10 +245,9 @@ jobs:
         with:
           cluster: lab_automation
           service: lab_deploy
-          task-definition: lab_automation  # Referencing updated task definition
+          task-definition: ${{ env.TASK_DEF_REVISION }}  # Use the dynamically fetched task definition revision
           wait-for-service-stability: true
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
-
