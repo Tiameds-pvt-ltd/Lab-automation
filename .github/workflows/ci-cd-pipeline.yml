@@ -122,131 +122,213 @@
 #
 
 #====================================
-name: CI/CD Pipeline
+#name: CI/CD Pipeline
+#
+#on:
+#  push:
+#    branches:
+#      - main
+#  pull_request:
+#    branches:
+#      - main
+#
+#jobs:
+#  build:
+#    runs-on: ubuntu-latest
+#    steps:
+#      # Step 1: Checkout the code
+#      - name: Checkout code
+#        uses: actions/checkout@v3
+#
+#      # Step 2: Set up JDK 17 for building the Spring Boot application
+#      - name: Set up JDK 17
+#        uses: actions/setup-java@v3
+#        with:
+#          java-version: '17'
+#          distribution: 'temurin'
+#
+#      # Step 3: Build with Maven
+#      - name: Build with Maven
+#        env:
+#          DB_URL: ${{ secrets.DB_URL }}
+#          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+#          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+#          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+#        run: mvn clean install --no-transfer-progress
+#
+#      # Step 4: Set up Docker Buildx for multi-platform support
+#      - name: Set up Docker Buildx
+#        uses: docker/setup-buildx-action@v1
+#
+#      # Step 5: Cache Docker layers
+#      - name: Cache Docker layers
+#        uses: actions/cache@v2
+#        with:
+#          path: /tmp/.buildx-cache
+#          key: ${{ runner.os }}-buildx-${{ github.sha }}
+#          restore-keys: |
+#            ${{ runner.os }}-buildx-
+#
+#      # Step 6: Build Docker image
+#      - name: Build Docker image
+#        run: |
+#          docker build -t abhishek94733/tiameds:${{ github.sha }} .
+#
+#      # Step 7: Log in to Docker Hub
+#      - name: Log in to Docker Hub
+#        uses: docker/login-action@v3
+#        with:
+#          username: ${{ secrets.DOCKER_USERNAME }}
+#          password: ${{ secrets.DOCKER_PASSWORD }}
+#
+#      # Step 8: Push Docker image to Docker Hub
+#      - name: Push Docker image to Docker Hub
+#        run: |
+#          docker push abhishek94733/tiameds:${{ github.sha }}
+#
+#      # Step 9: Log in to AWS ECR
+#      - name: Log in to AWS ECR
+#        uses: aws-actions/amazon-ecr-login@v1
+#        with:
+#          registry-type: private
+#        env:
+#          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#          AWS_REGION: ${{ secrets.AWS_REGION }}
+#
+#      # Step 10: Tag Docker image for ECR
+#      - name: Tag Docker image for ECR
+#        run: |
+#          docker tag abhishek94733/tiameds:${{ github.sha }} ${{ secrets.AWS_ECR_URI }}:${{ github.sha }}
+#
+#      # Step 11: Push Docker image to ECR
+#      - name: Push Docker image to ECR
+#        run: |
+#          docker push ${{ secrets.AWS_ECR_URI }}:${{ github.sha }}
+#
+#      # Step 12: Fetch ECS task definition and update the image with the new ECR image
+#      - name: Update ECS Task Definition
+#        run: |
+#          # Fetch the current ECS task definition
+#          TASK_DEF=$(aws ecs describe-task-definition --task-definition lab_automation --region ${{ secrets.AWS_REGION }})
+#
+#          # Remove unwanted fields like taskDefinitionArn and requiresAttributes
+#          NEW_TASK_DEF=$(echo "$TASK_DEF" | jq 'del(.taskDefinitionArn, .requiresAttributes)')
+#
+#          # Debugging step: print the updated task definition
+#          echo "NEW_TASK_DEF: $NEW_TASK_DEF"
+#
+#          # Save the updated task definition to a file
+#          if [ -z "$NEW_TASK_DEF" ]; then
+#            echo "Error: New task definition is empty."
+#            exit 1
+#          fi
+#          echo "$NEW_TASK_DEF" > updated-task-definition.json
+#
+#          # Register the updated ECS task definition
+#          REGISTERED_TASK_DEF=$(aws ecs register-task-definition --cli-input-json file://updated-task-definition.json --region ${{ secrets.AWS_REGION }})
+#
+#          # Extract the task definition ARN or revision for use in the deploy step
+#          TASK_DEF_REVISION=$(echo "$REGISTERED_TASK_DEF" | jq -r .taskDefinition.taskDefinitionArn)
+#
+#          echo "TASK_DEF_REVISION: $TASK_DEF_REVISION"
+#          echo "TASK_DEF_REVISION=$TASK_DEF_REVISION" >> $GITHUB_ENV
+#        env:
+#          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#          AWS_REGION: ${{ secrets.AWS_REGION }}
+#
+#      # Step 13: Deploy to ECS using the new task definition
+#      - name: Deploy to ECS
+#        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+#        with:
+#          cluster: lab_automation
+#          service: lab_deploy
+#          task-definition: ${{ env.TASK_DEF_REVISION }}  # Use the dynamically fetched task definition revision
+#          wait-for-service-stability: true
+#        env:
+#          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#          AWS_REGION: ${{ secrets.AWS_REGION }}
+
+
+
+name: Deploy to ECS
 
 on:
   push:
     branches:
       - main
-  pull_request:
-    branches:
-      - main
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
+
     steps:
       # Step 1: Checkout the code
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2
 
-      # Step 2: Set up JDK 17 for building the Spring Boot application
-      - name: Set up JDK 17
-        uses: actions/setup-java@v3
+      # Step 2: Set up AWS CLI credentials
+      - name: Set up AWS CLI
+        uses: aws-actions/configure-aws-credentials@v2
         with:
-          java-version: '17'
-          distribution: 'temurin'
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
-      # Step 3: Build with Maven
-      - name: Build with Maven
-        env:
-          DB_URL: ${{ secrets.DB_URL }}
-          DB_USERNAME: ${{ secrets.DB_USERNAME }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-        run: mvn clean install --no-transfer-progress
-
-      # Step 4: Set up Docker Buildx for multi-platform support
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-
-      # Step 5: Cache Docker layers
-      - name: Cache Docker layers
-        uses: actions/cache@v2
-        with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-
-
-      # Step 6: Build Docker image
-      - name: Build Docker image
+      # Step 3: Log in to Amazon ECR
+      - name: Log in to Amazon ECR
         run: |
-          docker build -t abhishek94733/tiameds:${{ github.sha }} .
+          aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.AWS_ECR_REGISTRY }}
 
-      # Step 7: Log in to Docker Hub
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      # Step 8: Push Docker image to Docker Hub
-      - name: Push Docker image to Docker Hub
+      # Step 4: Build and push Docker image to ECR
+      - name: Build and Push Docker Image
         run: |
-          docker push abhishek94733/tiameds:${{ github.sha }}
+          docker build -t ${{ secrets.AWS_ECR_REPO }}:latest .
+          docker tag ${{ secrets.AWS_ECR_REPO }}:latest ${{ secrets.AWS_ECR_REGISTRY }}/${{ secrets.AWS_ECR_REPO }}:latest
+          docker push ${{ secrets.AWS_ECR_REGISTRY }}/${{ secrets.AWS_ECR_REPO }}:latest
 
-      # Step 9: Log in to AWS ECR
-      - name: Log in to AWS ECR
-        uses: aws-actions/amazon-ecr-login@v1
-        with:
-          registry-type: private
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-
-      # Step 10: Tag Docker image for ECR
-      - name: Tag Docker image for ECR
+      # Step 5: Fetch the current ECS task definition
+      - name: Fetch Current ECS Task Definition
+        id: get-task-def
         run: |
-          docker tag abhishek94733/tiameds:${{ github.sha }} ${{ secrets.AWS_ECR_URI }}:${{ github.sha }}
+          TASK_DEF=$(aws ecs describe-task-definition --task-definition ${{ secrets.ECS_TASK_DEFINITION_NAME }} --region ${{ secrets.AWS_REGION }})
+          echo "TASK_DEF=$TASK_DEF" >> $GITHUB_ENV
 
-      # Step 11: Push Docker image to ECR
-      - name: Push Docker image to ECR
-        run: |
-          docker push ${{ secrets.AWS_ECR_URI }}:${{ github.sha }}
-
-      # Step 12: Fetch ECS task definition and update the image with the new ECR image
+      # Step 6: Update ECS Task Definition with the new Docker image URI
       - name: Update ECS Task Definition
         run: |
-          # Fetch the current ECS task definition
-          TASK_DEF=$(aws ecs describe-task-definition --task-definition lab_automation --region ${{ secrets.AWS_REGION }})
+          NEW_TASK_DEF=$(echo "$TASK_DEF" | jq '{
+            family: .taskDefinition.family,
+            containerDefinitions: .taskDefinition.containerDefinitions | map(
+              .image = "${{ secrets.AWS_ECR_REGISTRY }}/${{ secrets.AWS_ECR_REPO }}:latest"
+            ),
+            cpu: .taskDefinition.cpu,
+            memory: .taskDefinition.memory,
+            taskRoleArn: .taskDefinition.taskRoleArn,
+            executionRoleArn: .taskDefinition.executionRoleArn,
+            networkMode: .taskDefinition.networkMode,
+            requiresCompatibilities: .taskDefinition.requiresCompatibilities,
+            runtimePlatform: .taskDefinition.runtimePlatform
+          }')
 
-          # Remove unwanted fields like taskDefinitionArn and requiresAttributes
-          NEW_TASK_DEF=$(echo "$TASK_DEF" | jq 'del(.taskDefinitionArn, .requiresAttributes)')
-
-          # Debugging step: print the updated task definition
           echo "NEW_TASK_DEF: $NEW_TASK_DEF"
-
-          # Save the updated task definition to a file
-          if [ -z "$NEW_TASK_DEF" ]; then
-            echo "Error: New task definition is empty."
-            exit 1
-          fi
           echo "$NEW_TASK_DEF" > updated-task-definition.json
 
-          # Register the updated ECS task definition
+      # Step 7: Register the updated ECS task definition
+      - name: Register New ECS Task Definition
+        run: |
           REGISTERED_TASK_DEF=$(aws ecs register-task-definition --cli-input-json file://updated-task-definition.json --region ${{ secrets.AWS_REGION }})
-
-          # Extract the task definition ARN or revision for use in the deploy step
           TASK_DEF_REVISION=$(echo "$REGISTERED_TASK_DEF" | jq -r .taskDefinition.taskDefinitionArn)
-
-          echo "TASK_DEF_REVISION: $TASK_DEF_REVISION"
           echo "TASK_DEF_REVISION=$TASK_DEF_REVISION" >> $GITHUB_ENV
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
 
-      # Step 13: Deploy to ECS using the new task definition
-      - name: Deploy to ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-        with:
-          cluster: lab_automation
-          service: lab_deploy
-          task-definition: ${{ env.TASK_DEF_REVISION }}  # Use the dynamically fetched task definition revision
-          wait-for-service-stability: true
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
+      # Step 8: Update ECS service with the new task definition
+      - name: Update ECS Service with new task definition
+        run: |
+          aws ecs update-service --cluster ${{ secrets.ECS_CLUSTER_NAME }} --service ${{ secrets.ECS_SERVICE_NAME }} --task-definition ${{ env.TASK_DEF_REVISION }} --region ${{ secrets.AWS_REGION }}
+
+      # Step 9: Verify ECS Deployment
+      - name: Verify ECS Deployment
+        run: |
+          aws ecs describe-services --cluster ${{ secrets.ECS_CLUSTER_NAME }} --services ${{ secrets.ECS_SERVICE_NAME }} --region ${{ secrets.AWS_REGION }}
