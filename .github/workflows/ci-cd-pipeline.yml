@@ -212,8 +212,8 @@ jobs:
           # Fetch the current ECS task definition
           TASK_DEF=$(aws ecs describe-task-definition --task-definition lab_automation --region ${{ secrets.AWS_REGION }})
 
-          # Update the image in the task definition JSON
-          NEW_TASK_DEF=$(echo "$TASK_DEF" | jq '.taskDefinition | del(.status, .revision, .registeredAt, .registeredBy, .compatibilities) | .containerDefinitions[0].image = "'"${{ secrets.AWS_ECR_URI }}:${{ github.sha }}"'"')
+          # Remove unwanted fields like taskDefinitionArn and requiresAttributes
+          NEW_TASK_DEF=$(echo "$TASK_DEF" | jq 'del(.taskDefinitionArn, .requiresAttributes)')
 
           # Debugging step: print the updated task definition
           echo "NEW_TASK_DEF: $NEW_TASK_DEF"
