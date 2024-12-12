@@ -228,8 +228,9 @@ jobs:
           fi
           echo "$NEW_TASK_DEF" > updated-task-definition.json
 
-          # Register the updated ECS task definition
+          # Register the updated ECS task definition with 'family' and 'containerDefinitions'
           REGISTERED_TASK_DEF=$(aws ecs register-task-definition \
+            --family lab_automation \
             --cli-input-json file://updated-task-definition.json \
             --region ${{ secrets.AWS_REGION }})
 
