@@ -147,7 +147,7 @@ on:
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
-  ECR_REPOSITORY: lab_automation
+  ECR_REPOSITORY:lab_automation
   ECS_SERVICE: lab_deploy
   ECS_CLUSTER: lab_automation
   ECS_TASK_DEFINITION: lab_automation
@@ -170,6 +170,7 @@ jobs:
         uses: actions/setup-java@v3
         with:
           java-version: '17'
+          distribution: 'temurin'
 
       - name: Build with Maven
         run: mvn clean install
