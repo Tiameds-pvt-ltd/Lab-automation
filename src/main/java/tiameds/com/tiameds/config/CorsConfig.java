@@ -13,7 +13,7 @@ public class CorsConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:3000"));  // Allow frontend origin
+        configuration.setAllowedOrigins(List.of("https://tiameds-lab-app.vercel.app/"));  // Allow frontend origin
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));  // Allow these HTTP methods
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));  // Headers allowed in requests
         configuration.setAllowCredentials(true);  // Allow credentials like cookies
