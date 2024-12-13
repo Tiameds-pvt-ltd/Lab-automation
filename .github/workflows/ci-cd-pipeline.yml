@@ -199,7 +199,7 @@ jobs:
           ecs_task_def=$(cat <<EOF
           {
             "family": "lab_automation",
-            "executionRoleArn": "arn:aws:iam::195275675833:role/ecsTaskExecutionRole",  # Replace with your actual role ARN
+            "executionRoleArn": "arn:aws:iam::195275675833:role/ecsTaskExecutionRole",
             "networkMode": "awsvpc",
             "cpu": "256",
             "memory": "512",
