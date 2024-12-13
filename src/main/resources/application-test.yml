@@ -1,30 +1,31 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/tiameds
-    username: postgres
-    password: root
+    url: jdbc:postgresql://tiameds.cvy2oo6gk6yq.us-east-1.rds.amazonaws.com:5432/tiameds
+    username: tiameds
+    password: mypassword
     driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
-      ddl-auto: none  # 'create' for development; 'update' or 'none' for production
+      ddl-auto: update   # 'create' for development; 'update' or 'none' for production
     show-sql: true  # Optional: Shows SQL queries in logs
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         default_batch_fetch_size: 10  # Batch size for collection loading
 
-  server:
-    port: 8080  # Port on which the application runs
-
 
   servlet:
     multipart:
       max-file-size: 10MB  # Maximum size for a single file
       max-request-size: 10MB  # Maximum total request size, should be >= max-file-size
+    context-path: /api/v1  # Combined the `context-path` here
 
   jwt:
     secret: "TaK+HaV^uvCHEFsEVfypW#7g9^k*Z8$V"
+
+  server:
+    port: 8080  # Port on which the application runs
 
 springdoc:
   api-docs:
@@ -40,9 +41,6 @@ logging:
       fasterxml:
         jackson: DEBUG  # Enable detailed logging for Jackson
 
-
-
 server:
-  servlet:
-    context-path: /api/v1
-
+    servlet:
+        context-path: /api/v1

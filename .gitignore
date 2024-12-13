@@ -10,6 +10,8 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
+/application-test.yml
+
 # STS (Spring Tool Suite)
 .apt_generated
 .classpath
