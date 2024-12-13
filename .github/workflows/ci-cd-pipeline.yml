@@ -199,13 +199,11 @@ jobs:
           ecs_task_def=$(cat <<EOF
           {
             "family": "lab_automation",
-            "requiresCompatibilities": [
-              "FARGATE"
-            ],
+            "executionRoleArn": "arn:aws:iam::195275675833:role/ecsTaskExecutionRole",  # Replace with your actual role ARN
             "networkMode": "awsvpc",
             "cpu": "256",
             "memory": "512",
-            "executionRoleArn": "arn:aws:iam::YOUR_AWS_ACCOUNT_ID:role/ecsTaskExecutionRole",
+            "requiresCompatibilities": ["FARGATE"],
             "containerDefinitions": [
               {
                 "name": "lab_automation",
@@ -234,7 +232,8 @@ jobs:
                 "portMappings": [
                   {
                     "containerPort": 8080,
-                    "hostPort": 8080
+                    "hostPort": 8080,
+                    "protocol": "tcp"
                   }
                 ]
               }
