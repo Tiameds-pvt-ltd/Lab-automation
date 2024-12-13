@@ -146,12 +146,12 @@ on:
     branches: [ "main" ]
 
 env:
-  AWS_REGION: ${{ secrets.AWS_REGION }}                   # AWS region
-  ECR_REPOSITORY: ${{ secrets.AWS_ECR_URI }}              # ECR repository URI
-  ECS_SERVICE: ${{ secrets.ECS_SERVICE }}                 # ECS service name
-  ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}                 # ECS cluster name
-  ECS_TASK_DEFINITION: ${{ secrets.ECS_TASK_DEFINITION }} # ECS task definition path
-  CONTAINER_NAME: ${{ secrets.CONTAINER_NAME }}           # Container name in ECS task definition
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ECR_REPOSITORY: lab_automation
+  ECS_SERVICE: lab_deploy
+  ECS_CLUSTER: lab_automation
+  ECS_TASK_DEFINITION: lab_automation
+  CONTAINER_NAME: lab_automation
 
 permissions:
   contents: read
@@ -163,8 +163,16 @@ jobs:
     environment: production
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+
+      - name: Build with Maven
+        run: mvn clean install
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
@@ -183,7 +191,6 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          # Build a docker container and push it to ECR
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
