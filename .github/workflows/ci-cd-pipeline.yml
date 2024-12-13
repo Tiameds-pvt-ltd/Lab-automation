@@ -240,11 +240,17 @@ jobs:
       - name: Register ECS task definition
         run: |
           aws ecs register-task-definition \
-            --cli-input-json file://task-definition.json
+            --cli-input-json file://task-definition.json \
+            --region ${{ secrets.AWS_REGION }}  # Explicitly specify the region
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
 
       - name: Deploy to ECS service
         run: |
           aws ecs update-service \
             --cluster lab_automation \
             --service lab_deploy \
-            --task-definition lab_automation
+            --task-definition lab_automation \
+            --region ${{ secrets.AWS_REGION }}  # Explicitly specify the region
