@@ -205,7 +205,7 @@ jobs:
             "networkMode": "awsvpc",
             "cpu": "256",
             "memory": "512",
-            "executionRoleArn": "arn:aws:iam::YOUR_AWS_ACCOUNT_ID:role/ecsTaskExecutionRole",  # Replace with your ECS execution role ARN
+            "executionRoleArn": "arn:aws:iam::YOUR_AWS_ACCOUNT_ID:role/ecsTaskExecutionRole",
             "containerDefinitions": [
               {
                 "name": "lab_automation",
@@ -242,7 +242,8 @@ jobs:
           }
           EOF
           )
-          
+
+          # Output the JSON to a file
           echo "$ecs_task_def" > task-definition.json
 
       - name: Register ECS task definition
