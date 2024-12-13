@@ -149,6 +149,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v2
@@ -204,6 +205,7 @@ jobs:
             "networkMode": "awsvpc",
             "cpu": "256",
             "memory": "512",
+            "executionRoleArn": "arn:aws:iam::YOUR_AWS_ACCOUNT_ID:role/ecsTaskExecutionRole",  # Replace with your ECS execution role ARN
             "containerDefinitions": [
               {
                 "name": "lab_automation",
@@ -247,7 +249,7 @@ jobs:
         run: |
           aws ecs register-task-definition \
             --cli-input-json file://task-definition.json \
-            --region ${{ secrets.AWS_REGION }}  # Explicitly specify the region
+            --region ${{ secrets.AWS_REGION }}
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -259,9 +261,7 @@ jobs:
             --cluster lab_automation \
             --service lab_deploy \
             --task-definition lab_automation \
-            --launch-type FARGATE \
-            --network-configuration "awsvpcConfiguration={subnets=[subnet-xxxxxx],securityGroups=[sg-xxxxxx],assignPublicIp=ENABLED}" \
-            --region ${{ secrets.AWS_REGION }}  # Explicitly specify the region
+            --region ${{ secrets.AWS_REGION }}
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
