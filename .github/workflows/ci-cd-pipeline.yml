@@ -139,75 +139,93 @@
 
 
 #=====================================================================
-name: Deploy to Amazon ECS
+name: Deploy to ECS
 
 on:
   push:
-    branches: [ "main" ]
-
-env:
-  AWS_REGION: ${{ secrets.AWS_REGION }}
-  ECR_REPOSITORY: lab_automation
-  ECS_SERVICE: lab_deploy
-  ECS_CLUSTER: lab_automation
-  ECS_TASK_DEFINITION: lab_automation
-  CONTAINER_NAME: lab_automation
-
-permissions:
-  contents: read
+    branches:
+      - main
 
 jobs:
   deploy:
-    name: Deploy
     runs-on: ubuntu-latest
-    environment: production
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Check out repository
+        uses: actions/checkout@v2
 
-      - name: Set up Java
+      - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
-          java-version: '17'
           distribution: 'temurin'
+          java-version: '17'
 
-      - name: Build with Maven
-        run: mvn clean install
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Login to Amazon ECR
-        id: login-ecr
+      - name: Log in to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Build, tag, and push image to Amazon ECR
-        id: build-image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
+      - name: Build Docker image
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+          docker build -t ${{ secrets.AWS_ECR_URI }}/lab_automation:$GITHUB_SHA .
 
-      - name: Fill in the new image ID in the Amazon ECS task definition
+      - name: Push Docker image to ECR
+        run: |
+          docker push ${{ secrets.AWS_ECR_URI }}/lab_automation:$GITHUB_SHA
+
+      - name: Update ECS task definition
         id: task-def
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: ${{ env.ECS_TASK_DEFINITION }}
-          container-name: ${{ env.CONTAINER_NAME }}
-          image: ${{ steps.build-image.outputs.image }}
+        run: |
+          ecs_task_def=$(cat <<EOF
+          {
+            "family": "lab_automation",
+            "containerDefinitions": [
+              {
+                "name": "lab_automation",
+                "image": "${{ secrets.AWS_ECR_URI }}/lab_automation:${GITHUB_SHA}",
+                "memory": 512,
+                "cpu": 256,
+                "essential": true,
+                "environment": [
+                  {
+                    "name": "DB_URL",
+                    "value": "${{ secrets.DB_URL }}"
+                  },
+                  {
+                    "name": "DB_USERNAME",
+                    "value": "${{ secrets.DB_USERNAME }}"
+                  },
+                  {
+                    "name": "DB_PASSWORD",
+                    "value": "${{ secrets.DB_PASSWORD }}"
+                  },
+                  {
+                    "name": "JWT_SECRET",
+                    "value": "${{ secrets.JWT_SECRET }}"
+                  }
+                ],
+                "portMappings": [
+                  {
+                    "containerPort": 8080,
+                    "hostPort": 8080
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+          )
+          
+          echo "$ecs_task_def" > task-definition.json
 
-      - name: Deploy Amazon ECS task definition
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-        with:
-          task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: ${{ env.ECS_SERVICE }}
-          cluster: ${{ env.ECS_CLUSTER }}
-          wait-for-service-stability: true
+      - name: Register ECS task definition
+        run: |
+          aws ecs register-task-definition \
+            --cli-input-json file://task-definition.json
+
+      - name: Deploy to ECS service
+        run: |
+          aws ecs update-service \
+            --cluster lab_automation \
+            --service lab_deploy \
+            --task-definition lab_automation
