@@ -198,6 +198,12 @@ jobs:
           ecs_task_def=$(cat <<EOF
           {
             "family": "lab_automation",
+            "requiresCompatibilities": [
+              "FARGATE"
+            ],
+            "networkMode": "awsvpc",
+            "cpu": "256",
+            "memory": "512",
             "containerDefinitions": [
               {
                 "name": "lab_automation",
@@ -253,6 +259,8 @@ jobs:
             --cluster lab_automation \
             --service lab_deploy \
             --task-definition lab_automation \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[subnet-xxxxxx],securityGroups=[sg-xxxxxx],assignPublicIp=ENABLED}" \
             --region ${{ secrets.AWS_REGION }}  # Explicitly specify the region
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
