@@ -1,3 +1,134 @@
+#name: Deploy to ECS
+#
+#on:
+#  push:
+#    branches:
+#      - main
+#
+#jobs:
+#  deploy:
+#    runs-on: ubuntu-latest
+#
+#    steps:
+#      - name: Check out repository
+#        uses: actions/checkout@v2
+#
+#      - name: Set up JDK 17
+#        uses: actions/setup-java@v3
+#        with:
+#          distribution: 'temurin'
+#          java-version: '17'
+#
+#      - name: Build JAR with Maven
+#        run: |
+#          mvn clean install -DskipTests
+#
+#      - name: Log in to Amazon ECR
+#        uses: aws-actions/amazon-ecr-login@v1
+#        with:
+#          registry-type: private
+#        env:
+#          AWS_REGION: ${{ secrets.AWS_REGION }}
+#          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#
+#      - name: Create ECR repository (if not exists)
+#        run: |
+#          aws ecr describe-repositories --repository-name lab_automation || aws ecr create-repository --repository-name lab_automation
+#        env:
+#          AWS_REGION: ${{ secrets.AWS_REGION }}
+#          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#
+#      - name: Build Docker image
+#        run: |
+#          docker build -t 195275675833.dkr.ecr.us-east-1.amazonaws.com/lab_automation:$GITHUB_SHA .
+#
+#      - name: Push Docker image to ECR
+#        run: |
+#          docker push 195275675833.dkr.ecr.us-east-1.amazonaws.com/lab_automation:$GITHUB_SHA
+#        env:
+#          AWS_REGION: ${{ secrets.AWS_REGION }}
+#          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#
+#      - name: Update ECS task definition
+#        id: task-def
+#        run: |
+#          ecs_task_def=$(cat <<EOF
+#          {
+#            "family": "lab_automation",
+#            "executionRoleArn": "arn:aws:iam::195275675833:role/ecsTaskExecutionRole",
+#            "networkMode": "awsvpc",
+#            "cpu": "256",
+#            "memory": "512",
+#            "requiresCompatibilities": ["FARGATE"],
+#            "containerDefinitions": [
+#              {
+#                "name": "lab_automation",
+#                "image": "195275675833.dkr.ecr.us-east-1.amazonaws.com/lab_automation:${GITHUB_SHA}",
+#                "memory": 512,
+#                "cpu": 256,
+#                "essential": true,
+#                "environment": [
+#                  {
+#                    "name": "DB_URL",
+#                    "value": "${{ secrets.DB_URL }}"
+#                  },
+#                  {
+#                    "name": "DB_USERNAME",
+#                    "value": "${{ secrets.DB_USERNAME }}"
+#                  },
+#                  {
+#                    "name": "DB_PASSWORD",
+#                    "value": "${{ secrets.DB_PASSWORD }}"
+#                  },
+#                  {
+#                    "name": "JWT_SECRET",
+#                    "value": "${{ secrets.JWT_SECRET }}"
+#                  }
+#                ],
+#                "portMappings": [
+#                  {
+#                    "containerPort": 8080,
+#                    "hostPort": 8080,
+#                    "protocol": "tcp"
+#                  }
+#                ]
+#              }
+#            ]
+#          }
+#          EOF
+#          )
+#
+#          # Output the JSON to a file
+#          echo "$ecs_task_def" > task-definition.json
+#
+#      - name: Register ECS task definition
+#        run: |
+#          aws ecs register-task-definition \
+#            --cli-input-json file://task-definition.json \
+#            --region ${{ secrets.AWS_REGION }}
+#        env:
+#          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#          AWS_REGION: ${{ secrets.AWS_REGION }}
+#
+#      - name: Deploy to ECS service
+#        run: |
+#          aws ecs update-service \
+#            --cluster lab_automation \
+#            --service lab_deploy \
+#            --task-definition lab_automation \
+#            --region ${{ secrets.AWS_REGION }}
+#        env:
+#          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#          AWS_REGION: ${{ secrets.AWS_REGION }}
+
+
+#========================================
+
 name: Deploy to ECS
 
 on:
@@ -91,7 +222,6 @@ jobs:
                 "portMappings": [
                   {
                     "containerPort": 8080,
-                    "hostPort": 8080,
                     "protocol": "tcp"
                   }
                 ]
@@ -116,11 +246,15 @@ jobs:
 
       - name: Deploy to ECS service
         run: |
+          # Update ECS Service and connect it to the Application Load Balancer (ALB)
           aws ecs update-service \
             --cluster lab_automation \
             --service lab_deploy \
             --task-definition lab_automation \
-            --region ${{ secrets.AWS_REGION }}
+            --desired-count 1 \
+            --region ${{ secrets.AWS_REGION }} \
+            --force-new-deployment \
+            --load-balancers "targetGroupArn=arn:aws:elasticloadbalancing:us-east-1:195275675833:targetgroup/lab_automation_target_group,containerName=lab_automation,containerPort=8080"
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
