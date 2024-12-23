@@ -74,7 +74,8 @@ public class PatientController {
             // Add patient
             patientService.savePatientWithDetails(labOptional.get(), patientDTO);
 
-            return ApiResponseHelper.successResponse("Patient added successfully", HttpStatus.CREATED);
+//            return ApiResponseHelper.successResponse("Patient added successfully", HttpStatus.CREATED);
+            return ApiResponseHelper.successResponseWithDataAndMessage("Patient added successfully", HttpStatus.CREATED, patientDTO);
 
 
         } catch (Exception e) {
@@ -112,7 +113,8 @@ public class PatientController {
                 return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
             }
 
-            return ResponseEntity.ok(patientService.getAllPatientsByLabId(labId));
+//            return ResponseEntity.ok(patientService.getAllPatientsByLabId(labId));
+            return ApiResponseHelper.successResponseWithDataAndMessage("Patients retrieved successfully", HttpStatus.OK, patientService.getAllPatientsByLabId(labId));
 
         } catch (Exception e) {
             return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
@@ -153,7 +155,8 @@ public class PatientController {
             //check if the patient exists on the lab
 
 
-            return ResponseEntity.ok(patientService.getPatientById(patientId, labId));
+//            return ResponseEntity.ok(patientService.getPatientById(patientId, labId));
+            return ApiResponseHelper.successResponseWithDataAndMessage("Patient retrieved successfully", HttpStatus.OK, patientService.getPatientById(patientId, labId));
 
         } catch (Exception e) {
             return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
@@ -194,8 +197,9 @@ public class PatientController {
 
             //service to update the patient
             patientService.updatePatient(patientId, labId, patientDTO);
-
-            return ApiResponseHelper.successResponse("Patient updated successfully", HttpStatus.OK);
+//
+//            return ApiResponseHelper.successResponse("Patient updated successfully", HttpStatus.OK);
+            return ApiResponseHelper.successResponseWithDataAndMessage("Patient updated successfully", HttpStatus.OK, patientDTO);
 
         } catch (Exception e) {
             return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);

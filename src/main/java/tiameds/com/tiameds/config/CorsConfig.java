@@ -20,10 +20,10 @@ public class CorsConfig {
                 "https://tiameds-lab-app-git-main-abhishek-kumars-projects-7cc8d4a1.vercel.app/",
                 "https://tiameds-lab-541wzlkz6-abhishek-kumars-projects-7cc8d4a1.vercel.app/"
                 ));  // Allow frontend origin
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));  // Allow these HTTP methods
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));  // Headers allowed in requests
-        configuration.setAllowCredentials(true);  // Allow credentials like cookies
-        configuration.setMaxAge(3600L);  // Cache preflight responses for 1 hour
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

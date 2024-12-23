@@ -6,6 +6,7 @@ public class HealthPackageRequest {
 
     private String packageName;
     private double price;
+    private double discount;
     private Set<Long> testIds; // List of test IDs to be associated with the package
 
     // Getters and Setters
@@ -31,6 +32,14 @@ public class HealthPackageRequest {
 
     public void setTestIds(Set<Long> testIds) {
         this.testIds = testIds;
+    }
+
+    public double getDiscount() {
+        return discount;
+    }
+
+    public void setDiscount(double discount) {
+        this.discount = discount;
     }
 }
 

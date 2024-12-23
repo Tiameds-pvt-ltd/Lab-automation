@@ -120,6 +120,7 @@ public class HealthPackageController {
         HealthPackage healthPackage = new HealthPackage();
         healthPackage.setPackageName(packageRequest.getPackageName());
         healthPackage.setPrice(packageRequest.getPrice());
+        healthPackage.setDiscount(packageRequest.getDiscount());
         healthPackage.setTests(new HashSet<>(tests)); // Convert List to Set before adding tests
 
         // Establish bidirectional relationship
@@ -242,6 +243,7 @@ public class HealthPackageController {
         // Update the health package
         healthPackage.setPackageName(packageRequest.getPackageName());
         healthPackage.setPrice(packageRequest.getPrice());
+        healthPackage.setDiscount(packageRequest.getDiscount());
         healthPackage.setTests(new HashSet<>(tests));  // Convert List to Set before adding tests
 
         // Save the updated health package to the database

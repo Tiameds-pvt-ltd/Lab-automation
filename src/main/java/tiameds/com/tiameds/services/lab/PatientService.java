@@ -159,6 +159,7 @@ public class PatientService {
         return patientRepository.findAllByLabsId(labId).stream()
                 .map(patient -> {
                     PatientDTO patientDTO = new PatientDTO();
+                    patientDTO.setId(patient.getPatientId());
                     patientDTO.setFirstName(patient.getFirstName());
                     patientDTO.setLastName(patient.getLastName());
                     patientDTO.setEmail(patient.getEmail());

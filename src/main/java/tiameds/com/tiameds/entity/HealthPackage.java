@@ -21,7 +21,7 @@ import java.util.Set;
 @NoArgsConstructor
 @Entity
 @Table(name = "health_packages")
-public class HealthPackage {
+public class   HealthPackage {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -34,6 +34,10 @@ public class HealthPackage {
     @Column(nullable = false)
     @Min(0)
     private double price;
+
+    @Column(nullable = false)
+    @Min(0)
+    private double discount;
 
     @ManyToMany(mappedBy = "healthPackages", fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JsonBackReference(value = "package-labs")
