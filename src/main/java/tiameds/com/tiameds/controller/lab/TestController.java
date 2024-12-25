@@ -298,7 +298,6 @@ public class TestController {
             }
 
             // Check if the lab is active
-
             boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
             if (isAccessible == false) {
                 return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
