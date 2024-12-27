@@ -29,6 +29,7 @@ public class PatientService {
     private final BillingRepository billingRepository;
 
 
+
     public PatientService(LabRepository labRepository, TestRepository testRepository, HealthPackageRepository healthPackageRepository, PatientRepository patientRepository, DoctorRepository doctorRepository, HealthPackageRepository packageRepository, InsuranceRepository insuranceRepository, BillingRepository billingRepository) {
         this.labRepository = labRepository;
         this.testRepository = testRepository;
@@ -40,14 +41,124 @@ public class PatientService {
         this.billingRepository = billingRepository;
     }
 
+
+//    @Transactional
+//    public void savePatientWithDetails(Lab lab, PatientDTO patientDTO) {
+//        if (patientRepository.existsByEmail(patientDTO.getPhone())) {
+//            ApiResponseHelper.errorResponse("Patient already exist", HttpStatus.BAD_REQUEST);
+//        }
+//
+//        // Convert PatientDTO to PatientEntity
+//        PatientEntity patient = new PatientEntity();
+//        patient.setFirstName(patientDTO.getFirstName());
+//        patient.setLastName(patientDTO.getLastName());
+//        patient.setEmail(patientDTO.getEmail());
+//        patient.setPhone(patientDTO.getPhone());
+//        patient.setAddress(patientDTO.getAddress());
+//        patient.setCity(patientDTO.getCity());
+//        patient.setState(patientDTO.getState());
+//        patient.setZip(patientDTO.getZip());
+//        patient.setBloodGroup(patientDTO.getBloodGroup());
+//        patient.setDateOfBirth(patientDTO.getDateOfBirth());
+//
+//        // Set the lab for the patient
+//        patient.getLabs().add(lab);
+//
+//        // Handle visit details
+//        VisitDTO visitDTO = patientDTO.getVisit();
+//        if (visitDTO != null) {
+//            VisitEntity visit = new VisitEntity();
+//            visit.setVisitDate(visitDTO.getVisitDate());
+//            visit.setVisitType(visitDTO.getVisitType());
+//            visit.setVisitStatus(visitDTO.getVisitStatus());
+//            visit.setVisitDescription(visitDTO.getVisitDescription());
+//
+//            //check doctors belong to the lab or not
+//            if (!lab.getDoctors().contains(doctorRepository.findById(visitDTO.getDoctorId()).orElseThrow(() -> new RuntimeException("Doctor not found")))) {
+//                ApiResponseHelper.errorResponse("Doctor not belong to the lab", HttpStatus.BAD_REQUEST);
+//            }
+//
+//            // Associate doctor
+//            visit.setDoctor(doctorRepository.findById(visitDTO.getDoctorId())
+//                    .orElseThrow(() -> new RuntimeException("Doctor not found")));
+//
+//            //check test belong to the lab or not
+//            List<Test> tests = testRepository.findAllById(visitDTO.getTestIds());
+//            if (tests.stream().anyMatch(test -> !lab.getTests().contains(test))) {
+//                ApiResponseHelper.errorResponse("Test not belong to the lab", HttpStatus.BAD_REQUEST);
+//            }
+//
+//            // Associate tests
+//            if (visitDTO.getTestIds() != null) {
+//                visit.setTests(new HashSet<>(testRepository.findAllById(visitDTO.getTestIds())));
+//            }
+//
+//            //check health package belong to the lab or not
+//            List<HealthPackage> healthPackages = healthPackageRepository.findAllById(visitDTO.getPackageIds());
+//            if (healthPackages.stream().anyMatch(healthPackage -> !lab.getHealthPackages().contains(healthPackage))) {
+//                ApiResponseHelper.errorResponse("Health package not belong to the lab", HttpStatus.BAD_REQUEST);
+//            }
+//
+//
+//            // Associate packages
+//            if (visitDTO.getPackageIds() != null) {
+//                visit.setPackages(new HashSet<>(packageRepository.findAllById(visitDTO.getPackageIds())));
+//            }
+//
+//            //check insurance belong to the lab or not
+//            List<InsuranceEntity> insurances = insuranceRepository.findAllById(visitDTO.getInsuranceIds().stream().map(Long::intValue).collect(Collectors.toList()));
+//            if (insurances.stream().anyMatch(insurance -> !lab.getInsurances().contains((CharSequence) insurance))) {
+//                ApiResponseHelper.errorResponse("Insurance not belong to the lab", HttpStatus.BAD_REQUEST);
+//            }
+//
+//            // Associate insurance
+//            if (visitDTO.getInsuranceIds() != null) {
+//                List<Integer> insuranceIds = visitDTO.getInsuranceIds()
+//                        .stream()
+//                        .map(Long::intValue) // Convert Long to Integer
+//                        .toList(); // Create a new List of Integer
+//
+//                visit.setInsurance(new HashSet<>(insuranceRepository.findAllById(insuranceIds)));
+//            }
+//
+//            // Handle billing details
+//            BillingDTO billingDTO = visitDTO.getBilling();
+//            if (billingDTO != null) {
+//                BillingEntity billing = new BillingEntity();
+//                billing.setTotalAmount(billingDTO.getTotalAmount());
+//                billing.setPaymentStatus(billingDTO.getPaymentStatus());
+//                billing.setPaymentMethod(billingDTO.getPaymentMethod());
+//                billing.setPaymentDate(billingDTO.getPaymentDate());
+//                billing.setDiscount(billingDTO.getDiscount());
+//                billing.setGstRate(billingDTO.getGstRate());
+//                billing.setGstAmount(billingDTO.getGstAmount());
+//                billing.setCgstAmount(billingDTO.getCgstAmount());
+//                billing.setSgstAmount(billingDTO.getSgstAmount());
+//                billing.setIgstAmount(billingDTO.getIgstAmount());
+//                billing.setNetAmount(billingDTO.getNetAmount());
+//
+//                visit.setBilling(billing);
+//            }
+//
+//            // Link visit to patient
+//            visit.setPatient(patient);
+//            patient.getVisits().add(visit);
+//        }
+//
+//        // Save patient and related entities
+//        patientRepository.save(patient);
+//    }
+
+
+//    ==================
+
     @Transactional
-    public void savePatientWithDetails(Lab lab, PatientDTO patientDTO) {
+    public Optional<PatientEntity> findByPhoneOrEmail(String phone, String email) {
+        return patientRepository.findByPhoneOrEmail(phone, email);
+    }
 
-        if (patientRepository.existsByEmail(patientDTO.getPhone())) {
-            ApiResponseHelper.errorResponse("Patient already exist", HttpStatus.BAD_REQUEST);
-        }
-
-        // Convert PatientDTO to PatientEntity
+    @Transactional
+    public PatientDTO savePatientWithDetails(Lab lab, PatientDTO patientDTO) {
         PatientEntity patient = new PatientEntity();
         patient.setFirstName(patientDTO.getFirstName());
         patient.setLastName(patientDTO.getLastName());
@@ -63,90 +174,101 @@ public class PatientService {
         // Set the lab for the patient
         patient.getLabs().add(lab);
 
-        // Handle visit details
-        VisitDTO visitDTO = patientDTO.getVisit();
-        if (visitDTO != null) {
-            VisitEntity visit = new VisitEntity();
-            visit.setVisitDate(visitDTO.getVisitDate());
-            visit.setVisitType(visitDTO.getVisitType());
-            visit.setVisitStatus(visitDTO.getVisitStatus());
-            visit.setVisitDescription(visitDTO.getVisitDescription());
-
-            //check doctors belong to the lab or not
-            if (!lab.getDoctors().contains(doctorRepository.findById(visitDTO.getDoctorId()).orElseThrow(() -> new RuntimeException("Doctor not found")))) {
-                ApiResponseHelper.errorResponse("Doctor not belong to the lab", HttpStatus.BAD_REQUEST);
-            }
-
-            // Associate doctor
-            visit.setDoctor(doctorRepository.findById(visitDTO.getDoctorId())
-                    .orElseThrow(() -> new RuntimeException("Doctor not found")));
-
-            //check test belong to the lab or not
-            List<Test> tests = testRepository.findAllById(visitDTO.getTestIds());
-            if (tests.stream().anyMatch(test -> !lab.getTests().contains(test))) {
-                ApiResponseHelper.errorResponse("Test not belong to the lab", HttpStatus.BAD_REQUEST);
-            }
-
-            // Associate tests
-            if (visitDTO.getTestIds() != null) {
-                visit.setTests(new HashSet<>(testRepository.findAllById(visitDTO.getTestIds())));
-            }
-
-            //check health package belong to the lab or not
-            List<HealthPackage> healthPackages = healthPackageRepository.findAllById(visitDTO.getPackageIds());
-            if (healthPackages.stream().anyMatch(healthPackage -> !lab.getHealthPackages().contains(healthPackage))) {
-                ApiResponseHelper.errorResponse("Health package not belong to the lab", HttpStatus.BAD_REQUEST);
-            }
-
-
-            // Associate packages
-            if (visitDTO.getPackageIds() != null) {
-                visit.setPackages(new HashSet<>(packageRepository.findAllById(visitDTO.getPackageIds())));
-            }
-
-            //check insurance belong to the lab or not
-            List<InsuranceEntity> insurances = insuranceRepository.findAllById(visitDTO.getInsuranceIds().stream().map(Long::intValue).collect(Collectors.toList()));
-            if (insurances.stream().anyMatch(insurance -> !lab.getInsurances().contains((CharSequence) insurance))) {
-                ApiResponseHelper.errorResponse("Insurance not belong to the lab", HttpStatus.BAD_REQUEST);
-            }
-
-            // Associate insurance
-            if (visitDTO.getInsuranceIds() != null) {
-                List<Integer> insuranceIds = visitDTO.getInsuranceIds()
-                        .stream()
-                        .map(Long::intValue) // Convert Long to Integer
-                        .toList(); // Create a new List of Integer
-
-                visit.setInsurance(new HashSet<>(insuranceRepository.findAllById(insuranceIds)));
-            }
-
-            // Handle billing details
-            BillingDTO billingDTO = visitDTO.getBilling();
-            if (billingDTO != null) {
-                BillingEntity billing = new BillingEntity();
-                billing.setTotalAmount(billingDTO.getTotalAmount());
-                billing.setPaymentStatus(billingDTO.getPaymentStatus());
-                billing.setPaymentMethod(billingDTO.getPaymentMethod());
-                billing.setPaymentDate(billingDTO.getPaymentDate());
-                billing.setDiscount(billingDTO.getDiscount());
-                billing.setGstRate(billingDTO.getGstRate());
-                billing.setGstAmount(billingDTO.getGstAmount());
-                billing.setCgstAmount(billingDTO.getCgstAmount());
-                billing.setSgstAmount(billingDTO.getSgstAmount());
-                billing.setIgstAmount(billingDTO.getIgstAmount());
-                billing.setNetAmount(billingDTO.getNetAmount());
-
-                visit.setBilling(billing);
-            }
-
-            // Link visit to patient
+        // Handle visit and billing (if provided)
+        if (patientDTO.getVisit() != null) {
+            VisitDTO visitDTO = patientDTO.getVisit();
+            VisitEntity visit = mapVisitDTOToEntity(visitDTO, lab);
             visit.setPatient(patient);
             patient.getVisits().add(visit);
         }
 
-        // Save patient and related entities
+        // Save the patient and related entities
         patientRepository.save(patient);
+
+        return new PatientDTO(patient);
     }
+
+    @Transactional
+    public PatientDTO addVisitAndBillingToExistingPatient(Lab lab, PatientDTO patientDTO, PatientEntity existingPatient) {
+        VisitDTO visitDTO = patientDTO.getVisit();
+        if (visitDTO != null) {
+            VisitEntity visit = mapVisitDTOToEntity(visitDTO, lab);
+            visit.setPatient(existingPatient);
+            existingPatient.getVisits().add(visit);
+        }
+
+        // Save updated patient
+        patientRepository.save(existingPatient);
+
+        return new PatientDTO(existingPatient);
+    }
+
+    private VisitEntity mapVisitDTOToEntity(VisitDTO visitDTO, Lab lab) {
+        VisitEntity visit = new VisitEntity();
+        visit.setVisitDate(visitDTO.getVisitDate());
+        visit.setVisitType(visitDTO.getVisitType());
+        visit.setVisitStatus(visitDTO.getVisitStatus());
+        visit.setVisitDescription(visitDTO.getVisitDescription());
+
+        // Associate doctor
+        Doctors doctor = doctorRepository.findById(visitDTO.getDoctorId())
+                .orElseThrow(() -> new RuntimeException("Doctor not found"));
+        if (!lab.getDoctors().contains(doctor)) {
+            throw new RuntimeException("Doctor does not belong to the lab");
+        }
+        visit.setDoctor(doctor);
+
+        // Associate tests
+        List<Test> tests = testRepository.findAllById(visitDTO.getTestIds());
+        if (tests.stream().anyMatch(test -> !lab.getTests().contains(test))) {
+            throw new RuntimeException("Test does not belong to the lab");
+        }
+        visit.setTests(new HashSet<>(tests));
+
+        // Associate health packages
+        List<HealthPackage> healthPackages = healthPackageRepository.findAllById(visitDTO.getPackageIds());
+        if (healthPackages.stream().anyMatch(pkg -> !lab.getHealthPackages().contains(pkg))) {
+            throw new RuntimeException("Health package does not belong to the lab");
+        }
+        visit.setPackages(new HashSet<>(healthPackages));
+
+        // Handle billing details and ensure it's attached to the current transaction context
+        BillingDTO billingDTO = visitDTO.getBilling();
+        if (billingDTO != null) {
+            BillingEntity billing;
+
+            // Check if billingId is provided (Long instead of long)
+            if (billingDTO.getBillingId() != null) {
+                billing = billingRepository.findById(billingDTO.getBillingId()).orElse(new BillingEntity());
+            } else {
+                billing = new BillingEntity(); // Create new if no billingId
+            }
+
+            // Set billing properties
+            billing.setTotalAmount(billingDTO.getTotalAmount());
+            billing.setPaymentStatus(billingDTO.getPaymentStatus());
+            billing.setPaymentMethod(billingDTO.getPaymentMethod());
+            billing.setPaymentDate(billingDTO.getPaymentDate());
+            billing.setDiscount(billingDTO.getDiscount());
+            billing.setGstRate(billingDTO.getGstRate());
+            billing.setGstAmount(billingDTO.getGstAmount());
+            billing.setCgstAmount(billingDTO.getCgstAmount());
+            billing.setSgstAmount(billingDTO.getSgstAmount());
+            billing.setIgstAmount(billingDTO.getIgstAmount());
+            billing.setNetAmount(billingDTO.getNetAmount());
+
+            // Attach the billing entity to the visit
+            visit.setBilling(billing);
+        }
+
+        return visit;
+    }
+
+
+
+
+//    ==================
+
 
 
     public boolean existsByPhone(String phone) {
@@ -207,6 +329,8 @@ public class PatientService {
 
         return patientDTO;
     }
+
+
 
     public boolean existsById(Long patientId) {
         return patientRepository.existsById(patientId);

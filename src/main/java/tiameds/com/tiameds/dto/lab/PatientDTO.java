@@ -5,10 +5,11 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.jetbrains.annotations.NotNull;
+import tiameds.com.tiameds.entity.PatientEntity;
+import tiameds.com.tiameds.entity.VisitEntity;
 
 import java.time.LocalDate;
-import java.util.List;
+import java.util.Comparator;
 
 @Getter
 @Setter
@@ -26,6 +27,31 @@ public class PatientDTO {
     private String zip;
     private String bloodGroup;
     private LocalDate dateOfBirth;
-    private VisitDTO visit;
-//    private List<BillingDTO> billing;
+    private VisitDTO visit; // Single visit for simplicity in this context
+
+    public PatientDTO(PatientEntity patient) {
+
+        this.id = patient.getId();
+        this.firstName = patient.getFirstName();
+        this.lastName = patient.getLastName();
+        this.email = patient.getEmail();
+        this.phone = patient.getPhone();
+        this.address = patient.getAddress();
+        this.city = patient.getCity();
+        this.state = patient.getState();
+        this.zip = patient.getZip();
+        this.bloodGroup = patient.getBloodGroup();
+        this.dateOfBirth = patient.getDateOfBirth();
+
+        //get latest visit     on the basis of visiting id
+        VisitEntity latestVisit = patient.getVisits().stream().max(Comparator.comparing(VisitEntity::getVisitId)).orElse(null);
+
+        if (latestVisit != null) {
+            this.visit = new VisitDTO(latestVisit);
+        }
+
+
+    }
+
+
 }

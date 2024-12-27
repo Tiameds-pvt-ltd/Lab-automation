@@ -15,4 +15,5 @@ public interface PatientRepository extends JpaRepository<PatientEntity, Long> {
 
     List<PatientEntity> findAllByLabsId(Long labId);
 
+    Optional<PatientEntity> findByPhoneOrEmail(String phone, String email);
 }

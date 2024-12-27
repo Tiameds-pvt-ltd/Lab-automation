@@ -104,6 +104,7 @@ public class BillingService {
                 .map(VisitEntity::getBilling)
                 .filter(Objects::nonNull) // Include only visits with billing information
                 .map(billing -> new BillingDTO(
+                        billing.getId(),
                         billing.getTotalAmount(),
                         billing.getPaymentStatus(),
                         billing.getPaymentMethod(),

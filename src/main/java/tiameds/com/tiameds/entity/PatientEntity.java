@@ -84,4 +84,7 @@ public class PatientEntity {
     }
 
 
+    public long getId() {
+        return patientId;
+    }
 }
