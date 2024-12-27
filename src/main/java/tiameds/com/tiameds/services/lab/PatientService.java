@@ -237,6 +237,7 @@ public class PatientService {
         if (billingDTO != null) {
             BillingEntity billing;
 
+
             // Check if billingId is provided (Long instead of long)
             if (billingDTO.getBillingId() != null) {
                 billing = billingRepository.findById(billingDTO.getBillingId()).orElse(new BillingEntity());
