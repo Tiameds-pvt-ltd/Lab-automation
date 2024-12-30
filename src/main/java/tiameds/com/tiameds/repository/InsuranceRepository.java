@@ -12,11 +12,14 @@ import java.util.List;
 
 
 @Repository
-public interface InsuranceRepository extends JpaRepository<InsuranceEntity, Integer> {
+public interface InsuranceRepository extends JpaRepository<InsuranceEntity, Long> {
 
     @Query("SELECT CASE WHEN COUNT(i) > 0 THEN true ELSE false END " +
             "FROM InsuranceEntity i JOIN i.labs l " +
             "WHERE i.name = :name AND l.id = :labId")
     boolean existsByNameAndLabId(@Param("name") String name, @Param("labId") Long labId);
+
+
+//    List<InsuranceEntity> findAllById(List<Long> insuranceIds);
 
 }

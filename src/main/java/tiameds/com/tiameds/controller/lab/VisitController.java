@@ -71,21 +71,26 @@ public class VisitController {
             @RequestHeader("Authorization") String token
     ) {
         try {
-            // Validate token format
+            // Validate token and authenticate user
             Optional<User> currentUser = userAuthService.authenticateUser(token);
             if (currentUser.isEmpty()) {
-                return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+                return ApiResponseHelper.successResponseWithDataAndMessage("User not found", HttpStatus.UNAUTHORIZED, null);
             }
 
+            // Check lab accessibility
             boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
-            if (isAccessible == false) {
-                return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+            if (!isAccessible) {
+                return ApiResponseHelper.successResponseWithDataAndMessage("Lab is not accessible", HttpStatus.UNAUTHORIZED, null);
             }
 
-            // Get the list of visits
-            return ResponseEntity.ok(visitService.getVisits(labId, currentUser));
+            // Fetch the list of visits
+            Object visits = visitService.getVisits(labId, currentUser);
+
+            // Return success response with the list of visits
+            return ApiResponseHelper.successResponseWithDataAndMessage("Visits fetched successfully", HttpStatus.OK, visits);
 
         } catch (Exception e) {
+            // Handle unexpected errors
             return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }

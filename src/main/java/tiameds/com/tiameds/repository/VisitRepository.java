@@ -13,7 +13,7 @@ import java.util.List;
 @Repository
 public interface VisitRepository extends JpaRepository<VisitEntity, Long> {
 
-    Object findAllByPatient_Labs_Id(Long labId);
+
 
     List<VisitEntity> findAllByPatient_Labs(Lab lab);
 
@@ -23,3 +23,25 @@ public interface VisitRepository extends JpaRepository<VisitEntity, Long> {
     List<VisitEntity> findByPatientId(@Param("patientId") Long patientId);
 
 }
+
+
+//@Repository
+//public interface VisitRepository extends JpaRepository<VisitEntity, Long> {
+//
+//    // Fetch visits by lab ID with full relationships
+//    @Query("SELECT v FROM VisitEntity v JOIN FETCH v.patient p JOIN FETCH p.labs l WHERE l.id = :labId")
+//    List<VisitEntity> findAllByLabId(@Param("labId") Long labId);
+//
+//    // Fetch visits by Lab entity with full relationships
+//    @Query("SELECT v FROM VisitEntity v JOIN FETCH v.patient p WHERE :lab MEMBER OF p.labs")
+//    List<VisitEntity> findAllByPatient_Labs(@Param("lab") Lab lab);
+//
+//    // Fetch visits by Patient entity
+//    @Query("SELECT v FROM VisitEntity v JOIN FETCH v.patient p WHERE p = :patientEntity")
+//    List<VisitEntity> findAllByPatient(@Param("patientEntity") PatientEntity patientEntity);
+//
+//    // Fetch visits by Patient ID
+//    @Query("SELECT v FROM VisitEntity v JOIN FETCH v.patient p WHERE p.patientId = :patientId")
+//    List<VisitEntity> findByPatientId(@Param("patientId") Long patientId);
+//}
+//

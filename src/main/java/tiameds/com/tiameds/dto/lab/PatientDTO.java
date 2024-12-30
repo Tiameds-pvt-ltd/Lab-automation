@@ -50,7 +50,6 @@ public class PatientDTO {
             this.visit = new VisitDTO(latestVisit);
         }
 
-
     }
 
 
