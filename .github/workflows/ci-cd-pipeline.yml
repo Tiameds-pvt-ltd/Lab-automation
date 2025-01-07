@@ -18,13 +18,13 @@ jobs:
       - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
-          distribution: 'adoptium'
+          distribution: 'adopt'
           java-version: '17'
 
-      # Step 3: Build the project (generate app.jar)
+      # Step 3: Build the application (generate app.jar)
       - name: Build the project
-        run: ./mvnw clean package
-        # Use Maven wrapper if it exists in the repo
+        run: mvn clean package
+        # Ensure Maven is installed in your project environment
 
       # Step 4: Log in to Docker Hub
       - name: Log in to Docker Hub
