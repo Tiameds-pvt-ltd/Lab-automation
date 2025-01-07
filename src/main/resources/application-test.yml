@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: jdbc:postgresql://tiameds.cvy2oo6gk6yq.us-east-1.rds.amazonaws.com:5432/tiameds
-    username: tiameds
-    password: mypassword
+    url: jdbc:postgresql://tiamed-lab.cvy2oo6gk6yq.us-east-1.rds.amazonaws.com:5432/tiameds
+    username: postgres
+    password: tiamed-lab
     driver-class-name: org.postgresql.Driver
 
   jpa:
