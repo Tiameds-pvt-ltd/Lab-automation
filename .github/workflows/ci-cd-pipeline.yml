@@ -39,19 +39,27 @@ jobs:
       - name: Docker login to DockerHub
         run: docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
 
-      # Step 5: Check if Docker image already exists
+      # Step 5: Check if Docker image already exists and build if necessary
       - name: Check if Docker image already exists
         id: image-check
         run: |
           IMAGE_NAME="abhishek94733/tiameds-labs"
+
+          # Pull the existing image if it exists
           docker pull $IMAGE_NAME:latest || echo "No existing image found."
+
+          # Build the new image
           docker build --quiet -t $IMAGE_NAME:latest .
-          IMAGE_NEW=$(docker inspect --format='{{index .Id}}' $IMAGE_NAME:latest)
-          IMAGE_EXISTING=$(docker inspect --format='{{index .Id}}' $IMAGE_NAME:latest 2>/dev/null || echo "no-existing")
+
+          # Compare the IDs of the new and existing images
+          IMAGE_NEW=$(docker inspect --format='{{index .Id}}' $IMAGE_NAME:latest 2>/dev/null)
+          IMAGE_EXISTING=$(docker images -q $IMAGE_NAME:latest || echo "no-existing")
+
           if [ "$IMAGE_NEW" = "$IMAGE_EXISTING" ]; then
             echo "skip=true" >> $GITHUB_ENV
           else
             echo "skip=false" >> $GITHUB_ENV
+          fi
 
       # Step 6: Push Docker image to DockerHub (if new image exists)
       - name: Push Docker image to DockerHub
