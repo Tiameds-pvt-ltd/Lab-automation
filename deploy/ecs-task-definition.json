@@ -1,9 +1,8 @@
 {
-  "taskDefinitionArn": "arn:aws:ecs:us-east-1:195275675833:task-definition/tiameds-lab:5",
   "containerDefinitions": [
     {
       "name": "tiameds-lab",
-      "image": "195275675833.dkr.ecr.us-east-1.amazonaws.com/tiameds-lab:43166453334d4afd5961da357481a20e8e0f7b99",
+      "image": "195275675833.dkr.ecr.us-east-1.amazonaws.com/tiameds-lab:latest",
       "cpu": 0,
       "portMappings": [
         {
@@ -28,62 +27,22 @@
           "awslogs-region": "us-east-1",
           "awslogs-stream-prefix": "ecs"
         }
-      },
-      "systemControls": []
+      }
     }
   ],
   "family": "tiameds-lab",
   "taskRoleArn": "arn:aws:iam::195275675833:role/ecsTaskExecutionRole",
   "executionRoleArn": "arn:aws:iam::195275675833:role/ecsTaskExecutionRole",
   "networkMode": "awsvpc",
-  "revision": 5,
-  "volumes": [],
-  "status": "ACTIVE",
-  "requiresAttributes": [
-    {
-      "name": "com.amazonaws.ecs.capability.logging-driver.awslogs"
-    },
-    {
-      "name": "ecs.capability.execution-role-awslogs"
-    },
-    {
-      "name": "com.amazonaws.ecs.capability.ecr-auth"
-    },
-    {
-      "name": "com.amazonaws.ecs.capability.docker-remote-api.1.19"
-    },
-    {
-      "name": "com.amazonaws.ecs.capability.docker-remote-api.1.28"
-    },
-    {
-      "name": "com.amazonaws.ecs.capability.task-iam-role"
-    },
-    {
-      "name": "ecs.capability.execution-role-ecr-pull"
-    },
-    {
-      "name": "com.amazonaws.ecs.capability.docker-remote-api.1.18"
-    },
-    {
-      "name": "ecs.capability.task-eni"
-    },
-    {
-      "name": "com.amazonaws.ecs.capability.docker-remote-api.1.29"
-    }
-  ],
-  "placementConstraints": [],
+  "cpu": "1024",
+  "memory": "3072",
   "compatibilities": [
     "EC2",
     "FARGATE"
   ],
-  "cpu": "1024",
-  "memory": "3072",
   "runtimePlatform": {
     "cpuArchitecture": "X86_64",
     "operatingSystemFamily": "LINUX"
   },
-  "registeredAt": "2025-01-08T14:26:34.104Z",
-  "registeredBy": "arn:aws:iam::195275675833:user/abhishek",
-  "enableFaultInjection": false,
-  "tags": []
+  "volumes": []
 }
