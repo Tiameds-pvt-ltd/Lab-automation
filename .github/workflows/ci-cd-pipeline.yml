@@ -66,7 +66,7 @@ jobs:
 
       - name: Update ECS task definition with new image
         id: task-def
-        uses: aws-actions/amazon-ecs-render-task-definition@v2
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
           task-definition: ${{ secrets.ECS_TASK_DEFINITION }}
           container-name: ${{ secrets.CONTAINER_NAME }}
@@ -80,11 +80,8 @@ jobs:
           cluster: ${{ secrets.ECS_CLUSTER }}
           wait-for-service-stability: true
 
-      # Add a step here to handle JWT_SECRET if necessary in your app
       - name: Use JWT_SECRET (optional, if your app requires it)
         run: |
           echo "Using JWT_SECRET"
           export JWT_SECRET="${{ secrets.JWT_SECRET }}"
           # Example command where JWT_SECRET might be required in the build process
-          # For instance, generating a JWT token for authentication during deployment.
-          # Replace with actual command if needed in your process.
