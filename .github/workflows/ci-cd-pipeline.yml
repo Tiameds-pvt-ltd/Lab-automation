@@ -94,8 +94,8 @@ jobs:
         id: task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
-          task-definition: ${{ secrets.ECS_TASK_DEFINITION }}
-          container-name: ${{ secrets.CONTAINER_NAME }}
+          task-definition: deploy/ecs-task-definition.json  # Updated path to the task definition file in 'deploy' folder
+          container-name: tiameds-lab  # Match the container name defined in the task definition
           image: ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG
 
       # Step 11: Deploy updated ECS task definition
