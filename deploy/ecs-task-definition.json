@@ -1,4 +1,5 @@
 {
+  "family": "tiameds-lab",
   "containerDefinitions": [
     {
       "name": "tiameds-lab",
@@ -28,13 +29,11 @@
           "max-buffer-size": "25m",
           "awslogs-region": "us-east-1",
           "awslogs-stream-prefix": "ecs"
-        },
-        "secretOptions": []
+        }
       },
       "systemControls": []
     }
   ],
-  "family": "tiameds-lab",
   "taskRoleArn": "arn:aws:iam::195275675833:role/ecsTaskExecutionRole",
   "executionRoleArn": "arn:aws:iam::195275675833:role/ecsTaskExecutionRole",
   "networkMode": "awsvpc",
@@ -44,8 +43,6 @@
     "cpuArchitecture": "X86_64",
     "operatingSystemFamily": "LINUX"
   },
-  "requiresCompatibilities": [
-    "FARGATE"
-  ],
-  "volumes": []
+  "volumes": [],
+  "tags": []
 }
