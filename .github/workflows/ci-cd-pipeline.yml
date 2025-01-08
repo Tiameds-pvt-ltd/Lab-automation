@@ -61,12 +61,11 @@ jobs:
       # Step 7: Update ECS Task Definition
       - name: Update ECS Task Definition
         id: update-task-def
-        uses: aws-actions/amazon-ecs-render-task-definition@v2
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
           task-definition: deploy/tiameds-lab-task-defination.json
           container-name: tiameds-lab
           image: ${{ steps.ecr-login.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}
-
 
       # Step 8: Deploy to ECS
       - name: Deploy to ECS
