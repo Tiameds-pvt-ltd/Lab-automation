@@ -9,100 +9,98 @@ on:
       - main
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
       # Step 1: Checkout code
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
-      # Step 2: Set up JDK 17
+      # Step 2: Set up JDK 17 for Maven
       - name: Set up JDK 17
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v3
         with:
           java-version: '17'
           distribution: 'temurin'
+          cache: maven
 
-      # Step 3: Build with Maven
+      # Step 3: Build and Test with Maven
       - name: Build with Maven
         env:
           DB_URL: ${{ secrets.DB_URL }}
           DB_USERNAME: ${{ secrets.DB_USERNAME }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
-        run: mvn clean install --no-transfer-progress
+        run: mvn clean install
 
-  docker:
-    needs: build
-    runs-on: ubuntu-latest
-
-    steps:
-      # Step 1: Checkout code
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      # Step 2: Log in to DockerHub
+      # Step 4: Log in to DockerHub
       - name: Docker login to DockerHub
         run: docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
 
-      # Step 3: Build Docker image
+      # Step 5: Build Docker image
       - name: Build Docker Image
         run: docker build -t abhishek94733/tiameds-labs:latest .
 
-      # Step 4: Push Docker image to DockerHub
+      # Step 6: Push Docker image to DockerHub
       - name: Push Docker Image to DockerHub
         run: docker push abhishek94733/tiameds-labs:latest
 
-  deploy:
-    needs: docker
-    runs-on: ubuntu-latest
-    environment: production
-
-    steps:
-      # Step 1: Checkout code
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      # Step 2: Configure AWS credentials
+      # Step 7: Configure AWS credentials
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
+        uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      # Step 3: Login to Amazon ECR
-      - name: Login to Amazon ECR
-        id: login-ecr
+      # Step 8: Log in to Amazon ECR
+      - name: Log in to Amazon ECR
+        id: ecr-login
         uses: aws-actions/amazon-ecr-login@v1
 
-      # Step 4: Build, tag, and push image to Amazon ECR
-      - name: Build, tag, and push image to Amazon ECR
-        id: build-image
+      # Step 9: Tag and Push Image to Amazon ECR
+      - name: Tag and Push Image to Amazon ECR
         env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          # Build and push Docker image to ECR
-          docker build -t $ECR_REGISTRY/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG .
+          echo "ECR_REGISTRY: $ECR_REGISTRY"
+          echo "IMAGE_TAG: $IMAGE_TAG"
+          docker tag abhishek94733/tiameds-labs:latest $ECR_REGISTRY/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG
           docker push $ECR_REGISTRY/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG
-          echo "image=$ECR_REGISTRY/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      # Step 5: Fill in the new image ID in the Amazon ECS task definition
-      - name: Fill in the new image ID in the Amazon ECS task definition
-        id: task-def
+      # Step 10: Update ECS Task Definition
+      - name: Update ECS Task Definition
+        id: update-task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
-          task-definition: ${{ secrets.ECS_TASK_DEFINITION }}
-          container-name: ${{ secrets.CONTAINER_NAME }}
-          image: ${{ steps.build-image.outputs.image }}
+          task-definition: deploy/ecs-task-definition.json
+          container-name: tiameds-lab
+          image: ${{ steps.ecr-login.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}
 
-      # Step 6: Deploy to ECS
+      # Step 11: Deploy to ECS
       - name: Deploy to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
-          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          task-definition: ${{ steps.update-task-def.outputs.task-definition }}
           service: ${{ secrets.ECS_SERVICE }}
           cluster: ${{ secrets.ECS_CLUSTER }}
           wait-for-service-stability: true
+
+      # Step 12: Post-deployment Health Check
+      - name: Health Check
+        run: |
+          SERVICE_URL=${{ secrets.SERVICE_URL }}
+          echo "Checking service health at $SERVICE_URL"
+          for i in {1..10}; do
+            STATUS=$(curl -s -o /dev/null -w '%{http_code}' $SERVICE_URL)
+            if [ "$STATUS" -eq 200 ]; then
+              echo "Service is healthy!"
+              exit 0
+            fi
+            echo "Service not healthy. Retrying in 10 seconds..."
+            sleep 10
+          done
+          echo "Service health check failed."
+          exit 1
