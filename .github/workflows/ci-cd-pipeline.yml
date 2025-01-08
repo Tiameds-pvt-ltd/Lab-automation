@@ -34,19 +34,7 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
         run: mvn clean install
 
-      # Step 4: Log in to DockerHub
-      - name: Docker login to DockerHub
-        run: docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
-
-      # Step 5: Build Docker image
-      - name: Build Docker Image
-        run: docker build -t abhishek94733/tiameds-labs:latest .
-
-      # Step 6: Push Docker image to DockerHub
-      - name: Push Docker Image to DockerHub
-        run: docker push abhishek94733/tiameds-labs:latest
-
-      # Step 7: Configure AWS credentials
+      # Step 4: Configure AWS credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -54,12 +42,12 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      # Step 8: Log in to Amazon ECR
+      # Step 5: Log in to Amazon ECR
       - name: Log in to Amazon ECR
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v1
 
-      # Step 9: Tag and Push Image to Amazon ECR
+      # Step 6: Tag and Push Image to Amazon ECR
       - name: Tag and Push Image to Amazon ECR
         env:
           ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
@@ -67,10 +55,10 @@ jobs:
         run: |
           echo "ECR_REGISTRY: $ECR_REGISTRY"
           echo "IMAGE_TAG: $IMAGE_TAG"
-          docker tag abhishek94733/tiameds-labs:latest $ECR_REGISTRY/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG
+          docker build -t $ECR_REGISTRY/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG .
           docker push $ECR_REGISTRY/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG
 
-      # Step 10: Update ECS Task Definition
+      # Step 7: Update ECS Task Definition
       - name: Update ECS Task Definition
         id: update-task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
@@ -79,7 +67,7 @@ jobs:
           container-name: tiameds-lab
           image: ${{ steps.ecr-login.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}
 
-      # Step 11: Deploy to ECS
+      # Step 8: Deploy to ECS
       - name: Deploy to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
@@ -88,7 +76,7 @@ jobs:
           cluster: ${{ secrets.ECS_CLUSTER }}
           wait-for-service-stability: true
 
-      # Step 12: Post-deployment Health Check
+      # Step 9: Post-deployment Health Check
       - name: Health Check
         run: |
           SERVICE_URL=${{ secrets.SERVICE_URL }}
