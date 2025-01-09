@@ -14,10 +14,28 @@
           "appProtocol": "http"
         }
       ],
-
       "essential": true,
       "environment": [
-
+        {
+          "name": "SPRING_PROFILES_ACTIVE",
+          "value": "prod"
+        },
+        {
+          "name": "DB_URL",
+          "value": "tiamed-lab.cvy2oo6gk6yq.us-east-1.rds.amazonaws.com:5432/tiameds"
+        },
+        {
+          "name": "DB_USERNAME",
+          "value": "postgres"
+        },
+        {
+          "name": "DB_PASSWORD",
+          "value": "tiamed-lab"
+        },
+        {
+          "name": "JWT_SECRET",
+          "value": "JWT_SECRETadvasdv"
+        }
       ],
       "environmentFiles": [],
       "mountPoints": [],
@@ -32,9 +50,26 @@
           "max-buffer-size": "25m",
           "awslogs-region": "us-east-1",
           "awslogs-stream-prefix": "ecs"
-        },
-        "secretOptions": []
+        }
       },
+      "secretOptions": [
+        {
+          "name": "DB_URL",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:195275675833:secret:my-app-db-secret-xxxxxx:DB_URL"
+        },
+        {
+          "name": "DB_USERNAME",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:195275675833:secret:my-app-db-secret-xxxxxx:DB_USERNAME"
+        },
+        {
+          "name": "DB_PASSWORD",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:195275675833:secret:my-app-db-secret-xxxxxx:DB_PASSWORD"
+        },
+        {
+          "name": "JWT_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:195275675833:secret:my-app-jwt-secret-xxxxxx:JWT_SECRET"
+        }
+      ],
       "systemControls": []
     }
   ],
