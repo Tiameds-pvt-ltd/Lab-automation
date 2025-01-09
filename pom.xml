@@ -30,6 +30,20 @@
     </properties>
     <dependencies>
         <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>secretsmanager</artifactId>
+            <version>2.20.0</version> <!-- Use the latest version -->
+        </dependency>
+
+        <!-- AWS SDK BOM (Bill of Materials) for managing all AWS dependencies together -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>bom</artifactId>
+            <version>2.20.0</version> <!-- Use the latest version -->
+            <scope>import</scope>
+            <type>pom</type>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>

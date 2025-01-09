@@ -16,7 +16,9 @@
       ],
 
       "essential": true,
-      "environment": [],
+      "environment": [
+
+      ],
       "environmentFiles": [],
       "mountPoints": [],
       "volumesFrom": [],
