@@ -1,5 +1,5 @@
 {
-  "taskDefinitionArn": "arn:aws:ecs:us-east-1:195275675833:task-definition/tiameds-lab-task-defination:1",
+  "taskDefinitionArn": "arn:aws:ecs:us-east-1:195275675833:task-definition/tiameds-lab-task-defination:4",
   "containerDefinitions": [
     {
       "name": "tiameds-lab",
@@ -39,7 +39,7 @@
   "taskRoleArn": "arn:aws:iam::195275675833:role/ecsTaskExecutionRole",
   "executionRoleArn": "arn:aws:iam::195275675833:role/ecsTaskExecutionRole",
   "networkMode": "awsvpc",
-  "revision": 1,
+  "revision": 4,
   "volumes": [],
   "status": "ACTIVE",
   "requiresAttributes": [
@@ -82,13 +82,13 @@
   "requiresCompatibilities": [
     "FARGATE"
   ],
-  "cpu": "512",
-  "memory": "2048",
+  "cpu": "1024",
+  "memory": "3072",
   "runtimePlatform": {
     "cpuArchitecture": "X86_64",
     "operatingSystemFamily": "LINUX"
   },
-  "registeredAt": "2025-01-08T17:56:41.052Z",
+  "registeredAt": "2025-01-09T05:05:47.784Z",
   "registeredBy": "arn:aws:iam::195275675833:root",
   "enableFaultInjection": false,
   "tags": []

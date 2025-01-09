@@ -1,14 +1,21 @@
-# Use an OpenJDK base image
+# Use an OpenJDK base image (lightweight and secure)
 FROM openjdk:17-jdk-alpine
 
 # Set the working directory
 WORKDIR /app
 
-# Copy the JAR file
-COPY target/app.jar app.jar
+# Install dependencies and update packages
+RUN apk update && apk upgrade && apk add --no-cache bash curl
 
-# Expose the application port
+# Copy the application JAR file to the image
+COPY target/app.jar /app/app.jar
+
+# Expose the application's port
 EXPOSE 8080
+
+# Create a non-root user and switch to it
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+USER appuser
 
 # Run the application
 CMD ["java", "-jar", "app.jar"]
