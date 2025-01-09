@@ -15,7 +15,24 @@
         }
       ],
       "essential": true,
-      "environment": [],
+      "environment": [
+        {
+          "name": "DB_URL",
+          "value": "jdbc:postgresql://tiamed-lab.cvy2oo6gk6yq.us-east-1.rds.amazonaws.com:5432/tiameds"
+        },
+        {
+          "name": "DB_USERNAME",
+          "value": "postgres"
+        },
+        {
+          "name": "DB_PASSWORD",
+          "value": "tiamed-lab"
+        },
+        {
+          "name": "JWT_SECRET",
+          "value": "your-jwt-secret-value-here"
+        }
+      ],
       "environmentFiles": [],
       "mountPoints": [],
       "volumesFrom": [],
@@ -29,8 +46,7 @@
           "max-buffer-size": "25m",
           "awslogs-region": "us-east-1",
           "awslogs-stream-prefix": "ecs"
-        },
-        "secretOptions": []
+        }
       },
       "systemControls": []
     }
