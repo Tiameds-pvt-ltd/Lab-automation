@@ -1,38 +1,22 @@
 {
-  "taskDefinitionArn": "arn:aws:ecs:us-east-1:195275675833:task-definition/tiameds-lab-task-defination:4",
+  "taskDefinitionArn": "arn:aws:ecs:us-east-1:195275675833:task-definition/tiameds-lab-task-defination:7",
   "containerDefinitions": [
     {
       "name": "tiameds-lab",
-      "image": "195275675833.dkr.ecr.us-east-1.amazonaws.com/tiameds-lab:latest",
+      "image": "195275675833.dkr.ecr.us-east-1.amazonaws.com/tiameds-lab",
       "cpu": 0,
       "portMappings": [
         {
-          "name": "tiameds-lab-port",
+          "name": "tiameds-lab-8080-tcp",
           "containerPort": 8080,
           "hostPort": 8080,
           "protocol": "tcp",
           "appProtocol": "http"
         }
       ],
+
       "essential": true,
-      "environment": [
-        {
-          "name": "DB_URL",
-          "value": "jdbc:postgresql://tiamed-lab.cvy2oo6gk6yq.us-east-1.rds.amazonaws.com:5432/tiameds"
-        },
-        {
-          "name": "DB_USERNAME",
-          "value": "postgres"
-        },
-        {
-          "name": "DB_PASSWORD",
-          "value": "tiamed-lab"
-        },
-        {
-          "name": "JWT_SECRET",
-          "value": "your-jwt-secret-value-here"
-        }
-      ],
+      "environment": [],
       "environmentFiles": [],
       "mountPoints": [],
       "volumesFrom": [],
@@ -46,7 +30,8 @@
           "max-buffer-size": "25m",
           "awslogs-region": "us-east-1",
           "awslogs-stream-prefix": "ecs"
-        }
+        },
+        "secretOptions": []
       },
       "systemControls": []
     }
@@ -55,7 +40,7 @@
   "taskRoleArn": "arn:aws:iam::195275675833:role/ecsTaskExecutionRole",
   "executionRoleArn": "arn:aws:iam::195275675833:role/ecsTaskExecutionRole",
   "networkMode": "awsvpc",
-  "revision": 4,
+  "revision": 7,
   "volumes": [],
   "status": "ACTIVE",
   "requiresAttributes": [
@@ -104,7 +89,7 @@
     "cpuArchitecture": "X86_64",
     "operatingSystemFamily": "LINUX"
   },
-  "registeredAt": "2025-01-09T05:05:47.784Z",
+  "registeredAt": "2025-01-09T07:09:29.874Z",
   "registeredBy": "arn:aws:iam::195275675833:root",
   "enableFaultInjection": false,
   "tags": []
