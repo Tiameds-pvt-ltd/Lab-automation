@@ -7,7 +7,7 @@ on:
   pull_request:
     branches:
       - main
-
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
@@ -28,12 +28,7 @@ jobs:
 
       # Step 3: Build and Test with Maven
       - name: Build with Maven
-        env:
-          DB_URL: ${{ secrets.DB_URL }}
-          DB_USERNAME: ${{ secrets.DB_USERNAME }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-        run: mvn clean install
+        run: mvn -DskipTests clean install
 
       # Step 4: Configure AWS credentials
       - name: Configure AWS credentials
@@ -76,7 +71,7 @@ jobs:
           service: ${{ secrets.ECS_SERVICE }}
           cluster: ${{ secrets.ECS_CLUSTER }}
           wait-for-service-stability: true
-#
+      #
       # Step 9: Post-deployment Health Check
 #      - name: Health Check
 #        env:

@@ -17,9 +17,6 @@ logging:
         jackson: WARN  # Changed to WARN for production
 
 spring:
-  profiles:
-    active: prod
-
   jwt:
     secret: ${JWT_SECRET}
 
