@@ -39,23 +39,23 @@
       "secrets": [
         {
           "name": "DB_URL",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:195275675833:secret:tiamedlabsecret-gk1X07:DB_URL"
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:195275675833:secret:tiamedlabsecret-gk1X07"
         },
         {
           "name": "DB_NAME",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:195275675833:secret:tiamedlabsecret-gk1X07:DB_NAME"
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:195275675833:secret:tiamedlabsecret-gk1X07"
         },
         {
           "name": "DB_USERNAME",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:195275675833:secret:tiamedlabsecret-gk1X07:DB_USERNAME"
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:195275675833:secret:tiamedlabsecret-gk1X07"
         },
         {
           "name": "DB_PASSWORD",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:195275675833:secret:tiamedlabsecret-gk1X07:DB_PASSWORD"
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:195275675833:secret:tiamedlabsecret-gk1X07"
         },
         {
           "name": "JWT_SECRET",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:195275675833:secret:tiamedlabsecret-gk1X07:JWT_SECRET"
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:195275675833:secret:tiamedlabsecret-gk1X07"
         }
       ],
       "systemControls": []
