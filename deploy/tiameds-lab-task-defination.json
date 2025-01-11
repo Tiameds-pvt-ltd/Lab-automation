@@ -19,22 +19,6 @@
         {
           "name": "SPRING_PROFILES_ACTIVE",
           "value": "prod"
-        },
-        {
-          "name": "DB_URL",
-          "value": "tiamed-lab.cvy2oo6gk6yq.us-east-1.rds.amazonaws.com:5432/tiameds"
-        },
-        {
-          "name": "DB_USERNAME",
-          "value": "postgres"
-        },
-        {
-          "name": "DB_PASSWORD",
-          "value": "tiamed-lab"
-        },
-        {
-          "name": "JWT_SECRET",
-          "value": "JWT_SECRETadvasdvdfbdsfbsdfbsdfadfgafdgadsf4rg34gagdfgadgafdgasdgdafs"
         }
       ],
       "environmentFiles": [],
@@ -52,22 +36,22 @@
           "awslogs-stream-prefix": "ecs"
         }
       },
-      "secretOptions": [
+      "secrets": [
         {
           "name": "DB_URL",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:195275675833:secret:my-app-db-secret-xxxxxx:DB_URL"
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:195275675833:secret:tiamedlabsecret-gk1X07:DB_URL"
         },
         {
           "name": "DB_USERNAME",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:195275675833:secret:my-app-db-secret-xxxxxx:DB_USERNAME"
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:195275675833:secret:tiamedlabsecret-gk1X07:DB_USERNAME"
         },
         {
           "name": "DB_PASSWORD",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:195275675833:secret:my-app-db-secret-xxxxxx:DB_PASSWORD"
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:195275675833:secret:tiamedlabsecret-gk1X07:DB_PASSWORD"
         },
         {
           "name": "JWT_SECRET",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:195275675833:secret:my-app-jwt-secret-xxxxxx:JWT_SECRET"
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:195275675833:secret:tiamedlabsecret-gk1X07:JWT_SECRET"
         }
       ],
       "systemControls": []
