@@ -16,9 +16,8 @@ public class CorsConfig {
         configuration.setAllowedOrigins(List.of(
                 "http://localhost:3000",
                 "https://*.vercel.app",
-                "https://tiameds-lab-app.vercel.app/",
-                "https://tiameds-lab-app-git-main-abhishek-kumars-projects-7cc8d4a1.vercel.app/",
-                "https://tiameds-lab-541wzlkz6-abhishek-kumars-projects-7cc8d4a1.vercel.app/"
+                "https://tiameds.ai"
+
                 ));  // Allow frontend origin
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
