@@ -3,6 +3,7 @@ package tiameds.com.tiameds.controller.lab;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import tiameds.com.tiameds.dto.lab.PatientDTO;
 import tiameds.com.tiameds.entity.Lab;
@@ -17,6 +18,7 @@ import tiameds.com.tiameds.utils.UserAuthService;
 import java.util.Optional;
 
 
+@Transactional
 @RestController
 @RequestMapping("/lab")
 @Tag(name = "Patient Controller", description = "Endpoints for managing patients in a lab")

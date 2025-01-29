@@ -31,5 +31,5 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
     @Query("SELECT l FROM Lab l JOIN l.members m WHERE m.id = :userId")
     Set<Lab> findLabsByUserId(@Param("userId") Long userId);
 
-
 }
+

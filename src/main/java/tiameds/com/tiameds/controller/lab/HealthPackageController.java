@@ -3,6 +3,7 @@ package tiameds.com.tiameds.controller.lab;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import tiameds.com.tiameds.dto.lab.HealthPackageRequest;
 import tiameds.com.tiameds.entity.HealthPackage;
@@ -19,6 +20,7 @@ import tiameds.com.tiameds.utils.UserAuthService;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+
 
 @RestController
 @RequestMapping("/admin/lab")
@@ -43,6 +45,7 @@ public class HealthPackageController {
 
 
     //get all packages of a respective lab by their lab id  and only members of the lab can access this
+    @Transactional
     @GetMapping("{labId}/packages")
     public ResponseEntity<?> getHealthPackages(
             @PathVariable("labId") Long labId,
@@ -81,6 +84,7 @@ public class HealthPackageController {
     }
 
 
+    @Transactional
     @PostMapping("{labId}/package")
     public ResponseEntity<?> createHealthPackage(
             @PathVariable("labId") Long labId,
@@ -138,8 +142,8 @@ public class HealthPackageController {
         );
     }
 
-
     //get package by id
+    @Transactional
     @GetMapping("{labId}/package/{packageId}")
     public ResponseEntity<?> getHealthPackage(
             @PathVariable("labId") Long labId,
@@ -190,6 +194,7 @@ public class HealthPackageController {
 
 
     //update package
+    @Transactional
     @PutMapping("{labId}/package/{packageId}")
     public ResponseEntity<?> updateHealthPackage(
             @PathVariable("labId") Long labId,
@@ -258,6 +263,7 @@ public class HealthPackageController {
 
 
     //delete package by their respective id
+    @Transactional
     @DeleteMapping("{labId}/package/{packageId}")
     public ResponseEntity<?> deleteHealthPackage(
             @PathVariable("labId") Long labId,

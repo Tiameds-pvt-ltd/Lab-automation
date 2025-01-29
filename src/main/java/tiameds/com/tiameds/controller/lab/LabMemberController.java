@@ -2,6 +2,7 @@ package tiameds.com.tiameds.controller.lab;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -513,41 +514,42 @@ public class LabMemberController {
     }
 
 
+    //    //get the list of lab of current user
+    @Transactional
+    @GetMapping("get-user-labs")
+    public ResponseEntity<?> getUserLabs(
+            @RequestHeader("Authorization") String token
+    ) {
 
-//    //get the list of lab of current user
-@GetMapping("get-user-labs")
-public ResponseEntity<?> getUserLabs(
-        @RequestHeader("Authorization") String token
-) {
+        // Check if the user is authenticated
+        User currentUser = userAuthService.authenticateUser(token).orElse(null);
+        if (currentUser == null)
+            return ApiResponseHelper.errorResponse("User not found or unauthorized", HttpStatus.UNAUTHORIZED);
 
-    // Check if the user is authenticated
-    User currentUser = userAuthService.authenticateUser(token).orElse(null);
-    if (currentUser == null)
-        return ApiResponseHelper.errorResponse("User not found or unauthorized", HttpStatus.UNAUTHORIZED);
+        Set<Lab> labs = labRepository.findLabsByUserId(currentUser.getId());
 
-    Set<Lab> labs = labRepository.findLabsByUserId(currentUser.getId());
+        System.out.println(labs+"====================");
 
-    if (labs.isEmpty()) {
-        return ApiResponseHelper.successResponseWithDataAndMessage("No labs found", HttpStatus.OK, null);
+        if (labs.isEmpty()) {
+            return ApiResponseHelper.successResponseWithDataAndMessage("No labs found", HttpStatus.OK, null);
+        }
+
+        List<LabListDTO> labListDTOs = labs.stream()
+                .map(lab -> new LabListDTO(
+                        lab.getId(),
+                        lab.getName(),
+                        lab.getAddress(),
+                        lab.getCity(),
+                        lab.getState(),
+                        lab.getIsActive(),
+                        lab.getDescription(),
+                        lab.getCreatedBy().getUsername()
+                ))
+                .toList();
+
+        return ApiResponseHelper.successResponseWithDataAndMessage("Labs fetched successfully", HttpStatus.OK, labListDTOs);
+
     }
-
-    List<LabListDTO> labListDTOs = labs.stream()
-            .map(lab -> new LabListDTO(
-                    lab.getId(),
-                    lab.getName(),
-                    lab.getAddress(),
-                    lab.getCity(),
-                    lab.getState(),
-                    lab.getIsActive(),
-                    lab.getDescription(),
-                    lab.getCreatedBy().getUsername()
-            ))
-            .toList();
-
-    return ApiResponseHelper.successResponseWithDataAndMessage("Labs fetched successfully", HttpStatus.OK, labListDTOs);
-
-}
-
 
 
 }

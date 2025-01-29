@@ -1,9 +1,9 @@
 {
-  "taskDefinitionArn": "arn:aws:ecs:us-east-1:195275675833:task-definition/tiameds-lab-task-defination:7",
+  "taskDefinitionArn": "arn:aws:ecs:ap-south-1:977098986605:task-definition/tiameds-lab-task-defination:1",
   "containerDefinitions": [
     {
-      "name": "tiameds-lab",
-      "image": "195275675833.dkr.ecr.us-east-1.amazonaws.com/tiameds-lab",
+      "name": "tiamed-lab-test",
+      "image": "977098986605.dkr.ecr.ap-south-1.amazonaws.com/tiamed-lab-test:latest",
       "cpu": 0,
       "portMappings": [
         {
@@ -32,40 +32,19 @@
           "mode": "non-blocking",
           "awslogs-create-group": "true",
           "max-buffer-size": "25m",
-          "awslogs-region": "us-east-1",
+          "awslogs-region": "ap-south-1",
           "awslogs-stream-prefix": "ecs"
-        }
+        },
+        "secretOptions": []
       },
-      "secrets": [
-        {
-          "name": "DB_URL",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:195275675833:secret:tiamedlabsecret-gk1X07:DB_URL::"
-        },
-        {
-          "name": "DB_NAME",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:195275675833:secret:tiamedlabsecret-gk1X07:DB_NAME::"
-        },
-        {
-          "name": "DB_USERNAME",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:195275675833:secret:tiamedlabsecret-gk1X07:DB_USERNAME::"
-        },
-        {
-          "name": "DB_PASSWORD",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:195275675833:secret:tiamedlabsecret-gk1X07:DB_PASSWORD::"
-        },
-        {
-          "name": "JWT_SECRET",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:195275675833:secret:tiamedlabsecret-gk1X07:JWT_SECRET::"
-        }
-      ],
       "systemControls": []
     }
   ],
   "family": "tiameds-lab-task-defination",
-  "taskRoleArn": "arn:aws:iam::195275675833:role/ecsTaskExecutionRole",
-  "executionRoleArn": "arn:aws:iam::195275675833:role/ecsTaskExecutionRole",
+    "taskRoleArn": "arn:aws:iam::977098986605:role/ecsTaskExecutionRole",
+  "executionRoleArn": "arn:aws:iam::977098986605:role/ecsTaskExecutionRole",
   "networkMode": "awsvpc",
-  "revision": 7,
+  "revision": 1,
   "volumes": [],
   "status": "ACTIVE",
   "requiresAttributes": [
@@ -114,8 +93,18 @@
     "cpuArchitecture": "X86_64",
     "operatingSystemFamily": "LINUX"
   },
-  "registeredAt": "2025-01-09T07:09:29.874Z",
-  "registeredBy": "arn:aws:iam::195275675833:root",
+  "registeredAt": "2025-01-29T12:03:55.966Z",
+  "registeredBy": "arn:aws:iam::977098986605:root",
   "enableFaultInjection": false,
   "tags": []
 }
+
+
+
+
+
+
+
+
+
+

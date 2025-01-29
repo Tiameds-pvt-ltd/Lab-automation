@@ -27,6 +27,7 @@ public class PatientDTO {
     private String zip;
     private String bloodGroup;
     private LocalDate dateOfBirth;
+    private String gender;
     private VisitDTO visit; // Single visit for simplicity in this context
 
     public PatientDTO(PatientEntity patient) {
@@ -42,6 +43,7 @@ public class PatientDTO {
         this.zip = patient.getZip();
         this.bloodGroup = patient.getBloodGroup();
         this.dateOfBirth = patient.getDateOfBirth();
+        this.gender = patient.getGender();
 
         //get latest visit     on the basis of visiting id
         VisitEntity latestVisit = patient.getVisits().stream().max(Comparator.comparing(VisitEntity::getVisitId)).orElse(null);

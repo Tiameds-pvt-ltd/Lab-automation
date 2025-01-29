@@ -43,6 +43,7 @@ public class TestController {
 
 
     // 1. Get all tests in a lab
+    @Transactional
     @GetMapping("/{labId}/tests")
     public ResponseEntity<?> getAllTests(
             @PathVariable Long labId,
@@ -89,6 +90,7 @@ public class TestController {
     }
 
     // 2. Add a new test to a lab
+    @Transactional
     @PostMapping("/{labId}/add")
     public ResponseEntity<?> addTest(
             @PathVariable Long labId,
@@ -157,6 +159,7 @@ public class TestController {
 
 
     // 3. Update a test in a lab by ID only if test id and lab id are matching
+    @Transactional
     @PutMapping("/{labId}/update/{testId}")
     public ResponseEntity<?> updateTest(
             @PathVariable Long labId,
@@ -221,6 +224,7 @@ public class TestController {
 
 
     // 4 get test by id only if test id and lab id are matching
+    @Transactional
     @GetMapping("/{labId}/test/{testId}")
     public ResponseEntity<?> getTest(
             @PathVariable Long labId,
@@ -330,6 +334,7 @@ public class TestController {
     }
 
     //6 upload csv
+    @Transactional
     @PostMapping("/test/{labId}/csv/upload")
     public ResponseEntity<?> uploadCSV(
             @PathVariable Long labId,
@@ -383,6 +388,7 @@ public class TestController {
 
 
     // 7 download csv file of respective lab tests only
+    @Transactional
     @GetMapping("/{labId}/download")
     public ResponseEntity<?> downloadCSV(
             @PathVariable Long labId,

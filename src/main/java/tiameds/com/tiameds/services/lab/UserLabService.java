@@ -10,6 +10,7 @@ import tiameds.com.tiameds.repository.UserRepository;
 
 @Slf4j
 @Service
+@Transactional
 public class UserLabService {
 
     private final UserRepository userRepository;

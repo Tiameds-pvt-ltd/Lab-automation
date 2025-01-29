@@ -57,6 +57,8 @@ public class PatientEntity {
     @Column(name = "date_of_birth")
     private LocalDate dateOfBirth;
 
+    @Column(name="gender")
+    private String gender;
 
     @CreationTimestamp
     @Column(updatable = false)

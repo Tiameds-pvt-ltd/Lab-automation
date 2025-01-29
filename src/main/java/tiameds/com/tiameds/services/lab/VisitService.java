@@ -119,75 +119,6 @@ public class VisitService {
 
     }
 
-
-    // get list of patient visits of respective lab
-//    public Object getVisits(Long labId, Optional<User> currentUser) {
-//
-//        // Check if the lab exists
-//        Optional<Lab> labOptional = labRepository.findById(labId);
-//        if (labOptional.isEmpty()) {
-//            return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
-//        }
-//
-//        // Check if the user is a member of the lab
-//        if (currentUser.isEmpty() || !currentUser.get().getLabs().contains(labOptional.get())) {
-//            return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
-//        }
-//
-//
-//        // Get the list of visits
-//        List<VisitEntity> visits = visitRepository.findAllByPatient_Labs(labOptional.get());
-//
-//        PatientDTO patientDTO = new PatientDTO();
-//        VisitDTO visitDTO = new VisitDTO();
-//        BillingDTO billingDTO = new BillingDTO();
-//
-//        // Map visits to PatientDTO
-//        List<PatientDTO> patientDTOList = visits.stream()
-//                .map(this::mapVisitToPatientDTO)
-//                .collect(Collectors.toList());
-//
-//
-//
-//
-//
-//
-//
-//    }
-
-
-
-//    =========================================
-
-//    public Object getVisits(Long labId, Optional<User> currentUser) {
-//        // Check if the lab exists
-//        Optional<Lab> labOptional = labRepository.findById(labId);
-//        if (labOptional.isEmpty()) {
-//            return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
-//        }
-//
-//        // Check if the user is a member of the lab
-//        if (currentUser.isEmpty() || !currentUser.get().getLabs().contains(labOptional.get())) {
-//            return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
-//        }
-//
-//        // Get the list of visits
-//        List<VisitEntity> visits = visitRepository.findAllByPatient_Labs(labOptional.get());
-//
-//        // Map entities to DTOs
-//        List<PatientDTO> patientDTOList = visits.stream()
-//                .map(this::mapVisitToPatientDTO)
-//                .collect(Collectors.toList());
-//
-//        // Return a successful response
-//        return ApiResponseHelper.successResponseWithDataAndMessage(
-//                "Visits fetched successfully",
-//                HttpStatus.OK,
-//                patientDTOList
-//        );
-//    }
-
-
     public List<PatientDTO> getVisits(Long labId, Optional<User> currentUser) {
         // Check if the lab exists
         Optional<Lab> labOptional = labRepository.findById(labId);
@@ -224,6 +155,7 @@ public class VisitService {
         patientDTO.setZip(visitEntity.getPatient().getZip());
         patientDTO.setBloodGroup(visitEntity.getPatient().getBloodGroup());
         patientDTO.setDateOfBirth(visitEntity.getPatient().getDateOfBirth());
+        patientDTO.setGender(visitEntity.getPatient().getGender());
 
         // Map visit details
         VisitDTO visitDTO = new VisitDTO();
@@ -260,9 +192,6 @@ public class VisitService {
 
         return patientDTO;
     }
-//    =========================================
-
-
 
     @Transactional
     public void updateVisit(Long labId, Long visitId, VisitDTO visitDTO, Optional<User> currentUser) {
@@ -336,7 +265,6 @@ public class VisitService {
 
     }
 
-
     // delete the visit
     public void deleteVisit(Long labId, Long visitId, Optional<User> currentUser) {
         // Check if the lab exists
@@ -362,7 +290,6 @@ public class VisitService {
 
         visitRepository.delete(visit);
     }
-
 
     // get the visit details
     public Object getVisit(Long labId, Long visitId, Optional<User> currentUser) {

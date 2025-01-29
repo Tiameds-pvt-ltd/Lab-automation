@@ -64,6 +64,7 @@ public class PatientService {
         patient.setZip(patientDTO.getZip());
         patient.setBloodGroup(patientDTO.getBloodGroup());
         patient.setDateOfBirth(patientDTO.getDateOfBirth());
+        patient.setGender(patientDTO.getGender());
 
         // Set the lab for the patient
         patient.getLabs().add(lab);
@@ -192,6 +193,7 @@ public class PatientService {
                     patientDTO.setZip(patient.getZip());
                     patientDTO.setBloodGroup(patient.getBloodGroup());
                     patientDTO.setDateOfBirth(patient.getDateOfBirth());
+                    patientDTO.setGender(patient.getGender());
                     return patientDTO;
                 })
                 .collect(Collectors.toList());

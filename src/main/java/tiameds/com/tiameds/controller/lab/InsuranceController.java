@@ -3,6 +3,7 @@ package tiameds.com.tiameds.controller.lab;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import tiameds.com.tiameds.dto.lab.InsuranceDTO;
 import tiameds.com.tiameds.entity.Lab;
@@ -13,6 +14,7 @@ import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
 import tiameds.com.tiameds.utils.UserAuthService;
 
+@Transactional
 @RestController
 @RequestMapping("/lab/admin/insurance")
 @Tag(name = "Insurance", description = "Endpoints for managing insurance admin can add insurance to a lab")

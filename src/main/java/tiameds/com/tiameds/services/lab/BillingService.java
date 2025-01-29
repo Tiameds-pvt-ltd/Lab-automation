@@ -51,6 +51,7 @@ public class BillingService {
         return billingList.stream()
                 .map(billingEntity -> {
                     BillingDTO dto = new BillingDTO();
+                    dto.setBillingId(billingEntity.getId());
                     dto.setTotalAmount(billingEntity.getTotalAmount());
                     dto.setPaymentStatus(billingEntity.getPaymentStatus());
                     dto.setPaymentMethod(billingEntity.getPaymentMethod());
@@ -119,13 +120,6 @@ public class BillingService {
                 ))
                 .collect(Collectors.toList());
     }
-
-
-
-
-
-
-
 }
 
 
