@@ -1,13 +1,13 @@
 spring:
   datasource:
-    url: jdbc:postgresql://tiamed-lab.cvy2oo6gk6yq.us-east-1.rds.amazonaws.com:5432/tiameds
-    username: postgres
-    password: tiamed-lab
+    url: jdbc:postgresql://tiamed-test-db.cfsi2w0iou42.ap-south-1.rds.amazonaws.com:5432/tiamedtestdb
+    username: tiamedtestdb
+    password: tiamedtestdb
     driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
-      ddl-auto: update   # 'create' for development; 'update' or 'none' for production
+      ddl-auto: create   # 'create' for development; 'update' or 'none' for production
     show-sql: true  # Optional: Shows SQL queries in logs
     properties:
       hibernate:

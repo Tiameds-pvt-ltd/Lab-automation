@@ -8,6 +8,7 @@ server:
     whitelabel:
       enabled: false
 
+
 logging:
   level:
     org.springframework: INFO
@@ -44,7 +45,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: create
+      ddl-auto: none
     open-in-view: false
     properties:
       hibernate:
