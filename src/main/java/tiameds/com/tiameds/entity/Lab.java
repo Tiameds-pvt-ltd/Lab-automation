@@ -43,6 +43,64 @@ public class Lab {
     @Column(nullable = false)
     private Boolean isActive;
 
+    //    ======================new feilds=========================
+
+    @Column(name = "lab_logo",nullable = true) // Nullable if logo upload is optional
+    private String labLogo;
+
+    @Column(name = "license_number",nullable = false)
+    private String licenseNumber;
+
+    @Column(name = "lab_type",nullable = false)
+    private String labType;
+
+    @Column(name = "lab_zip",nullable = false)
+    private String labZip;
+
+    @Column(name = "lab_country",nullable = false)
+    private String labCountry;
+
+    @Column(name = "lab_phone",nullable = false)
+    private String labPhone;
+
+    @Column(name = "lab_email",nullable = false)
+    private String labEmail;
+
+    @Column(name = "director_name",nullable = false)
+    private String directorName;
+
+    @Column(name = "director_email",nullable = false)
+    private String directorEmail;
+
+    @Column(name = "director_phone",nullable = false)
+    private String directorPhone;
+
+    @Column(name = "certification_body",nullable = false)
+    private String certificationBody;
+
+    @Column(name = "lab_certificate",nullable = false)
+    private String labCertificate;
+
+    @Column(name = "director_govt_id",nullable = false)
+    private String directorGovtId;
+
+    @Column(name = "lab_business_registration",nullable = false)
+    private String labBusinessRegistration;
+
+    @Column(name = "lab_license",nullable = false)
+    private String labLicense;
+
+    @Column(name = "tax_id",nullable = false)
+    private String taxId;
+
+    @Column(name = "lab_accreditation",nullable = false)
+    private String labAccreditation;
+
+    @Column(name = "data_privacy_agreement",nullable = false)
+    private Boolean dataPrivacyAgreement;
+
+    //    ======================new feilds=========================
+
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDateTime createdAt;
