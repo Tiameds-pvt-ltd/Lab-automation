@@ -79,7 +79,7 @@ public class VisitEntity {
 
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "doctor_id", nullable = false)
+    @JoinColumn(name = "doctor_id", nullable = true)
     private Doctors doctor;
 
 

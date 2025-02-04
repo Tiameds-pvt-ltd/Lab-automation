@@ -83,7 +83,7 @@ public class PatientService {
         return new PatientDTO(patient);
     }
 
-    @Transactional
+//    @Transactional
     public PatientDTO addVisitAndBillingToExistingPatient(Lab lab, PatientDTO patientDTO, PatientEntity existingPatient) {
         VisitDTO visitDTO = patientDTO.getVisit();
         if (visitDTO != null) {
@@ -106,12 +106,39 @@ public class PatientService {
         visit.setVisitDescription(visitDTO.getVisitDescription());
 
         // Associate doctor
-        Doctors doctor = doctorRepository.findById(visitDTO.getDoctorId())
-                .orElseThrow(() -> new RuntimeException("Doctor not found"));
-        if (!lab.getDoctors().contains(doctor)) {
-            throw new RuntimeException("Doctor does not belong to the lab");
+//        Doctors doctor = doctorRepository.findById(visitDTO.getDoctorId())
+//                .orElseThrow(() -> new RuntimeException("Doctor not found"));
+//        if (!lab.getDoctors().contains(doctor)) {
+//            throw new RuntimeException("Doctor does not belong to the lab");
+//        }
+//        visit.setDoctor(doctor);
+
+        // Associate doctor only if doctorId is provided
+
+        if (visitDTO.getDoctorId() != null) {
+            // Find the doctor by ID
+            Optional<Doctors> doctorOpt = doctorRepository.findById(visitDTO.getDoctorId());
+
+            if (doctorOpt.isPresent()) {
+                Doctors doctor = doctorOpt.get();
+
+                // Check if the doctor belongs to the lab
+                if (!lab.getDoctors().contains(doctor)) {
+                    throw new RuntimeException("Doctor does not belong to the lab");
+                }
+
+                // Set the doctor if everything is valid
+                visit.setDoctor(doctor);
+            } else {
+                // If no doctor is found, set the doctor to null
+                visit.setDoctor(null);
+            }
+        } else {
+            // Handle case where no doctorId is provided
+            visit.setDoctor(null); // Doctor will be null if no ID is provided
         }
-        visit.setDoctor(doctor);
+
+
 
         // Associate tests
         List<Test> tests = testRepository.findAllById(visitDTO.getTestIds());
@@ -134,13 +161,10 @@ public class PatientService {
         }
         visit.setInsurance(new HashSet<>(insurance));
 
-
-
         // Handle billing details and ensure it's attached to the current transaction context
         BillingDTO billingDTO = visitDTO.getBilling();
         if (billingDTO != null) {
             BillingEntity billing;
-
 
             // Check if billingId is provided (Long instead of long)
             if (billingDTO.getBillingId() != null) {

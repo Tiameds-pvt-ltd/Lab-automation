@@ -1,6 +1,7 @@
 package tiameds.com.tiameds.controller.lab;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.transaction.Transactional;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,7 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-
+@Transactional
 @RestController
 @RequestMapping("/lab/admin")
 @Tag(name = "Lab Admin", description = "Endpoints for Lab Admin")
@@ -41,8 +42,6 @@ public class LabController {
         this.labAccessableFilter = labAccessableFilter;
         this.userLabService = userLabService;
     }
-
-
 
     // get all labs created by user
     @GetMapping("/get-labs")
@@ -170,7 +169,7 @@ public class LabController {
 
 
 
-    //
+    @Transactional
     @PostMapping("/add-lab")
     public ResponseEntity<Map<String, Object>> addLab(
             @RequestBody LabRequestDTO labRequestDTO,
@@ -191,7 +190,6 @@ public class LabController {
             return new ResponseEntity(response, HttpStatus.BAD_REQUEST);
         }
 
-        // Create and save the new lab
         Lab lab = new Lab();
         lab.setName(labRequestDTO.getName());
         lab.setAddress(labRequestDTO.getAddress());
@@ -200,6 +198,27 @@ public class LabController {
         lab.setDescription(labRequestDTO.getDescription());
         lab.setIsActive(true);
         lab.setCreatedBy(currentUser);
+
+//======================new feilds=========================
+        lab.setLabLogo(labRequestDTO.getLabLogo());
+        lab.setLicenseNumber(labRequestDTO.getLicenseNumber());
+        lab.setLabType(labRequestDTO.getLabType());
+        lab.setLabZip(labRequestDTO.getLabZip());
+        lab.setLabCountry(labRequestDTO.getLabCountry());
+        lab.setLabPhone(labRequestDTO.getLabPhone());
+        lab.setLabEmail(labRequestDTO.getLabEmail());
+        lab.setDirectorName(labRequestDTO.getDirectorName());
+        lab.setDirectorEmail(labRequestDTO.getDirectorEmail());
+        lab.setDirectorPhone(labRequestDTO.getDirectorPhone());
+        lab.setCertificationBody(labRequestDTO.getCertificationBody());
+        lab.setLabCertificate(labRequestDTO.getLabCertificate());
+        lab.setDirectorGovtId(labRequestDTO.getDirectorGovtId());
+        lab.setLabBusinessRegistration(labRequestDTO.getLabBusinessRegistration());
+        lab.setLabLicense(labRequestDTO.getLabLicense());
+        lab.setTaxId(labRequestDTO.getTaxId());
+        lab.setLabAccreditation(labRequestDTO.getLabAccreditation());
+        lab.setDataPrivacyAgreement(labRequestDTO.getDataPrivacyAgreement());
+
         labRepository.save(lab);
 
         // Create DTOs for response

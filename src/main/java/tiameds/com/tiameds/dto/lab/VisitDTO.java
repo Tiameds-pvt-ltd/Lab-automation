@@ -1,6 +1,7 @@
 package tiameds.com.tiameds.dto.lab;
 
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -12,12 +13,14 @@ import tiameds.com.tiameds.entity.VisitEntity;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class VisitDTO {
     private long visitId;
     private LocalDate visitDate;
@@ -25,6 +28,7 @@ public class VisitDTO {
     private String visitStatus; // ACTIVE, DISCHARGED, CANCELLED
     private String visitDescription;
     private Long doctorId;
+//    private Optional<Long> doctorId;
     private List<Long> testIds; // Test IDs associated with the visit
     private List<Long> packageIds; // Health package IDs
     private List<Long> insuranceIds; // Insurance IDs
@@ -36,7 +40,9 @@ public class VisitDTO {
         this.visitType = visitEntity.getVisitType();
         this.visitStatus = visitEntity.getVisitStatus();
         this.visitDescription = visitEntity.getVisitDescription();
-        this.doctorId = visitEntity.getDoctor().getId();
+//        this.doctorId = visitEntity.getDoctor().getId();
+        this.doctorId = (visitEntity.getDoctor()!= null) ? visitEntity.getDoctor().getId() : null;
+
         this.testIds = visitEntity.getTests().stream().map(Test::getId).collect(Collectors.toList());
         this.packageIds = visitEntity.getPackages().stream().map(HealthPackage::getId).collect(Collectors.toList());
         this.insuranceIds = visitEntity.getInsurance().stream().map(InsuranceEntity::getId).collect(Collectors.toList());

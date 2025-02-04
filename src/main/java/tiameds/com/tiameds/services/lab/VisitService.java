@@ -119,6 +119,7 @@ public class VisitService {
 
     }
 
+
     public List<PatientDTO> getVisits(Long labId, Optional<User> currentUser) {
         // Check if the lab exists
         Optional<Lab> labOptional = labRepository.findById(labId);
@@ -164,7 +165,10 @@ public class VisitService {
         visitDTO.setVisitType(visitEntity.getVisitType());
         visitDTO.setVisitStatus(visitEntity.getVisitStatus());
         visitDTO.setVisitDescription(visitEntity.getVisitDescription());
-        visitDTO.setDoctorId(visitEntity.getDoctor().getId());
+//        visitDTO.setDoctorId(visitEntity.getDoctor().getId());
+        // doctor id be may be null
+        visitDTO.setDoctorId(visitEntity.getDoctor() != null ? visitEntity.getDoctor().getId() : null);
+
         visitDTO.setTestIds(visitEntity.getTests().stream().map(Test::getId).collect(Collectors.toList()));
         visitDTO.setPackageIds(visitEntity.getPackages().stream().map(HealthPackage::getId).collect(Collectors.toList()));
         visitDTO.setInsuranceIds(visitEntity.getInsurance().stream().map(InsuranceEntity::getId).collect(Collectors.toList()));
@@ -352,4 +356,8 @@ public class VisitService {
         return patientDTOList;
     }
 }
+
+
+//=====================================================
+
 
