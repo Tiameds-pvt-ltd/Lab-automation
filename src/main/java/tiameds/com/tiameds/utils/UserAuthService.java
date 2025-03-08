@@ -2,6 +2,7 @@ package tiameds.com.tiameds.utils;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.services.auth.UserService;
 

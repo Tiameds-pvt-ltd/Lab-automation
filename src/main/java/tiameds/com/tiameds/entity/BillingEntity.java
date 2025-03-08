@@ -9,6 +9,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 
 @Getter
@@ -60,6 +62,13 @@ public class BillingEntity {
 
     @Column(name = "net_amount", nullable = false)
     private BigDecimal netAmount; // Net amount after applying discount and GST
+
+
+    @ManyToMany(fetch = FetchType.LAZY,cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @JoinTable(name = "lab_billing",
+            joinColumns = @JoinColumn(name = "billing_id"),
+            inverseJoinColumns = @JoinColumn(name = "lab_id"))
+    private Set<Lab> labs = new HashSet<>();
 
 
     @CreationTimestamp

@@ -81,6 +81,7 @@ public class SpringSecurityConfig {
                 .authorizeHttpRequests(auth -> auth
 //                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()  // Permit CORS preflight requests
                                 .requestMatchers("/admin/**").hasRole("ADMIN")  // Restrict /admin/** to ADMIN role
+                                .requestMatchers("/lab/admin/**").hasRole("ADMIN")  // Restrict /lab/admin/** to ADMIN role
                                 .requestMatchers("/lab/**").hasRole("ADMIN")    // Restrict /lab/** to ADMIN role
                                 .requestMatchers("/lab-super-admin/**").hasRole("SUPERADMIN") // SUPERADMIN-only endpoints
                                 .requestMatchers("/error").permitAll()          // Allow error endpoint without authentication

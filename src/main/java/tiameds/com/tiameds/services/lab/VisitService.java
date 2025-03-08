@@ -80,6 +80,8 @@ public class VisitService {
         visit.setVisitStatus(visitDTO.getVisitStatus());
         visit.setVisitDescription(visitDTO.getVisitDescription());
         visit.setDoctor(doctorOptional.get());
+        visit.getLabs().add(labOptional.get());
+
 
         // Set tests
         Set<Test> tests = testRepository.findAllById(visitDTO.getTestIds()).stream().collect(Collectors.toSet());
@@ -227,6 +229,7 @@ public class VisitService {
         visit.setVisitStatus(visitDTO.getVisitStatus());
         visit.setVisitDescription(visitDTO.getVisitDescription());
         visit.setDoctor(doctorOptional.get());
+        visit.getLabs().add(labOptional.get());
 
         // Set tests
         Set<Test> tests = testRepository.findAllById(visitDTO.getTestIds()).stream().collect(Collectors.toSet());
@@ -261,6 +264,7 @@ public class VisitService {
         billingEntity.setSgstAmount(visitDTO.getBilling().getSgstAmount());
         billingEntity.setIgstAmount(visitDTO.getBilling().getIgstAmount());
         billingEntity.setNetAmount(visitDTO.getBilling().getNetAmount());
+        billingEntity.getLabs().add(labOptional.get());
 
         billingRepository.save(billingEntity);
         visit.setBilling(billingEntity);
@@ -358,6 +362,5 @@ public class VisitService {
 }
 
 
-//=====================================================
 
 

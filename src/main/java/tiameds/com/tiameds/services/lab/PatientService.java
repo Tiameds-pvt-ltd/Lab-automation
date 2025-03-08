@@ -28,8 +28,6 @@ public class PatientService {
     private final InsuranceRepository insuranceRepository;
     private final BillingRepository billingRepository;
 
-
-
     public PatientService(LabRepository labRepository, TestRepository testRepository, HealthPackageRepository healthPackageRepository, PatientRepository patientRepository, DoctorRepository doctorRepository, HealthPackageRepository packageRepository, InsuranceRepository insuranceRepository, BillingRepository billingRepository) {
         this.labRepository = labRepository;
         this.testRepository = testRepository;
@@ -40,11 +38,6 @@ public class PatientService {
         this.insuranceRepository = insuranceRepository;
         this.billingRepository = billingRepository;
     }
-
-
-
-
-//    ==================
 
     @Transactional
     public Optional<PatientEntity> findByPhoneOrEmail(String phone, String email) {
@@ -138,8 +131,6 @@ public class PatientService {
             visit.setDoctor(null); // Doctor will be null if no ID is provided
         }
 
-
-
         // Associate tests
         List<Test> tests = testRepository.findAllById(visitDTO.getTestIds());
         if (tests.stream().anyMatch(test -> !lab.getTests().contains(test))) {
@@ -160,6 +151,7 @@ public class PatientService {
             throw new RuntimeException("Insurance does not belong to the lab");
         }
         visit.setInsurance(new HashSet<>(insurance));
+        visit.getLabs().add(lab);
 
         // Handle billing details and ensure it's attached to the current transaction context
         BillingDTO billingDTO = visitDTO.getBilling();
@@ -174,6 +166,7 @@ public class PatientService {
             }
 
             // Set billing properties
+            billing.setId(billingDTO.getBillingId());
             billing.setTotalAmount(billingDTO.getTotalAmount());
             billing.setPaymentStatus(billingDTO.getPaymentStatus());
             billing.setPaymentMethod(billingDTO.getPaymentMethod());
@@ -185,16 +178,14 @@ public class PatientService {
             billing.setSgstAmount(billingDTO.getSgstAmount());
             billing.setIgstAmount(billingDTO.getIgstAmount());
             billing.setNetAmount(billingDTO.getNetAmount());
+            billing.getLabs().add(lab);
 
             // Attach the billing entity to the visit
             visit.setBilling(billing);
         }
-
         return visit;
     }
 //    ==================
-
-
 
     public boolean existsByPhone(String phone) {
         return patientRepository.existsByPhone(phone);
@@ -256,12 +247,9 @@ public class PatientService {
         return patientDTO;
     }
 
-
-
     public boolean existsById(Long patientId) {
         return patientRepository.existsById(patientId);
     }
-
 
     public void updatePatient(Long patientId, Long labId, PatientDTO patientDTO) {
         // Check if the lab exists

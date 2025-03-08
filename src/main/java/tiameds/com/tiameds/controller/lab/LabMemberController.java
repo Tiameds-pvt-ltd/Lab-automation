@@ -102,6 +102,7 @@ public class LabMemberController {
 
 
     //get all members of a lab
+    @Transactional
     @GetMapping("/get-members/{labId}")
     public ResponseEntity<?> getLabMembers(
             @PathVariable Long labId,
@@ -137,10 +138,8 @@ public class LabMemberController {
                         user.getLastName(),
                         user.getRoles().stream().map(role -> role.getName()).collect(Collectors.toList()
                         ))).collect(Collectors.toList());
-
         return ApiResponseHelper.successResponse("Lab members retrieved successfully", memberDTOs);
     }
-
 
     //remove a member from a lab
     @DeleteMapping("/remove-member/{labId}/member/{userId}")
@@ -191,7 +190,6 @@ public class LabMemberController {
             @PathVariable Long labId,
             @RequestHeader("Authorization") String token) {
 
-
         // Check if the user is authenticated
         User currentUser = userAuthService.authenticateUser(token).orElse(null);
         if (currentUser == null)
@@ -202,7 +200,6 @@ public class LabMemberController {
         if (isAccessible == false) {
             return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
         }
-
 
         // get the module of the user
         List<Long> moduleIds = registerRequest.getModules();
@@ -216,7 +213,6 @@ public class LabMemberController {
             }
             modules.add(moduleOptional.get());
         }
-
 
         // Check if the lab exists
         Lab lab = labRepository.findById(labId).orElse(null);
@@ -376,11 +372,6 @@ public class LabMemberController {
             return ApiResponseHelper.errorResponse("You are not authorized to delete this user", HttpStatus.UNAUTHORIZED);
         }
 
-        //check your are the creator of the user
-
-        // 1st remove members from lab
-        // 2nd delete user
-
         // Remove the user from all labs
         List<Lab> labs = labRepository.findAll();
         for (Lab lab : labs) {
@@ -483,12 +474,12 @@ public class LabMemberController {
 
 
     //get user by id of
+    @Transactional
     @GetMapping("/get-user/{userId}")
     public ResponseEntity<?> getUser(
             @PathVariable Long userId,
             @RequestHeader("Authorization") String token
     ) {
-
         // Check if the user is authenticated
         User currentUser = userAuthService.authenticateUser(token).orElse(null);
         if (currentUser == null)
@@ -514,7 +505,7 @@ public class LabMemberController {
     }
 
 
-    //    //get the list of lab of current user
+    //get the list of lab of current user
     @Transactional
     @GetMapping("get-user-labs")
     public ResponseEntity<?> getUserLabs(

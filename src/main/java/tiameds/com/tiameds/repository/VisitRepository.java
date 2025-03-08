@@ -8,12 +8,13 @@ import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.entity.PatientEntity;
 import tiameds.com.tiameds.entity.VisitEntity;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface VisitRepository extends JpaRepository<VisitEntity, Long> {
-
-
 
     List<VisitEntity> findAllByPatient_Labs(Lab lab);
 
@@ -22,26 +23,10 @@ public interface VisitRepository extends JpaRepository<VisitEntity, Long> {
     @Query("SELECT v FROM VisitEntity v WHERE v.patient.patientId = :patientId")
     List<VisitEntity> findByPatientId(@Param("patientId") Long patientId);
 
+
+    @Query("SELECT COUNT(v) FROM VisitEntity v JOIN v.patient p JOIN p.labs l WHERE l.id = :labId AND v.createdAt BETWEEN :startDate AND :endDate")
+    long countByLabIdAndCreatedAtBetween(@Param("labId") Long labId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
+    @Query("SELECT COUNT(v) FROM VisitEntity v JOIN v.patient p JOIN p.labs l WHERE l.id = :labId AND v.visitStatus = :status AND v.createdAt BETWEEN :startDate AND :endDate")
+    long countByLabIdAndStatus(@Param("labId") Long labId, @Param("status") String status, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 }
-
-
-//@Repository
-//public interface VisitRepository extends JpaRepository<VisitEntity, Long> {
-//
-//    // Fetch visits by lab ID with full relationships
-//    @Query("SELECT v FROM VisitEntity v JOIN FETCH v.patient p JOIN FETCH p.labs l WHERE l.id = :labId")
-//    List<VisitEntity> findAllByLabId(@Param("labId") Long labId);
-//
-//    // Fetch visits by Lab entity with full relationships
-//    @Query("SELECT v FROM VisitEntity v JOIN FETCH v.patient p WHERE :lab MEMBER OF p.labs")
-//    List<VisitEntity> findAllByPatient_Labs(@Param("lab") Lab lab);
-//
-//    // Fetch visits by Patient entity
-//    @Query("SELECT v FROM VisitEntity v JOIN FETCH v.patient p WHERE p = :patientEntity")
-//    List<VisitEntity> findAllByPatient(@Param("patientEntity") PatientEntity patientEntity);
-//
-//    // Fetch visits by Patient ID
-//    @Query("SELECT v FROM VisitEntity v JOIN FETCH v.patient p WHERE p.patientId = :patientId")
-//    List<VisitEntity> findByPatientId(@Param("patientId") Long patientId);
-//}
-//

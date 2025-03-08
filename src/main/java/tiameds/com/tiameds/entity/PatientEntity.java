@@ -13,7 +13,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
-
 @Getter
 @Setter
 @AllArgsConstructor
@@ -71,7 +70,7 @@ public class PatientEntity {
     @OneToMany(mappedBy = "patient", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private Set<VisitEntity> visits = new HashSet<>();
 
-    // One patient can have multiple labs
+    // One patient can have multiple labs and one lab can have multiple patients
     @ManyToMany(fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinTable(
             name = "lab_patients",
@@ -81,12 +80,8 @@ public class PatientEntity {
     @JsonManagedReference
     private Set<Lab> labs = new HashSet<>();
 
-    public int getAge() {
-        return LocalDate.now().getYear() - dateOfBirth.getYear();
-    }
-
-
     public long getId() {
         return patientId;
     }
+
 }

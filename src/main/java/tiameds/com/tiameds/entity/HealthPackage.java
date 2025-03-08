@@ -64,4 +64,7 @@ public class   HealthPackage {
     private Set<VisitEntity> visits = new HashSet<>();
 
 
+    public Object getPackageId() {
+        return id;
+    }
 }

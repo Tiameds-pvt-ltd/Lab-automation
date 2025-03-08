@@ -31,13 +31,13 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/public")
 @Tag(name = "User Controller", description = "Operations pertaining to user management ")
-public class UserController {
+public class  UserController {
 
     private final UserService userService;
     private final AuthenticationManager authenticationManager;
     private final UserDetailsServiceImpl userDetailsService;
     private final PasswordEncoder passwordEncoder;
-    private final JwtUtil jwtUtils;
+    private final JwtUtil jwtUtils; 
     private final ModuleRepository moduleRepository;
 
     @Autowired
@@ -49,7 +49,6 @@ public class UserController {
         this.jwtUtils = jwtUtils;
         this.moduleRepository = moduleRepository;
     }
-
 
     @GetMapping("/health-check")
     public String healthCheck() {
@@ -68,7 +67,6 @@ public class UserController {
         if (userService.existsByEmail(registerRequest.getEmail())) {
             return ApiResponseHelper.successResponseWithDataAndMessage("Email is already taken", HttpStatus.BAD_REQUEST,null);
         }
-
 
         // Fetch the modules based on the module IDs from the RegisterRequest
         List<Long> moduleIds = registerRequest.getModules();

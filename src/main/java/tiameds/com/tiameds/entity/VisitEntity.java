@@ -12,7 +12,6 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -33,10 +32,10 @@ public class VisitEntity {
     private LocalDate visitDate;
 
     @Column(name = "visit_type", nullable = false)
-    private String visitType; // IN-PATIENT, OUT-PATIENT, EMERGENCY
+    private String visitType; // IN-PATIENT, OUT-PATIENT
 
     @Column(name = "visit_status", nullable = false)
-    private String visitStatus; // ACTIVE, DISCHARGED, CANCELLED
+    private String visitStatus;
 
     @Column(name = "visit_description")
     private String visitDescription;
@@ -76,6 +75,23 @@ public class VisitEntity {
     )
     @JsonManagedReference
     private Set<InsuranceEntity> insurance = new HashSet<>();
+
+
+    @ManyToMany(fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @JoinTable(
+            name ="patient_visit_sample",
+            joinColumns = @JoinColumn(name = "visit_id"),
+            inverseJoinColumns = @JoinColumn(name = "sample_id")
+    )
+    @JsonManagedReference
+    private Set<SampleEntity> samples = new HashSet<>();
+
+
+    @ManyToMany(fetch = FetchType.LAZY,cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @JoinTable(name = "lab_visit",
+            joinColumns = @JoinColumn(name = "visit_id"),
+            inverseJoinColumns = @JoinColumn(name = "lab_id"))
+    private Set<Lab> labs = new HashSet<>();
 
 
     @ManyToOne(fetch = FetchType.LAZY)

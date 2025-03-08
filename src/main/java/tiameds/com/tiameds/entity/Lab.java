@@ -148,6 +148,16 @@ public class Lab {
     private Set<HealthPackage> healthPackages = new HashSet<>();
 
 
+    @ManyToMany(fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @JoinTable(
+            name = "lab_test_references",
+            joinColumns = @JoinColumn(name = "lab_id"),
+            inverseJoinColumns = @JoinColumn(name = "test_reference_id")
+    )
+    @JsonManagedReference
+    private Set<TestReferenceEntity> testReferences = new HashSet<>();
+
+
     public void addTest(Test test) {
         this.tests.add(test);
         test.getLabs().add(this);
@@ -194,5 +204,14 @@ public class Lab {
         return this.insurance.stream().map(InsuranceEntity::getName).reduce((a, b) -> a + ", " + b).orElse("");
     }
 
+    public void addTestReference(TestReferenceEntity entity) {
+        this.testReferences.add(entity);
+        entity.getLabs().add(this);
+    }
+
+    public void removeTestReference(TestReferenceEntity testReferenceEntity) {
+        this.testReferences.remove(testReferenceEntity);
+        testReferenceEntity.getLabs().remove(this);
+    }
 }
 

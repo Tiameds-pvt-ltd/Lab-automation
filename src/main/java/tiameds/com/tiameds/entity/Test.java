@@ -57,5 +57,4 @@ public class Test {
     @JsonBackReference
     private Set<VisitEntity> visits = new HashSet<>();
 
-
 }
