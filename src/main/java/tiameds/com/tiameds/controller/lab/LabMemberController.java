@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 import tiameds.com.tiameds.dto.auth.RegisterRequest;
 import tiameds.com.tiameds.dto.lab.LabListDTO;
 import tiameds.com.tiameds.dto.lab.UserInLabDTO;
@@ -16,6 +17,7 @@ import tiameds.com.tiameds.entity.ModuleEntity;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.repository.LabRepository;
 import tiameds.com.tiameds.repository.ModuleRepository;
+import tiameds.com.tiameds.repository.UserRepository;
 import tiameds.com.tiameds.services.auth.UserService;
 import tiameds.com.tiameds.services.lab.UserLabService;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
@@ -27,12 +29,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @RestController
 @RequestMapping("/lab/admin")
 @Tag(name = "Lab Member Controller", description = "create, get, update and delete lab members")
 public class LabMemberController {
 
+    private final UserRepository userRepository;
     private UserLabService userLabService;
     private UserAuthService userAuthService;
     private LabRepository labRepository;
@@ -48,8 +52,8 @@ public class LabMemberController {
             LabRepository labRepository, UserService userService,
             PasswordEncoder passwordEncoder,
             ModuleRepository moduleRepository,
-            LabAccessableFilter labAccessableFilter
-    ) {
+            LabAccessableFilter labAccessableFilter,
+            UserRepository userRepository) {
         this.userLabService = userLabService;
         this.userAuthService = userAuthService;
         this.labRepository = labRepository;
@@ -57,6 +61,7 @@ public class LabMemberController {
         this.passwordEncoder = passwordEncoder;
         this.moduleRepository = moduleRepository;
         this.labAccessableFilter = labAccessableFilter;
+        this.userRepository = userRepository;
     }
 
     @PostMapping("/add-member/{labId}/member/{userId}")
@@ -136,6 +141,7 @@ public class LabMemberController {
                         user.getEmail(),
                         user.getFirstName(),
                         user.getLastName(),
+                        user.isEnabled(),
                         user.getRoles().stream().map(role -> role.getName()).collect(Collectors.toList()
                         ))).collect(Collectors.toList());
         return ApiResponseHelper.successResponse("Lab members retrieved successfully", memberDTOs);
@@ -184,28 +190,25 @@ public class LabMemberController {
 
 
     //create a user in lab
+    @Transactional
     @PostMapping("/create-user/{labId}")
     public ResponseEntity<?> createUserInLab(
             @RequestBody RegisterRequest registerRequest,
             @PathVariable Long labId,
             @RequestHeader("Authorization") String token) {
 
-        // Check if the user is authenticated
         User currentUser = userAuthService.authenticateUser(token).orElse(null);
         if (currentUser == null)
             return ApiResponseHelper.errorResponse("User not found or unauthorized", HttpStatus.UNAUTHORIZED);
 
-        // Check if the lab is active
         boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
         if (isAccessible == false) {
             return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
         }
 
-        // get the module of the user
         List<Long> moduleIds = registerRequest.getModules();
         Set<ModuleEntity> modules = new HashSet<>();
 
-        // Iterate over the moduleIds and fetch corresponding ModuleEntity objects
         for (Long moduleId : moduleIds) {
             Optional<ModuleEntity> moduleOptional = moduleRepository.findById(moduleId);
             if (!moduleOptional.isPresent()) {
@@ -213,49 +216,40 @@ public class LabMemberController {
             }
             modules.add(moduleOptional.get());
         }
-
-        // Check if the lab exists
         Lab lab = labRepository.findById(labId).orElse(null);
         if (lab == null)
             return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
 
-
-        //check createor of the lab
+        // Check creator of the lab
         if (!lab.getCreatedBy().equals(currentUser)) {
-            return ApiResponseHelper.errorResponse("You are not authorized to create user in this lab", HttpStatus.UNAUTHORIZED);
+            return ApiResponseHelper.errorResponse("You are not authorized to create members in this lab", HttpStatus.UNAUTHORIZED);
         }
 
-        // check feild is empty or not
+        //check the user is already a member of the lab using username and email
+        if (lab.getMembers().stream().anyMatch(user -> user.getUsername().equals(registerRequest.getUsername()) || user.getEmail().equals(registerRequest.getEmail()))) {
+            return ApiResponseHelper.errorResponse("User is already a member of this lab", HttpStatus.CONFLICT);
+        }
+
         if (registerRequest.getUsername().isEmpty() || registerRequest.getPassword().isEmpty() || registerRequest.getEmail().isEmpty() || registerRequest.getFirstName().isEmpty() || registerRequest.getLastName().isEmpty()) {
             return ApiResponseHelper.errorResponse("Please fill all the fields", HttpStatus.BAD_REQUEST);
         }
-
-        // check email is valid or not
         if (!registerRequest.getEmail().contains("@") || !registerRequest.getEmail().contains(".")) {
             return ApiResponseHelper.errorResponse("Please enter a valid email", HttpStatus.BAD_REQUEST);
         }
-
-        // check password length
         if (registerRequest.getPassword().length() < 8) {
             return ApiResponseHelper.errorResponse("Password must be at least 8 characters long", HttpStatus.BAD_REQUEST);
         }
-
-        // check username length
         if (registerRequest.getUsername().length() < 4) {
             return ApiResponseHelper.errorResponse("Username must be at least 4 characters long", HttpStatus.BAD_REQUEST);
         }
 
-        // check email is already exist or not
         if (userService.existsByEmail(registerRequest.getEmail())) {
             return ApiResponseHelper.errorResponse("Email already exists", HttpStatus.BAD_REQUEST);
         }
-
-        // check username is already exist or not
         if (userService.existsByUsername(registerRequest.getUsername())) {
             return ApiResponseHelper.errorResponse("Username already exists", HttpStatus.BAD_REQUEST);
         }
 
-        // Create a new user
         User user = new User();
         user.setUsername(registerRequest.getUsername());
         user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
@@ -271,13 +265,8 @@ public class LabMemberController {
         user.setVerified(registerRequest.isVerified());
         user.setEnabled(true);
         user.setCreatedBy(currentUser);
-
         user.setModules(modules);
-
-        // Save the user
         userService.saveUser(user);
-
-        // Add the user to the lab's members
         if (lab.getMembers().contains(user)) {
             return ApiResponseHelper.errorResponse("User is already a member of this lab", HttpStatus.CONFLICT);
         }
@@ -285,6 +274,8 @@ public class LabMemberController {
         labRepository.save(lab);
         return ApiResponseHelper.successResponse("User created and added to lab successfully", HttpStatus.OK);
     }
+
+
 
 
     //update member details in lab
@@ -352,6 +343,7 @@ public class LabMemberController {
 
 
     //delete user in lab if you are the creator and in user table there is field that contain a creator id
+    @Transactional
     @DeleteMapping("/delete-user/{userId}")
     public ResponseEntity<?> deleteUserInLab(
             @PathVariable Long userId,
@@ -440,28 +432,20 @@ public class LabMemberController {
             @RequestHeader("Authorization") String token
     ) {
 
-        // Check if the user is authenticated
         User currentUser = userAuthService.authenticateUser(token).orElse(null);
         if (currentUser == null)
             return ApiResponseHelper.errorResponse("User not found or unauthorized", HttpStatus.UNAUTHORIZED);
-
-        // Check if the user exists
         User user = userLabService.getUserById(userId);
         if (user == null)
             return ApiResponseHelper.errorResponse("User not found", HttpStatus.NOT_FOUND);
-
-        //check user is member of the lab or not
         Optional<Lab> lab = labRepository.findByMembers(user);
         if (lab.isEmpty()) {
             return ApiResponseHelper.errorResponse("User is not a member of any lab", HttpStatus.NOT_FOUND);
         }
-
         //check createor of the lab
         if (!lab.get().getCreatedBy().equals(currentUser)) {
             return ApiResponseHelper.errorResponse("You are not authorized to remove role from this user", HttpStatus.UNAUTHORIZED);
         }
-
-        //remove role from user
         try {
             User updatedUser = userService.removeRole(userId, Math.toIntExact(roleId));
             return ApiResponseHelper.successResponse("Role removed successfully", updatedUser);
@@ -480,32 +464,17 @@ public class LabMemberController {
             @PathVariable Long userId,
             @RequestHeader("Authorization") String token
     ) {
-        // Check if the user is authenticated
         User currentUser = userAuthService.authenticateUser(token).orElse(null);
+
         if (currentUser == null)
             return ApiResponseHelper.errorResponse("User not found or unauthorized", HttpStatus.UNAUTHORIZED);
-
-        // Check if the user exists
-        User user = userLabService.getUserById(userId);
+        User user = userRepository.findById(userId).orElse(null);
         if (user == null)
             return ApiResponseHelper.errorResponse("User not found", HttpStatus.NOT_FOUND);
-
-        //check user is member of the lab or not
-        Optional<Lab> lab = labRepository.findByMembers(user);
-        if (lab.isEmpty()) {
-            return ApiResponseHelper.errorResponse("User is not a member of any lab", HttpStatus.NOT_FOUND);
-        }
-
-        //check createor of the lab
-        if (!lab.get().getCreatedBy().equals(currentUser)) {
-            return ApiResponseHelper.errorResponse("You are not authorized to get this user", HttpStatus.UNAUTHORIZED);
-        }
-
-        return ApiResponseHelper.successResponse("User retrieved successfully", user);
+        return ApiResponseHelper.successResponse("User fetched successfully", user);
     }
 
 
-    //get the list of lab of current user
     @Transactional
     @GetMapping("get-user-labs")
     public ResponseEntity<?> getUserLabs(
@@ -516,15 +485,10 @@ public class LabMemberController {
         User currentUser = userAuthService.authenticateUser(token).orElse(null);
         if (currentUser == null)
             return ApiResponseHelper.errorResponse("User not found or unauthorized", HttpStatus.UNAUTHORIZED);
-
         Set<Lab> labs = labRepository.findLabsByUserId(currentUser.getId());
-
-        System.out.println(labs+"====================");
-
         if (labs.isEmpty()) {
             return ApiResponseHelper.successResponseWithDataAndMessage("No labs found", HttpStatus.OK, null);
         }
-
         List<LabListDTO> labListDTOs = labs.stream()
                 .map(lab -> new LabListDTO(
                         lab.getId(),
@@ -537,7 +501,6 @@ public class LabMemberController {
                         lab.getCreatedBy().getUsername()
                 ))
                 .toList();
-
         return ApiResponseHelper.successResponseWithDataAndMessage("Labs fetched successfully", HttpStatus.OK, labListDTOs);
 
     }

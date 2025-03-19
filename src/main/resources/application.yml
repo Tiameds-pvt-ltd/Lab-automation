@@ -8,7 +8,6 @@ server:
     whitelabel:
       enabled: false
 
-
 logging:
   level:
     org.springframework: INFO
