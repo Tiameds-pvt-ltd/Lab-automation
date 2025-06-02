@@ -1,13 +1,12 @@
 package tiameds.com.tiameds.dto.lab;
-
-
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import tiameds.com.tiameds.entity.PatientEntity;
 import tiameds.com.tiameds.entity.VisitEntity;
-
 import java.time.LocalDate;
 import java.util.Comparator;
 
@@ -16,7 +15,7 @@ import java.util.Comparator;
 @AllArgsConstructor
 @NoArgsConstructor
 public class PatientDTO {
-    private long id;
+    private Long id;
     private String firstName;
     private String lastName;
     private String email;
@@ -28,11 +27,10 @@ public class PatientDTO {
     private String bloodGroup;
     private LocalDate dateOfBirth;
     private String gender;
-    private VisitDTO visit; // Single visit for simplicity in this context
+    private VisitDTO visit;
 
     public PatientDTO(PatientEntity patient) {
-
-        this.id = patient.getId();
+        this.id = patient.getPatientId();
         this.firstName = patient.getFirstName();
         this.lastName = patient.getLastName();
         this.email = patient.getEmail();
@@ -45,14 +43,14 @@ public class PatientDTO {
         this.dateOfBirth = patient.getDateOfBirth();
         this.gender = patient.getGender();
 
-        //get latest visit     on the basis of visiting id
-        VisitEntity latestVisit = patient.getVisits().stream().max(Comparator.comparing(VisitEntity::getVisitId)).orElse(null);
-
-        if (latestVisit != null) {
-            this.visit = new VisitDTO(latestVisit);
+        // Get latest visit
+        if (patient.getVisits() != null && !patient.getVisits().isEmpty()) {
+            VisitEntity latestVisit = patient.getVisits().stream()
+                    .max(Comparator.comparing(VisitEntity::getVisitId))
+                    .orElse(null);
+            if (latestVisit != null) {
+                this.visit = new VisitDTO(latestVisit);
+            }
         }
-
     }
-
-
 }

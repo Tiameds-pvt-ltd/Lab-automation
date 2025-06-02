@@ -1,5 +1,5 @@
 package tiameds.com.tiameds.entity;
-
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -11,7 +11,6 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
-
 
 @Getter
 @Setter
@@ -70,6 +69,13 @@ public class BillingEntity {
             inverseJoinColumns = @JoinColumn(name = "lab_id"))
     private Set<Lab> labs = new HashSet<>();
 
+    @OneToMany(mappedBy = "billing", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
+    private Set<TestDiscountEntity> testDiscounts = new HashSet<>();
+
+    //discountReason
+    @Column(name = "discount_reason")
+    private String discountReason; // Reason for the discount applied
 
     @CreationTimestamp
     @Column(updatable = false)

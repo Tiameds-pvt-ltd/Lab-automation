@@ -116,7 +116,8 @@ public class BillingService {
                         billing.getCgstAmount(),
                         billing.getSgstAmount(),
                         billing.getIgstAmount(),
-                        billing.getNetAmount()
+                        billing.getNetAmount(),
+                        billing.getDiscountReason()
                 ))
                 .collect(Collectors.toList());
     }

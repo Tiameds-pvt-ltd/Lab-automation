@@ -23,7 +23,6 @@ public class LabSuperAdminController {
         this.labSuperAdminService = labSuperAdminService;
         this.userAuthService = userAuthService;
     }
-
     @GetMapping("/labs")
     public ResponseEntity<?> getLabs(@RequestHeader("Authorization") String token) {
         try {
@@ -34,7 +33,6 @@ public class LabSuperAdminController {
             return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
-
     //allow lab to isActive or not
     @PutMapping("lab/{labId}/isActive")
     public ResponseEntity<?> updateLabStatus(@PathVariable long labId, @RequestBody LabListDTO labListDTO) {
@@ -42,7 +40,6 @@ public class LabSuperAdminController {
             if (labListDTO.getIsActive() == null) {
                 return ApiResponseHelper.errorResponse("isActive field is required", HttpStatus.BAD_REQUEST);
             }
-
             labSuperAdminService.updateLabStatus(labId, labListDTO);
             return ApiResponseHelper.successResponse("Lab status updated successfully", null);
         } catch (RuntimeException e) {
@@ -51,5 +48,4 @@ public class LabSuperAdminController {
             return ApiResponseHelper.errorResponse("Internal Server Error: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
-
 }

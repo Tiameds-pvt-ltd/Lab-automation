@@ -19,13 +19,15 @@ public class BillingDTO {
     private String paymentStatus; // PAID, UNPAID, PARTIAL
     private String paymentMethod; // CASH, CARD, ONLINE
     private String paymentDate; // Date of payment
-    private BigDecimal discount;
-    private BigDecimal gstRate;
-    private BigDecimal gstAmount;
-    private BigDecimal cgstAmount;
-    private BigDecimal sgstAmount;
-    private BigDecimal igstAmount;
-    private BigDecimal netAmount;
+    private BigDecimal discount = BigDecimal.ZERO;
+    private BigDecimal gstRate = BigDecimal.ZERO;
+    private BigDecimal gstAmount = BigDecimal.ZERO;
+    private BigDecimal cgstAmount = BigDecimal.ZERO;
+    private BigDecimal sgstAmount = BigDecimal.ZERO;
+    private BigDecimal igstAmount = BigDecimal.ZERO;
+    private BigDecimal netAmount = BigDecimal.ZERO;
+    private String discountReason;
+    private BigDecimal discountPercentage = BigDecimal.ZERO;
 
     public BillingDTO(BillingEntity billing) {
         this.billingId = billing.getId();
@@ -40,5 +42,10 @@ public class BillingDTO {
         this.sgstAmount = billing.getSgstAmount();
         this.igstAmount = billing.getIgstAmount();
         this.netAmount = billing.getNetAmount();
+        this.discountReason = billing.getDiscountReason();
+
+    }
+
+    public BillingDTO(Long id, BigDecimal totalAmount, String paymentStatus, String paymentMethod, String s, BigDecimal discount, BigDecimal gstRate, BigDecimal gstAmount, BigDecimal cgstAmount, BigDecimal sgstAmount, BigDecimal igstAmount, BigDecimal netAmount, String discountReason) {
     }
 }

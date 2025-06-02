@@ -26,4 +26,13 @@ public interface PatientRepository extends JpaRepository<PatientEntity, Long> {
     long countByLabIdAndCreatedAtBetween(@Param("labId") Long labId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 
 
+    Optional<PatientEntity> findByPhoneOrFirstName(String phone, String firstName);
+
+    @Query("SELECT p FROM PatientEntity p WHERE p.phone = :phone AND p.firstName = :firstName")
+    Optional<PatientEntity> findByPhoneAndFirstName(
+            @Param("phone") String phone,
+            @Param("firstName") String firstName
+    );
+
+    Optional<PatientEntity> findFirstByPhoneOrderByPatientIdAsc(String phone);
 }

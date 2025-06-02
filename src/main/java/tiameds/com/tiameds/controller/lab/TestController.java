@@ -376,9 +376,7 @@ public class TestController {
                             test.getUpdatedAt()
                     ))
                     .collect(Collectors.toList());
-
             return ApiResponseHelper.successResponseWithDataAndMessage("Tests uploaded successfully", HttpStatus.CREATED, testDTOs);
-
         } catch (RuntimeException e) {
             return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
         } catch (Exception e) {
@@ -405,12 +403,10 @@ public class TestController {
             if (!currentUser.getLabs().contains(lab)) {
                 return ApiResponseHelper.successResponseWithDataAndMessage("User is not authorized for this lab", HttpStatus.UNAUTHORIZED, null);
             }
-
             // Verify lab accessibility
             if (!labAccessableFilter.isLabAccessible(labId)) {
                 return ApiResponseHelper.successResponseWithDataAndMessage("Lab is not accessible", HttpStatus.UNAUTHORIZED, null);
             }
-
             // Generate CSV file and return as attachment
             return testServices.downloadCSV(lab);
 

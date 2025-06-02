@@ -8,7 +8,6 @@ import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.repository.DoctorRepository;
 import tiameds.com.tiameds.repository.LabRepository;
 import tiameds.com.tiameds.utils.UserAuthService;
-
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -27,13 +26,17 @@ public class DoctorService {
     }
 
     // Add doctor to lab
-    public void addDoctorToLab(Long labId, DoctorDTO doctorDTO) {
+    public void addDoctorToLab(Long labId, DoctorDTO doctorDTO, String username) {
         // Retrieve the lab and authenticate the user
         Lab lab = labRepository.findById(labId)
                 .orElseThrow(() -> new RuntimeException("Lab not found"));
         // Verify if the doctor already exists in the lab
-        List<Doctors> existingDoctors = lab.getDoctors().stream()
-                .filter(doctor -> doctor.getEmail().equals(doctorDTO.getEmail()))
+//        List<Doctors> existingDoctors = lab.getDoctors().stream()
+//                .filter(doctor -> doctor.getEmail().equals(doctorDTO.getEmail()))
+//                .collect(Collectors.toList());
+
+        List<Doctors> existingDoctors  = lab.getDoctors().stream()
+                .filter(doctors -> doctors.getName().equals(doctorDTO.getName()))
                 .collect(Collectors.toList());
 
         if (!existingDoctors.isEmpty()) {
@@ -53,29 +56,21 @@ public class DoctorService {
         doctor.setState(doctorDTO.getState());
         doctor.setCountry(doctorDTO.getCountry());
         doctor.getLabs().add(lab);
-
+        doctor.setCreatedBy(username);
         doctorRepository.save(doctor);
         // Add the doctor to the lab
         lab.getDoctors().add(doctor);
         labRepository.save(lab);
     }
 
-    public void updateDoctor(Long labId, Long doctorId, DoctorDTO doctorDTO) {
-
-        // Retrieve the lab and authenticate the user
+    public void updateDoctor(Long labId, Long doctorId, DoctorDTO doctorDTO, String username) {
         Lab lab = labRepository.findById(labId)
                 .orElseThrow(() -> new RuntimeException("Lab not found"));
-
-        // Retrieve the doctor
         Doctors doctor = doctorRepository.findById(doctorId)
                 .orElseThrow(() -> new RuntimeException("Doctor not found"));
-
-
-        //check doctor belongs to lab
         if (!lab.getDoctors().contains(doctor)) {
             throw new RuntimeException("Doctor not found in this lab");
         }
-
         // Update the doctor details
         doctor.setName(doctorDTO.getName());
         doctor.setEmail(doctorDTO.getEmail());
@@ -88,32 +83,23 @@ public class DoctorService {
         doctor.setCity(doctorDTO.getCity());
         doctor.setState(doctorDTO.getState());
         doctor.setCountry(doctorDTO.getCountry());
-
+        doctor.setUpdatedBy(username);
         doctorRepository.save(doctor);
     }
 
     public void deleteDoctor(Long labId, Long doctorId) {
-        // Retrieve the lab and authenticate the user
         Lab lab = labRepository.findById(labId)
                 .orElseThrow(() -> new RuntimeException("Lab not found"));
-
-        // Retrieve the doctor
         Doctors doctor = doctorRepository.findById(doctorId)
                 .orElseThrow(() -> new RuntimeException("Doctor not found"));
-
-        // Remove the doctor from the lab
         lab.getDoctors().remove(doctor);
         labRepository.save(lab);
-
-        // Delete the doctor
         doctorRepository.delete(doctor);
     }
 
     public Object getAllDoctors(Long labId) {
-        // Retrieve the lab and authenticate the user
         Lab lab = labRepository.findById(labId)
                 .orElseThrow(() -> new RuntimeException("Lab not found"));
-
         return lab.getDoctors().stream()
                 .map(doctor -> {
                     DoctorDTO doctorDTO = new DoctorDTO();
@@ -137,19 +123,13 @@ public class DoctorService {
     }
 
     public Object getDoctorById(Long labId, Long doctorId) {
-        // Retrieve the lab and authenticate the user
         Lab lab = labRepository.findById(labId)
                 .orElseThrow(() -> new RuntimeException("Lab not found"));
-
-        // Retrieve the doctor
         Doctors doctor = doctorRepository.findById(doctorId)
                 .orElseThrow(() -> new RuntimeException("Doctor not found"));
-
-        // Verify if the doctor belongs to the lab
         if (!lab.getDoctors().contains(doctor)) {
             throw new RuntimeException("Doctor not found in this lab");
         }
-
         DoctorDTO doctorDTO = new DoctorDTO();
         doctorDTO.setId(doctor.getId());
         doctorDTO.setName(doctor.getName());
@@ -165,7 +145,6 @@ public class DoctorService {
         doctorDTO.setCountry(doctor.getCountry());
         doctorDTO.setCreatedAt(doctor.getCreatedAt());
         doctorDTO.setUpdatedAt(doctor.getUpdatedAt());
-
         return doctorDTO;
     }
 }

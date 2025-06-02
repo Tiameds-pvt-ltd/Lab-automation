@@ -47,35 +47,28 @@ public class TestReferenceController {
             @PathVariable Long labId,
             @RequestParam("file") MultipartFile file,
             @RequestHeader("Authorization") String token) {
-
         try {
             Optional<User> userOptional = userAuthService.authenticateUser(token);
             if (userOptional.isEmpty()) {
                 return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
             }
-
             User currentUser = userOptional.get();
             Optional<Lab> labOptional = labRepository.findById(labId);
             if (labOptional.isEmpty()) {
                 return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
             }
-
             Lab lab = labOptional.get();
             if (!currentUser.getLabs().contains(lab)) {
                 return ApiResponseHelper.errorResponse("User is not authorized for this lab", HttpStatus.UNAUTHORIZED);
             }
-
             if (!labAccessableFilter.isLabAccessible(labId)) {
                 return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
             }
-
             if (file.isEmpty() || !"text/csv".equals(file.getContentType())) {
                 return ApiResponseHelper.errorResponse("Please upload a valid CSV file", HttpStatus.BAD_REQUEST);
             }
-
             List<TestReferenceEntity> testReferenceEntities = testReferenceServices.uploadCsv(lab, file, currentUser);
             return ApiResponseHelper.successResponseWithDataAndMessage("Test references uploaded successfully", HttpStatus.CREATED, testReferenceEntities);
-
         } catch (Exception e) {
             LOGGER.severe("Error processing CSV upload: " + e.getMessage());
             return ApiResponseHelper.errorResponse("Error processing request: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);

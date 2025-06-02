@@ -13,6 +13,7 @@ import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.repository.LabRepository;
 import tiameds.com.tiameds.services.lab.UserLabService;
+
 import tiameds.com.tiameds.utils.ApiResponse;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
@@ -167,8 +168,6 @@ public class LabController {
         return ApiResponseHelper.successResponseWithDataAndMessage("Lab updated successfully", HttpStatus.OK, lab);
     }
 
-
-
     @Transactional
     @PostMapping("/add-lab")
     public ResponseEntity<Map<String, Object>> addLab(
@@ -289,8 +288,6 @@ public class LabController {
         lab.getMembers().add(userToAdd);
         labRepository.save(lab);
     }
-
-
 }
 
 

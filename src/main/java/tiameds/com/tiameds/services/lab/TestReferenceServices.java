@@ -33,8 +33,6 @@ public class TestReferenceServices {
     public List<TestReferenceEntity> uploadCsv(Lab lab, MultipartFile file, User currentUser) {
         List<TestReferenceEntity> testReferenceEntities = new ArrayList<>();
 
-        //ge
-
         if (currentUser == null) {
             throw new RuntimeException("User authentication failed.");
         }

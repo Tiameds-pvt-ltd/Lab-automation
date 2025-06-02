@@ -13,6 +13,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
+
+
 @Getter
 @Setter
 @AllArgsConstructor
@@ -67,8 +69,21 @@ public class PatientEntity {
     private LocalDateTime updatedAt;
 
     // One patient can have multiple visits
+
     @OneToMany(mappedBy = "patient", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private Set<VisitEntity> visits = new HashSet<>();
+
+    // Guardian relationship - stores the ID in guardian_id column
+    @Column(name = "guardian_id")
+    private Long guardianId;
+
+    // Guardian relationship - object reference
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "guardian_id", referencedColumnName = "patient_id", insertable = false, updatable = false)
+    private PatientEntity guardian;
+
+
+
 
     // One patient can have multiple labs and one lab can have multiple patients
     @ManyToMany(fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
@@ -84,4 +99,9 @@ public class PatientEntity {
         return patientId;
     }
 
+    // Custom method to handle both guardian fields
+    public void setGuardian(PatientEntity guardian) {
+        this.guardian = guardian;
+        this.guardianId = (guardian != null) ? guardian.getPatientId() : null;
+    }
 }

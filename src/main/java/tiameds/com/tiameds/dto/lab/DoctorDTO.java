@@ -23,6 +23,8 @@ public class DoctorDTO {
     private String city;
     private String state;
     private String country;
+    private String CreatedBy;
+    private String UpdatedBy;
 //    private Set<Long> labIds; // Lab IDs related to the doctor
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

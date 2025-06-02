@@ -23,7 +23,6 @@ import java.util.List;
 @RequestMapping("/admin")
 @Tag(name = "Module Controller", description = "Operations pertaining to module management")
 public class ModuleController {
-
     private final ModuleRepository moduleRepository;
     private final UserRepository userRepository;
 
@@ -91,16 +90,12 @@ public class ModuleController {
     }
 
     // ========================================= MODULE CRUD OPERATION  this is for super admin=========================================
-
     // add module to user
     @PostMapping("/users/{userId}/modules/{moduleId}")
     public ResponseEntity<?> addModuleToUser(@PathVariable Long userId, @PathVariable Long moduleId) {
-
         try {
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new EntityNotFoundException("User not found with id " + userId));
-
-
             ModuleEntity module = moduleRepository.findById(moduleId)
                     .orElseThrow(() -> new EntityNotFoundException("Module not found with id " + moduleId));
 
@@ -111,27 +106,21 @@ public class ModuleController {
             // add module to user
             user.getModules().add(module);
             userRepository.save(user);
-
             return ApiResponseHelper.successResponse("Module added to user successfully", user);
         } catch (EntityNotFoundException e) {
             return ApiResponseHelper.errorResponseWithData("User or Module not found", HttpStatus.NOT_FOUND);
         }
-
     }
 
 
     // remove module from user
     @DeleteMapping("/users/{userId}/modules/{moduleId}")
     public ResponseEntity<?> removeModuleFromUser(@PathVariable Long userId, @PathVariable Long moduleId) {
-
         try {
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new EntityNotFoundException("User not found with id " + userId));
-
-
             ModuleEntity module = moduleRepository.findById(moduleId)
                     .orElseThrow(() -> new EntityNotFoundException("Module not found with id " + moduleId));
-
             //check module is already exist in user
             if(!user.getModules().contains(module)){
                 return ApiResponseHelper.errorResponseWithData("Module not added to user", HttpStatus.BAD_REQUEST);
@@ -139,14 +128,9 @@ public class ModuleController {
             // remove module from user
             user.getModules().remove(module);
             userRepository.save(user);
-
             return ApiResponseHelper.successResponse("Module removed from user successfully", user);
         } catch (EntityNotFoundException e) {
             return ApiResponseHelper.errorResponseWithData("User or Module not found", HttpStatus.NOT_FOUND);
         }
-
-
-
-
     }
 }

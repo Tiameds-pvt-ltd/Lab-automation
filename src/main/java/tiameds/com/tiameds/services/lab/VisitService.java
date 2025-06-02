@@ -1,23 +1,21 @@
 package tiameds.com.tiameds.services.lab;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import tiameds.com.tiameds.dto.lab.BillingDTO;
 import tiameds.com.tiameds.dto.lab.PatientDTO;
+import tiameds.com.tiameds.dto.lab.TestDiscountDTO;
 import tiameds.com.tiameds.dto.lab.VisitDTO;
 import tiameds.com.tiameds.entity.*;
 import tiameds.com.tiameds.repository.*;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
-
 import java.util.*;
 import java.util.stream.Collectors;
 
 
 @Service
 public class VisitService {
-
     private final PatientRepository patientRepository;
     private final LabRepository labRepository;
     private final TestRepository testRepository;
@@ -26,6 +24,7 @@ public class VisitService {
     private final InsuranceRepository insuranceRepository;
     private final BillingRepository billingRepository;
     private final VisitRepository visitRepository;
+    private final TestDiscountRepository testDiscountRepository;
 
     public VisitService(PatientRepository patientRepository,
                         LabRepository labRepository,
@@ -34,7 +33,7 @@ public class VisitService {
                         DoctorRepository doctorRepository,
                         InsuranceRepository insuranceRepository,
                         BillingRepository billingRepository,
-                        VisitRepository visitRepository) {
+                        VisitRepository visitRepository, TestDiscountRepository testDiscountRepository) {
         this.patientRepository = patientRepository;
         this.labRepository = labRepository;
         this.testRepository = testRepository;
@@ -43,36 +42,29 @@ public class VisitService {
         this.insuranceRepository = insuranceRepository;
         this.billingRepository = billingRepository;
         this.visitRepository = visitRepository;
+        this.testDiscountRepository = testDiscountRepository;
     }
 
     @Transactional
     public void addVisit(Long labId, Long patientId, VisitDTO visitDTO, Optional<User> currentUser) {
-
-        // Check if the lab exists
         Optional<Lab> labOptional = labRepository.findById(labId);
         if (labOptional.isEmpty()) {
             ApiResponseHelper.successResponseWithDataAndMessage("Lab not found", HttpStatus.NOT_FOUND, null);
         }
-
-        // Check if the user is a member of the lab
         if (!currentUser.get().getLabs().contains(labOptional.get())) {
             ApiResponseHelper.successResponseWithDataAndMessage("User is not a member of this lab", HttpStatus.UNAUTHORIZED, null);
         }
-
         // Check if the patient belongs to the lab
         Optional<PatientEntity> patientEntity = patientRepository.findById(patientId)
                 .filter(patient -> patient.getLabs().contains(labOptional.get()));
         if (patientEntity.isEmpty()) {
             ApiResponseHelper.successResponseWithDataAndMessage("Patient not belong to the lab", HttpStatus.BAD_REQUEST, null);
         }
-
         // Check if the doctor exists
         Optional<Doctors> doctorOptional = doctorRepository.findById(visitDTO.getDoctorId());
         if (doctorOptional.isEmpty()) {
             ApiResponseHelper.errorResponse("Doctor not found", HttpStatus.NOT_FOUND);
         }
-
-        // Create the visit entity
         VisitEntity visit = new VisitEntity();
         visit.setPatient(patientEntity.get());
         visit.setVisitDate(visitDTO.getVisitDate());
@@ -81,16 +73,12 @@ public class VisitService {
         visit.setVisitDescription(visitDTO.getVisitDescription());
         visit.setDoctor(doctorOptional.get());
         visit.getLabs().add(labOptional.get());
-
-
         // Set tests
         Set<Test> tests = testRepository.findAllById(visitDTO.getTestIds()).stream().collect(Collectors.toSet());
         visit.setTests(tests);
-
         // Set health packages
         Set<HealthPackage> healthPackages = healthPackageRepository.findAllById(visitDTO.getPackageIds()).stream().collect(Collectors.toSet());
         visit.setPackages(healthPackages);
-
         // Set insurances
         List<InsuranceEntity> insurances = insuranceRepository.findAllById(visitDTO.getInsuranceIds());
         if (insurances.stream().anyMatch(insurance -> !insurance.getLabs().contains(labOptional.get()))) {
@@ -111,38 +99,27 @@ public class VisitService {
         billingEntity.setSgstAmount(visitDTO.getBilling().getSgstAmount());
         billingEntity.setIgstAmount(visitDTO.getBilling().getIgstAmount());
         billingEntity.setNetAmount(visitDTO.getBilling().getNetAmount());
-
         billingRepository.save(billingEntity);
         visit.setBilling(billingEntity);
 
         // Save the visit
         visitRepository.save(visit);
-
-
     }
 
-
     public List<PatientDTO> getVisits(Long labId, Optional<User> currentUser) {
-        // Check if the lab exists
         Optional<Lab> labOptional = labRepository.findById(labId);
         if (labOptional.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Lab not found");
         }
-
-        // Check if the user is a member of the lab
         if (currentUser.isEmpty() || !currentUser.get().getLabs().contains(labOptional.get())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User is not a member of this lab");
         }
-
-        // Get the list of visits
         List<VisitEntity> visits = visitRepository.findAllByPatient_Labs(labOptional.get());
 
-        // Map entities to DTOs
         return visits.stream()
                 .map(this::mapVisitToPatientDTO)
                 .collect(Collectors.toList());
     }
-
 
     private PatientDTO mapVisitToPatientDTO(VisitEntity visitEntity) {
         // Map patient details
@@ -170,7 +147,6 @@ public class VisitService {
 //        visitDTO.setDoctorId(visitEntity.getDoctor().getId());
         // doctor id be may be null
         visitDTO.setDoctorId(visitEntity.getDoctor() != null ? visitEntity.getDoctor().getId() : null);
-
         visitDTO.setTestIds(visitEntity.getTests().stream().map(Test::getId).collect(Collectors.toList()));
         visitDTO.setPackageIds(visitEntity.getPackages().stream().map(HealthPackage::getId).collect(Collectors.toList()));
         visitDTO.setInsuranceIds(visitEntity.getInsurance().stream().map(InsuranceEntity::getId).collect(Collectors.toList()));
@@ -190,56 +166,55 @@ public class VisitService {
             billingDTO.setSgstAmount(visitEntity.getBilling().getSgstAmount());
             billingDTO.setIgstAmount(visitEntity.getBilling().getIgstAmount());
             billingDTO.setNetAmount(visitEntity.getBilling().getNetAmount());
+            billingDTO.setDiscountReason(visitEntity.getBilling().getDiscountReason());
             visitDTO.setBilling(billingDTO);
         }
-
-        // Attach visit to patient DTO
+        // Map test discounts
+        if(visitEntity.getBilling() != null) {
+            List<TestDiscountEntity> testDiscounts = testDiscountRepository.findAllByBilling(visitEntity.getBilling());
+            List<TestDiscountDTO> testDiscountDTOs = testDiscounts.stream()
+                    .map(testDiscount -> new TestDiscountDTO(
+                            testDiscount.getTestId(),
+                            testDiscount.getDiscountAmount(),
+                            testDiscount.getDiscountPercent(),
+                            testDiscount.getFinalPrice(),
+                            testDiscount.getCreatedBy(),
+                            testDiscount.getUpdatedBy()
+                    )).collect(Collectors.toList());
+            visitDTO.setListOfEachTestDiscount(testDiscountDTOs);
+        } else {
+            visitDTO.setListOfEachTestDiscount(new ArrayList<>());
+        }
         patientDTO.setVisit(visitDTO);
-
         return patientDTO;
     }
 
     @Transactional
     public void updateVisit(Long labId, Long visitId, VisitDTO visitDTO, Optional<User> currentUser) {
-
-        // Check if the lab exists
         Optional<Lab> labOptional = labRepository.findById(labId);
         if (labOptional.isEmpty()) {
             ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
         }
-
-        // Check if the user is a member of the lab
         if (currentUser.isEmpty() || !currentUser.get().getLabs().contains(labOptional.get())) {
             ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
         }
-
         VisitEntity visit = visitRepository.findById(visitId)
                 .filter(visitEntity -> visitEntity.getPatient().getLabs().contains(labOptional.get()))
                 .orElseThrow(() -> new IllegalArgumentException("Visit not found or does not belong to the lab"));
-
-
         Optional<Doctors> doctorOptional = doctorRepository.findById(visitDTO.getDoctorId());
         if (doctorOptional.isEmpty()) {
             ApiResponseHelper.errorResponse("Doctor not found", HttpStatus.NOT_FOUND);
         }
-
-        // Update the visit
         visit.setVisitDate(visitDTO.getVisitDate());
         visit.setVisitType(visitDTO.getVisitType());
         visit.setVisitStatus(visitDTO.getVisitStatus());
         visit.setVisitDescription(visitDTO.getVisitDescription());
         visit.setDoctor(doctorOptional.get());
         visit.getLabs().add(labOptional.get());
-
-        // Set tests
         Set<Test> tests = testRepository.findAllById(visitDTO.getTestIds()).stream().collect(Collectors.toSet());
         visit.setTests(tests);
-
-        // Set health packages
         Set<HealthPackage> healthPackages = healthPackageRepository.findAllById(visitDTO.getPackageIds()).stream().collect(Collectors.toSet());
         visit.setPackages(healthPackages);
-
-        // Set insurances
         List<InsuranceEntity> insurances = insuranceRepository.findAllById(
                 visitDTO.getInsuranceIds()
                         .stream()
@@ -249,7 +224,6 @@ public class VisitService {
             ApiResponseHelper.errorResponse("Insurance not belong to the lab", HttpStatus.BAD_REQUEST);
         }
         visit.setInsurance(new HashSet<>(insurances));
-
         // Handle billing information
         BillingEntity billingEntity = visit.getBilling();
         billingEntity.setTotalAmount(visitDTO.getBilling().getTotalAmount());
@@ -259,13 +233,11 @@ public class VisitService {
         billingEntity.setDiscount(visitDTO.getBilling().getDiscount());
         billingEntity.setGstRate(visitDTO.getBilling().getGstRate());
         billingEntity.setGstAmount(visitDTO.getBilling().getGstAmount());
-
         billingEntity.setCgstAmount(visitDTO.getBilling().getCgstAmount());
         billingEntity.setSgstAmount(visitDTO.getBilling().getSgstAmount());
         billingEntity.setIgstAmount(visitDTO.getBilling().getIgstAmount());
         billingEntity.setNetAmount(visitDTO.getBilling().getNetAmount());
         billingEntity.getLabs().add(labOptional.get());
-
         billingRepository.save(billingEntity);
         visit.setBilling(billingEntity);
         // Save the visit
@@ -273,90 +245,62 @@ public class VisitService {
 
     }
 
-    // delete the visit
     public void deleteVisit(Long labId, Long visitId, Optional<User> currentUser) {
-        // Check if the lab exists
         Optional<Lab> labOptional = labRepository.findById(labId);
         if (labOptional.isEmpty()) {
             ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
         }
-
-        // Check if the user is a member of the lab
         if (currentUser.isEmpty() || !currentUser.get().getLabs().contains(labOptional.get())) {
             ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
         }
-
-        // Check if the visit exists
         Optional<VisitEntity> visitOptional = visitRepository.findById(visitId);
         if (visitOptional.isEmpty()) {
             ApiResponseHelper.errorResponse("Visit not found", HttpStatus.NOT_FOUND);
         }
-
         VisitEntity visit = visitRepository.findById(visitId)
                 .filter(visitEntity -> visitEntity.getPatient().getLabs().contains(labOptional.get()))
                 .orElseThrow(() -> new IllegalArgumentException("Visit not found or does not belong to the lab"));
-
         visitRepository.delete(visit);
     }
 
-    // get the visit details
     public Object getVisit(Long labId, Long visitId, Optional<User> currentUser) {
-        // Check if the lab exists
         Optional<Lab> labOptional = labRepository.findById(labId);
         if (labOptional.isEmpty()) {
             return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
         }
-
-        // Check if the user is a member of the lab
         if (currentUser.isEmpty() || !currentUser.get().getLabs().contains(labOptional.get())) {
             return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
         }
-
-        // Check if the visit exists
         Optional<VisitEntity> visitOptional = visitRepository.findById(visitId);
         if (visitOptional.isEmpty()) {
             return ApiResponseHelper.errorResponse("Visit not found", HttpStatus.NOT_FOUND);
         }
-
         VisitEntity visit = visitRepository.findById(visitId)
                 .filter(visitEntity -> visitEntity.getPatient().getLabs().contains(labOptional.get()))
                 .orElseThrow(() -> new IllegalArgumentException("Visit not found or does not belong to the lab"));
 
-
-        // Map visit to PatientDTO
+        //find test discount for the
         PatientDTO patientDTO = mapVisitToPatientDTO(visit);
-
         return patientDTO;
     }
 
     public Object getVisitByPatient(Long labId, Long patientId, Optional<User> currentUser) {
-        // Check if the lab exists
         Optional<Lab> labOptional = labRepository.findById(labId);
         if (labOptional.isEmpty()) {
             return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
         }
-
-        // Check if the user is a member of the lab
         if (currentUser.isEmpty() || !currentUser.get().getLabs().contains(labOptional.get())) {
             return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
         }
-
-        // Check if the patient belongs to the lab
         Optional<PatientEntity> patientEntity = patientRepository.findById(patientId)
                 .filter(patient -> patient.getLabs().contains(labOptional.get()));
         if (patientEntity.isEmpty()) {
             return ApiResponseHelper.errorResponse("Patient not belong to the lab", HttpStatus.BAD_REQUEST);
         }
-
-
-        // Get the list of visits
         List<VisitEntity> visits = visitRepository.findAllByPatient(patientEntity.get());
-
-        // Map visits to PatientDTO
         List<PatientDTO> patientDTOList = visits.stream()
                 .map(this::mapVisitToPatientDTO)
                 .collect(Collectors.toList());
-
         return patientDTOList;
     }
 }

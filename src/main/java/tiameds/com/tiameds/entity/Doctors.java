@@ -58,7 +58,7 @@ public class Doctors {
     private String licenseNumber;
 
     @NotBlank(message = "Phone is required")
-    @Size(max = 15, message = "Phone number cannot exceed 15 characters")
+    @Size(max = 10, message = "Phone number cannot exceed 15 characters")
     @Column(nullable = false)
     private String phone;
 
@@ -97,5 +97,12 @@ public class Doctors {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+   // createdby and updateby
+    @Column(name = "created_by")
+    private String CreatedBy;
+
+    @Column(name = "updated_by")
+    private String UpdatedBy;
 
 }
