@@ -156,46 +156,46 @@ public class PatientController {
         }
     }
 
-//    @PutMapping("/{labId}/update-patient/{patientId}")
-//    public ResponseEntity<?> updatePatient(
-//            @PathVariable Long labId,
-//            @PathVariable Long patientId,
-//            @RequestHeader("Authorization")
-//            String token, @RequestBody
-//            PatientDTO patientDTO) {
-//        try {
-//            // Validate token format
-//            Optional<User> currentUser = userAuthService.authenticateUser(token);
-//            if (currentUser.isEmpty()) {
-//                return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
-//            }
+    @PutMapping("/{labId}/update-patient/{patientId}")
+    public ResponseEntity<?> updatePatient(
+            @PathVariable Long labId,
+            @PathVariable Long patientId,
+            @RequestHeader("Authorization")
+            String token, @RequestBody
+            PatientDTO patientDTO) {
+        try {
+            // Validate token format
+            Optional<User> currentUser = userAuthService.authenticateUser(token);
+            if (currentUser.isEmpty()) {
+                return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+            }
+
+            // Check if the lab exists
+            Optional<Lab> labOptional = labRepository.findById(labId);
+            if (labOptional.isEmpty()) {
+                return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
+            }
+
+            boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+            if (isAccessible == false) {
+                return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+            }
+
+            // Check if the user is a member of the lab
+            if (!currentUser.get().getLabs().contains(labOptional.get())) {
+                return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
+            }
+
+            //service to update the patient
+            patientService.updatePatient(patientId, labId, patientDTO);
 //
-//            // Check if the lab exists
-//            Optional<Lab> labOptional = labRepository.findById(labId);
-//            if (labOptional.isEmpty()) {
-//                return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
-//            }
-//
-//            boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
-//            if (isAccessible == false) {
-//                return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
-//            }
-//
-//            // Check if the user is a member of the lab
-//            if (!currentUser.get().getLabs().contains(labOptional.get())) {
-//                return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
-//            }
-//
-//            //service to update the patient
-//            patientService.updatePatient(patientId, labId, patientDTO);
-////
-////            return ApiResponseHelper.successResponse("Patient updated successfully", HttpStatus.OK);
-//            return ApiResponseHelper.successResponseWithDataAndMessage("Patient updated successfully", HttpStatus.OK, patientDTO);
-//
-//        } catch (Exception e) {
-//            return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
-//        }
-//    }
+//            return ApiResponseHelper.successResponse("Patient updated successfully", HttpStatus.OK);
+            return ApiResponseHelper.successResponseWithDataAndMessage("Patient updated successfully", HttpStatus.OK, patientDTO);
+
+        } catch (Exception e) {
+            return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
+        }
+    }
 
     @DeleteMapping("/{labId}/delete-patient/{patientId}")
     public ResponseEntity<?> deletePatient(@PathVariable Long labId, @PathVariable Long patientId, @RequestHeader("Authorization") String token) {
@@ -225,7 +225,7 @@ public class PatientController {
 
 
     @PutMapping("/{labId}/update-patient-details/{patientId}")
-    public ResponseEntity<?> updatePatient(
+    public ResponseEntity<?> updatePatientDetails(
             @PathVariable Long labId,
             @PathVariable Long patientId,
             @RequestHeader("Authorization") String token,
