@@ -1,10 +1,14 @@
 package tiameds.com.tiameds.controller.lab;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+import tiameds.com.tiameds.dto.lab.PatientDTO;
+import tiameds.com.tiameds.dto.lab.PatientDetailsDto;
 import tiameds.com.tiameds.dto.lab.VisitDTO;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.services.lab.BillingService;
@@ -13,6 +17,9 @@ import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
 import tiameds.com.tiameds.utils.UserAuthService;
 
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 
@@ -161,4 +168,40 @@ public class VisitController {
             return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+
+    @GetMapping("/{labId}/visitsdatewise")
+    public ResponseEntity<?> getVisitsByDateRange(
+            @PathVariable Long labId,
+            @RequestHeader("Authorization") String token,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+    ) {
+        try {
+            Optional<User> currentUser = userAuthService.authenticateUser(token);
+            if (currentUser.isEmpty()) {
+                return ApiResponseHelper.successResponseWithDataAndMessage("User not found", HttpStatus.UNAUTHORIZED, null);
+            }
+
+            boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+            if (!isAccessible) {
+                return ApiResponseHelper.successResponseWithDataAndMessage("Lab is not accessible", HttpStatus.UNAUTHORIZED, null);
+            }
+
+            List<PatientDetailsDto> visits = List.of(); // Empty by default
+
+            if (startDate != null && endDate != null) {
+                visits = (List<PatientDetailsDto>) visitService.getVisitsByDateRange(labId, currentUser, startDate, endDate);
+            }
+
+            return ApiResponseHelper.successResponseWithDataAndMessage("Visits fetched successfully", HttpStatus.OK, visits);
+
+        } catch (ResponseStatusException ex) {
+            return ApiResponseHelper.errorResponseWithMessage(ex.getReason(), (HttpStatus) ex.getStatusCode());
+        } catch (Exception e) {
+            return ApiResponseHelper.errorResponseWithMessage(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+
 }

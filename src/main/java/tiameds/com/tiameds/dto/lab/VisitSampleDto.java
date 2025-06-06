@@ -1,8 +1,6 @@
 package tiameds.com.tiameds.dto.lab;
 
-import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -25,7 +23,7 @@ public class VisitSampleDto {
     private List<Long> packageIds;
 
 
-    public VisitSampleDto(Long visitId, String patientname, String gender, String dateOfBirth, String contactNumber, String email, LocalDate visitDate, String visitStatus, Set<String> sampleNames, List<Long> testIds, List<Long> packageIds) {
+    public VisitSampleDto(Long visitId, String patientname, String gender, String dateOfBirth, String contactNumber, String email, LocalDate visitDate, String visitStatus, String s, Set<String> sampleNames, List<Long> testIds, List<Long> packageIds) {
         this.visitId = visitId;
         this.patientname = patientname;
         this.gender = gender;

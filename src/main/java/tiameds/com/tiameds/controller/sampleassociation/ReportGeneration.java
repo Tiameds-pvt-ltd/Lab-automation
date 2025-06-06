@@ -63,8 +63,6 @@ public class ReportGeneration {
         return reportService.createReports(reportDtoList, labId, currentUser.get());
     }
 
-
-
     @Transactional
     @GetMapping("{labId}/report/{visitId}")
     public ResponseEntity<?> getReport(
@@ -95,6 +93,9 @@ public class ReportGeneration {
         }
         return reportService.getReport(visitId, labId);
     }
+
+
+
 
 
 }

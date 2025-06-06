@@ -29,4 +29,8 @@ public interface VisitRepository extends JpaRepository<VisitEntity, Long> {
 
     @Query("SELECT COUNT(v) FROM VisitEntity v JOIN v.patient p JOIN p.labs l WHERE l.id = :labId AND v.visitStatus = :status AND v.createdAt BETWEEN :startDate AND :endDate")
     long countByLabIdAndStatus(@Param("labId") Long labId, @Param("status") String status, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
+    List<VisitEntity> findAllByPatient_LabsAndVisitDateBetween(Lab lab, LocalDate startDate, LocalDate endDate);
+
+    List<VisitEntity> findAllByPatient_LabsAndVisitDateBetweenAndVisitStatus(Lab lab, LocalDate startDate, LocalDate endDate, String visitStatus);
 }
