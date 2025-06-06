@@ -94,6 +94,34 @@ public class ReportGeneration {
         return reportService.getReport(visitId, labId);
     }
 
+    @Transactional
+    @PutMapping("{labId}/report")
+    public ResponseEntity<?> updateReports(
+            @PathVariable Long labId,
+            @RequestBody List<ReportDto> reportDtoList,
+            @RequestHeader("Authorization") String token) {
+
+        Optional<User> currentUser = userAuthService.authenticateUser(token);
+        if (currentUser.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+        }
+
+        Optional<Lab> lab = labRepository.findById(labId);
+        if (lab.isEmpty()) {
+            return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
+        }
+
+        if (!currentUser.get().getLabs().contains(lab.get())) {
+            return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
+        }
+
+        if (reportDtoList == null || reportDtoList.isEmpty()) {
+            return ApiResponseHelper.errorResponse("Report list cannot be empty", HttpStatus.BAD_REQUEST);
+        }
+
+        return reportService.updateReports(reportDtoList, currentUser.get());
+    }
+
 
 
 

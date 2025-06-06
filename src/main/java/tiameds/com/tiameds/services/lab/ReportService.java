@@ -69,5 +69,39 @@ public class ReportService {
         }
         return ApiResponseHelper.successResponse("Report fetched successfully", reportEntities);
     }
+
+
+    public ResponseEntity<?> updateReports(List<ReportDto> reportDtoList, User user) {
+        List<ReportEntity> updatedReports = new ArrayList<>();
+
+        for (ReportDto reportDto : reportDtoList) {
+            if (reportDto.getReportId() == null) {
+                return ApiResponseHelper.errorResponse("Report ID is required for update", HttpStatus.BAD_REQUEST);
+            }
+
+            Optional<ReportEntity> optionalReport = reportRepository.findById(reportDto.getReportId());
+            if (optionalReport.isEmpty()) {
+                return ApiResponseHelper.errorResponse("Report not found with ID: " + reportDto.getReportId(), HttpStatus.NOT_FOUND);
+            }
+
+            ReportEntity reportEntity = optionalReport.get();
+
+            // Update fields
+            reportEntity.setTestName(reportDto.getTestName());
+            reportEntity.setTestCategory(reportDto.getTestCategory());
+            reportEntity.setPatientName(reportDto.getPatientName());
+            reportEntity.setReferenceDescription(reportDto.getReferenceDescription());
+            reportEntity.setReferenceRange(reportDto.getReferenceRange());
+            reportEntity.setReferenceAgeRange(reportDto.getReferenceAgeRange());
+            reportEntity.setEnteredValue(reportDto.getEnteredValue());
+            reportEntity.setUnit(reportDto.getUnit());
+            reportEntity.setCreatedBy(user.getId());
+
+            updatedReports.add(reportEntity);
+        }
+
+        List<ReportEntity> savedReports = reportRepository.saveAll(updatedReports);
+        return ApiResponseHelper.successResponse("Reports updated successfully", savedReports);
+    }
 }
 
