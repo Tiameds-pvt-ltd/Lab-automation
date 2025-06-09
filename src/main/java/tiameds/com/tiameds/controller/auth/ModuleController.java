@@ -1,6 +1,4 @@
 package tiameds.com.tiameds.controller.auth;
-
-
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
@@ -14,9 +12,7 @@ import tiameds.com.tiameds.repository.ModuleRepository;
 import tiameds.com.tiameds.repository.UserRepository;
 import tiameds.com.tiameds.utils.ApiResponse;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
-
 import java.util.List;
-
 
 @Slf4j
 @RestController

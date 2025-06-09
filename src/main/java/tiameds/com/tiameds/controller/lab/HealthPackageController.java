@@ -33,7 +33,6 @@ public class HealthPackageController {
     private final HealthPackageRepository healthPackageRepository;
     private final LabAccessableFilter labAccessableFilter;
 
-
     //default constructor
     public HealthPackageController(LabRepository labRepository, TestRepository testRepository, UserAuthService userAuthService, HealthPackageRepository healthPackageRepository, LabAccessableFilter labAccessableFilter) {
         this.labRepository = labRepository;

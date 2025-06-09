@@ -12,5 +12,7 @@ public class UserInLabDTO {
     private String firstName;
     private String lastName;
     private Boolean enabled;
+    private String phone;
+    private String city;
     private List<String> roles; // Add roles as a list of role names
 }

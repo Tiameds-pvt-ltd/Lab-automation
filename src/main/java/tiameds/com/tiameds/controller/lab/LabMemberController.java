@@ -105,49 +105,42 @@ public class LabMemberController {
         return ApiResponseHelper.successResponse("User added to lab successfully", HttpStatus.OK);
     }
 
+//    @Transactional
+//    @GetMapping("/get-members/{labId}")
+//    public ResponseEntity<?> getLabMembers(
+//            @PathVariable Long labId,
+//            @RequestHeader("Authorization") String token) {
+//        User currentUser = userAuthService.authenticateUser(token).orElse(null);
+//        if (currentUser == null) {
+//            return ApiResponseHelper.errorResponse("User not found or unauthorized", HttpStatus.UNAUTHORIZED);
+//        }
+//        Lab lab = labRepository.findById(labId).orElse(null);
+//        if (lab == null) {
+//            return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
+//        }
+//        boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+//        if (isAccessible == false) {
+//            return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+//        }
+//        if (!lab.getCreatedBy().equals(currentUser)) {
+//            return ApiResponseHelper.errorResponse("You are not authorized to view members of this lab", HttpStatus.UNAUTHORIZED);
+//        }
+//        List<UserInLabDTO> memberDTOs = lab.getMembers().stream()
+//                .map(user -> new UserInLabDTO(
+//                        user.getId(),
+//                        user.getUsername(),
+//                        user.getEmail(),
+//                        user.getFirstName(),
+//                        user.getLastName(),
+//                        user.isEnabled(),
+//                        user.getPhone(),
+//                        user.getCity(),
+//                        user.getRoles().stream().map(role -> role.getName()).collect(Collectors.toList()
+//                        ))).collect(Collectors.toList());
+//        return ApiResponseHelper.successResponse("Lab members retrieved successfully", memberDTOs);
+//    }
 
-    //get all members of a lab
-    @Transactional
-    @GetMapping("/get-members/{labId}")
-    public ResponseEntity<?> getLabMembers(
-            @PathVariable Long labId,
-            @RequestHeader("Authorization") String token) {
-
-        User currentUser = userAuthService.authenticateUser(token).orElse(null);
-        if (currentUser == null) {
-            return ApiResponseHelper.errorResponse("User not found or unauthorized", HttpStatus.UNAUTHORIZED);
-        }
-
-        Lab lab = labRepository.findById(labId).orElse(null);
-        if (lab == null) {
-            return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
-        }
-
-        // Check if the lab is active
-        boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
-        if (isAccessible == false) {
-            return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
-        }
-
-        if (!lab.getCreatedBy().equals(currentUser)) {
-            return ApiResponseHelper.errorResponse("You are not authorized to view members of this lab", HttpStatus.UNAUTHORIZED);
-        }
-
-        // Map the members to UserInLabDTO
-        List<UserInLabDTO> memberDTOs = lab.getMembers().stream()
-                .map(user -> new UserInLabDTO(
-                        user.getId(),
-                        user.getUsername(),
-                        user.getEmail(),
-                        user.getFirstName(),
-                        user.getLastName(),
-                        user.isEnabled(),
-                        user.getRoles().stream().map(role -> role.getName()).collect(Collectors.toList()
-                        ))).collect(Collectors.toList());
-        return ApiResponseHelper.successResponse("Lab members retrieved successfully", memberDTOs);
-    }
-
-    //remove a member from a lab
+    //---------------remove a member from a lab----------------------------\\
     @DeleteMapping("/remove-member/{labId}/member/{userId}")
     public ResponseEntity<?> removeMemberFromLab(
             @PathVariable Long labId,
@@ -190,93 +183,90 @@ public class LabMemberController {
 
 
     //create a user in lab
-    @Transactional
-    @PostMapping("/create-user/{labId}")
-    public ResponseEntity<?> createUserInLab(
-            @RequestBody RegisterRequest registerRequest,
-            @PathVariable Long labId,
-            @RequestHeader("Authorization") String token) {
-
-        User currentUser = userAuthService.authenticateUser(token).orElse(null);
-        if (currentUser == null)
-            return ApiResponseHelper.errorResponse("User not found or unauthorized", HttpStatus.UNAUTHORIZED);
-
-        boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
-        if (isAccessible == false) {
-            return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
-        }
-
-        List<Long> moduleIds = registerRequest.getModules();
-        Set<ModuleEntity> modules = new HashSet<>();
-
-        for (Long moduleId : moduleIds) {
-            Optional<ModuleEntity> moduleOptional = moduleRepository.findById(moduleId);
-            if (!moduleOptional.isPresent()) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Module with ID " + moduleId + " not found");
-            }
-            modules.add(moduleOptional.get());
-        }
-        Lab lab = labRepository.findById(labId).orElse(null);
-        if (lab == null)
-            return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
-
-        // Check creator of the lab
-        if (!lab.getCreatedBy().equals(currentUser)) {
-            return ApiResponseHelper.errorResponse("You are not authorized to create members in this lab", HttpStatus.UNAUTHORIZED);
-        }
-
-        //check the user is already a member of the lab using username and email
-        if (lab.getMembers().stream().anyMatch(user -> user.getUsername().equals(registerRequest.getUsername()) || user.getEmail().equals(registerRequest.getEmail()))) {
-            return ApiResponseHelper.errorResponse("User is already a member of this lab", HttpStatus.CONFLICT);
-        }
-
-        if (registerRequest.getUsername().isEmpty() || registerRequest.getPassword().isEmpty() || registerRequest.getEmail().isEmpty() || registerRequest.getFirstName().isEmpty() || registerRequest.getLastName().isEmpty()) {
-            return ApiResponseHelper.errorResponse("Please fill all the fields", HttpStatus.BAD_REQUEST);
-        }
-        if (!registerRequest.getEmail().contains("@") || !registerRequest.getEmail().contains(".")) {
-            return ApiResponseHelper.errorResponse("Please enter a valid email", HttpStatus.BAD_REQUEST);
-        }
-        if (registerRequest.getPassword().length() < 8) {
-            return ApiResponseHelper.errorResponse("Password must be at least 8 characters long", HttpStatus.BAD_REQUEST);
-        }
-        if (registerRequest.getUsername().length() < 4) {
-            return ApiResponseHelper.errorResponse("Username must be at least 4 characters long", HttpStatus.BAD_REQUEST);
-        }
-
-        if (userService.existsByEmail(registerRequest.getEmail())) {
-            return ApiResponseHelper.errorResponse("Email already exists", HttpStatus.BAD_REQUEST);
-        }
-        if (userService.existsByUsername(registerRequest.getUsername())) {
-            return ApiResponseHelper.errorResponse("Username already exists", HttpStatus.BAD_REQUEST);
-        }
-
-        User user = new User();
-        user.setUsername(registerRequest.getUsername());
-        user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
-        user.setEmail(registerRequest.getEmail());
-        user.setFirstName(registerRequest.getFirstName());
-        user.setLastName(registerRequest.getLastName());
-        user.setPhone(registerRequest.getPhone());
-        user.setAddress(registerRequest.getAddress());
-        user.setCity(registerRequest.getCity());
-        user.setState(registerRequest.getState());
-        user.setZip(registerRequest.getZip());
-        user.setCountry(registerRequest.getCountry());
-        user.setVerified(registerRequest.isVerified());
-        user.setEnabled(true);
-        user.setCreatedBy(currentUser);
-        user.setModules(modules);
-        userService.saveUser(user);
-        if (lab.getMembers().contains(user)) {
-            return ApiResponseHelper.errorResponse("User is already a member of this lab", HttpStatus.CONFLICT);
-        }
-        lab.getMembers().add(user);
-        labRepository.save(lab);
-        return ApiResponseHelper.successResponse("User created and added to lab successfully", HttpStatus.OK);
-    }
-
-
-
+//    @Transactional
+//    @PostMapping("/create-user/{labId}")
+//    public ResponseEntity<?> createUserInLab(
+//            @RequestBody RegisterRequest registerRequest,
+//            @PathVariable Long labId,
+//            @RequestHeader("Authorization") String token) {
+//
+//        User currentUser = userAuthService.authenticateUser(token).orElse(null);
+//        if (currentUser == null)
+//            return ApiResponseHelper.errorResponse("User not found or unauthorized", HttpStatus.UNAUTHORIZED);
+//
+//        boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+//        if (isAccessible == false) {
+//            return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+//        }
+//
+//        List<Long> moduleIds = registerRequest.getModules();
+//        Set<ModuleEntity> modules = new HashSet<>();
+//
+//        for (Long moduleId : moduleIds) {
+//            Optional<ModuleEntity> moduleOptional = moduleRepository.findById(moduleId);
+//            if (!moduleOptional.isPresent()) {
+//                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Module with ID " + moduleId + " not found");
+//            }
+//            modules.add(moduleOptional.get());
+//        }
+//        Lab lab = labRepository.findById(labId).orElse(null);
+//        if (lab == null)
+//            return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
+//
+//        // Check creator of the lab
+//        if (!lab.getCreatedBy().equals(currentUser)) {
+//            return ApiResponseHelper.errorResponse("You are not authorized to create members in this lab", HttpStatus.UNAUTHORIZED);
+//        }
+//
+//        //check the user is already a member of the lab using username and email
+//        if (lab.getMembers().stream().anyMatch(user -> user.getUsername().equals(registerRequest.getUsername()) || user.getEmail().equals(registerRequest.getEmail()))) {
+//            return ApiResponseHelper.errorResponse("User is already a member of this lab", HttpStatus.CONFLICT);
+//        }
+//
+//        if (registerRequest.getUsername().isEmpty() || registerRequest.getPassword().isEmpty() || registerRequest.getEmail().isEmpty() || registerRequest.getFirstName().isEmpty() || registerRequest.getLastName().isEmpty()) {
+//            return ApiResponseHelper.errorResponse("Please fill all the fields", HttpStatus.BAD_REQUEST);
+//        }
+//        if (!registerRequest.getEmail().contains("@") || !registerRequest.getEmail().contains(".")) {
+//            return ApiResponseHelper.errorResponse("Please enter a valid email", HttpStatus.BAD_REQUEST);
+//        }
+//        if (registerRequest.getPassword().length() < 8) {
+//            return ApiResponseHelper.errorResponse("Password must be at least 8 characters long", HttpStatus.BAD_REQUEST);
+//        }
+//        if (registerRequest.getUsername().length() < 4) {
+//            return ApiResponseHelper.errorResponse("Username must be at least 4 characters long", HttpStatus.BAD_REQUEST);
+//        }
+//
+//        if (userService.existsByEmail(registerRequest.getEmail())) {
+//            return ApiResponseHelper.errorResponse("Email already exists", HttpStatus.BAD_REQUEST);
+//        }
+//        if (userService.existsByUsername(registerRequest.getUsername())) {
+//            return ApiResponseHelper.errorResponse("Username already exists", HttpStatus.BAD_REQUEST);
+//        }
+//
+//        User user = new User();
+//        user.setUsername(registerRequest.getUsername());
+//        user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
+//        user.setEmail(registerRequest.getEmail());
+//        user.setFirstName(registerRequest.getFirstName());
+//        user.setLastName(registerRequest.getLastName());
+//        user.setPhone(registerRequest.getPhone());
+//        user.setAddress(registerRequest.getAddress());
+//        user.setCity(registerRequest.getCity());
+//        user.setState(registerRequest.getState());
+//        user.setZip(registerRequest.getZip());
+//        user.setCountry(registerRequest.getCountry());
+//        user.setVerified(registerRequest.isVerified());
+//        user.setEnabled(true);
+//        user.setCreatedBy(currentUser);
+//        user.setModules(modules);
+//        userService.saveUser(user);
+//        if (lab.getMembers().contains(user)) {
+//            return ApiResponseHelper.errorResponse("User is already a member of this lab", HttpStatus.CONFLICT);
+//        }
+//        lab.getMembers().add(user);
+//        labRepository.save(lab);
+//        return ApiResponseHelper.successResponse("User created and added to lab successfully", HttpStatus.OK);
+//    }
 
     //update member details in lab
     @PutMapping("/update-user/{userId}")

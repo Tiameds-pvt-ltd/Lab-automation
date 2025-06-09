@@ -22,22 +22,9 @@ import java.util.List;
 public class AdminController {
 
     private final UserService userService;
-
     @Autowired
     public AdminController(UserService userService) {
         this.userService = userService;
-    }
-
-
-    @GetMapping("/dashboard")
-    public String dashboard() {
-        return "Welcome to the Admin Dashboard!";
-    }
-
-
-    @GetMapping
-    public String profile() {
-        return "Welcome to the Admin Profile!";
     }
 
 
