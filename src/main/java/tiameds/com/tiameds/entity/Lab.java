@@ -213,5 +213,6 @@ public class Lab {
         this.testReferences.remove(testReferenceEntity);
         testReferenceEntity.getLabs().remove(this);
     }
+
 }
 

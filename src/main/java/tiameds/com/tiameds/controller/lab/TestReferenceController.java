@@ -76,6 +76,43 @@ public class TestReferenceController {
     }
 
 
+    @Transactional
+    @DeleteMapping("/{labId}/delete-all")
+    public ResponseEntity<?> deleteAllTestReferences(
+            @PathVariable Long labId,
+            @RequestHeader("Authorization") String token) {
+        try {
+            Optional<User> userOptional = userAuthService.authenticateUser(token);
+            if (userOptional.isEmpty()) {
+                return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
+            }
+
+            User currentUser = userOptional.get();
+            Optional<Lab> labOptional = labRepository.findById(labId);
+            if (labOptional.isEmpty()) {
+                return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
+            }
+
+            Lab lab = labOptional.get();
+            if (!currentUser.getLabs().contains(lab)) {
+                return ApiResponseHelper.errorResponse("User is not authorized for this lab", HttpStatus.UNAUTHORIZED);
+            }
+
+            if (!labAccessableFilter.isLabAccessible(labId)) {
+                return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+            }
+
+            testReferenceServices.deleteAllTestReferences(lab);
+            return ApiResponseHelper.successResponseWithDataAndMessage("All test references deleted successfully", HttpStatus.OK, null);
+
+        } catch (Exception e) {
+            LOGGER.severe("Error deleting all test references: " + e.getMessage());
+            return ApiResponseHelper.errorResponse("Error processing request: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+
+
     //get all test references
     @Transactional
     @GetMapping("/{labId}")

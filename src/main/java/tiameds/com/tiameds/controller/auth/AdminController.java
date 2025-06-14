@@ -156,22 +156,4 @@ public class AdminController {
                     .body("An error occurred while fetching roles.");
         }
     }
-
-
-
-
-    //============================== MODULE CRUD OPERATION ==============================
-    //1 create a module
-    //2 get all modules
-    // assign a module to a user
-    // remove a module from a user
-    // get a module by ID
-    // delete a module
-    //update a module
-
-
-
-
-
-
 }

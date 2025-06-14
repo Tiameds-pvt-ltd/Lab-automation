@@ -27,32 +27,32 @@ public class SuperAdminReferanceEntity {
     @Column(nullable = false)
     private String testName;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String testDescription;
 
-    @Column
+    @Column(nullable = true)
     private String units;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = true)
     private Gender gender;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private Double minReferenceRange;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private Double maxReferenceRange;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private Integer ageMin;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private Integer ageMax;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String createdBy;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String updatedBy;
 
     @CreationTimestamp

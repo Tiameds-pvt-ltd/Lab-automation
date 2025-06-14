@@ -1,8 +1,10 @@
 package tiameds.com.tiameds.services.lab;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -14,20 +16,87 @@ import tiameds.com.tiameds.repository.TestReferenceRepository;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.time.LocalDateTime;
+import java.util.*;
 import java.util.logging.Logger;
 
+
+@Slf4j
 @Service
 public class TestReferenceServices {
 
     private final TestReferenceRepository testReferenceRepository;
     private static final Logger LOGGER = Logger.getLogger(TestReferenceServices.class.getName());
 
+
     public TestReferenceServices(TestReferenceRepository testReferenceRepository) {
         this.testReferenceRepository = testReferenceRepository;
     }
+
+//    @Transactional
+//    public List<TestReferenceEntity> uploadCsv(Lab lab, MultipartFile file, User currentUser) {
+//        List<TestReferenceEntity> testReferenceEntities = new ArrayList<>();
+//
+//        if (currentUser == null) {
+//            throw new RuntimeException("User authentication failed.");
+//        }
+//
+//        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()));
+//             CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.withFirstRecordAsHeader())) {
+//
+//            for (CSVRecord record : csvParser) {
+//                try {
+//                    TestReferenceEntity entity = new TestReferenceEntity();
+//                    entity.setCategory(record.get("Category").trim());
+//                    entity.setTestName(record.get("Test Name").trim());
+//                    entity.setTestDescription(record.get("Test Description").trim());
+//                    entity.setUnits(record.get("Units").trim().isEmpty() ? null : record.get("Units").trim());
+//
+//                    // Gender Validation
+//                    String genderStr = record.get("Gender").trim().toUpperCase();
+//                    try {
+//                        entity.setGender(Gender.valueOf(genderStr));
+//                    } catch (IllegalArgumentException e) {
+//                        LOGGER.warning("Skipping record due to invalid gender: " + genderStr);
+//                        continue;
+//                    }
+//
+//                    // Convert Min and Max safely
+//                    try {
+//                        entity.setMinReferenceRange(Double.parseDouble(record.get("Min")));
+//                        entity.setMaxReferenceRange(Double.parseDouble(record.get("Max")));
+//                    } catch (NumberFormatException e) {
+//                        LOGGER.warning("Skipping record due to invalid Min/Max values.");
+//                        continue;
+//                    }
+//
+//                    // Set Age Range
+//                    try {
+//                        entity.setAgeMin(Integer.parseInt(record.get("Age Min").trim()));
+//                        entity.setAgeMax(Integer.parseInt(record.get("Age Max").trim()));
+//                    } catch (NumberFormatException e) {
+//                        entity.setAgeMin(0);
+//                        entity.setAgeMax(100);
+//                    }
+//
+//                    entity.setCreatedBy(currentUser.getUsername());
+//                    entity.setUpdatedBy(currentUser.getUsername());
+//
+//                    testReferenceEntities.add(entity);
+//                    lab.addTestReference(entity);
+//
+//
+//                } catch (Exception ex) {
+//                    LOGGER.warning("Skipping row due to error: " + ex.getMessage());
+//                }
+//            }
+//            return testReferenceRepository.saveAll(testReferenceEntities);
+//
+//        } catch (Exception e) {
+//            throw new RuntimeException("Failed to process CSV file: " + e.getMessage());
+//        }
+//    }
+
 
     @Transactional
     public List<TestReferenceEntity> uploadCsv(Lab lab, MultipartFile file, User currentUser) {
@@ -36,60 +105,93 @@ public class TestReferenceServices {
         if (currentUser == null) {
             throw new RuntimeException("User authentication failed.");
         }
-
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()));
-             CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.withFirstRecordAsHeader())) {
-
+             CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.withFirstRecordAsHeader().withIgnoreHeaderCase())) {
             for (CSVRecord record : csvParser) {
                 try {
+                    String category = getStringOrBlank(record, "Category");
+                    String testName = getStringOrBlank(record, "Test Name");
+
+                    if (category.isEmpty() || testName.isEmpty()) {
+                        throw new IllegalArgumentException("Category and Test Name are required fields");
+                    }
+
                     TestReferenceEntity entity = new TestReferenceEntity();
-                    entity.setCategory(record.get("Category").trim());
-                    entity.setTestName(record.get("Test Name").trim());
-                    entity.setTestDescription(record.get("Test Description").trim());
-                    entity.setUnits(record.get("Units").trim().isEmpty() ? null : record.get("Units").trim());
+                    entity.setCategory(category);
+                    entity.setTestName(testName);
+                    entity.setTestDescription(getStringOrBlank(record, "Test Description"));
+                    entity.setUnits(getStringOrBlank(record, "Units"));
 
-                    // Gender Validation
-                    String genderStr = record.get("Gender").trim().toUpperCase();
-                    try {
-                        entity.setGender(Gender.valueOf(genderStr));
-                    } catch (IllegalArgumentException e) {
-                        LOGGER.warning("Skipping record due to invalid gender: " + genderStr);
-                        continue;
+                    String genderStr = getStringOrBlank(record, "Gender");
+                    if (!genderStr.isEmpty()) {
+                        try {
+                            entity.setGender(Gender.valueOf(genderStr.trim().toUpperCase()));
+                        } catch (IllegalArgumentException e) {
+                            LOGGER.warning("Skipping record due to invalid ");
+                        }
                     }
+                    // Numeric values
+                    entity.setMinReferenceRange(parseDoubleOrBlank(record, "Min Reference Range"));
+                    entity.setMaxReferenceRange(parseDoubleOrBlank(record, "Max Reference Range"));
 
-                    // Convert Min and Max safely
-                    try {
-                        entity.setMinReferenceRange(Double.parseDouble(record.get("Min")));
-                        entity.setMaxReferenceRange(Double.parseDouble(record.get("Max")));
-                    } catch (NumberFormatException e) {
-                        LOGGER.warning("Skipping record due to invalid Min/Max values.");
-                        continue;
-                    }
+                    // Age
+                    entity.setAgeMin(parseIntWithDefault(record, "Age Min", 0));
+                    entity.setAgeMax(parseIntWithDefault(record, "Age Max", 100));
 
-                    // Set Age Range
-                    try {
-                        entity.setAgeMin(Integer.parseInt(record.get("Age Min").trim()));
-                        entity.setAgeMax(Integer.parseInt(record.get("Age Max").trim()));
-                    } catch (NumberFormatException e) {
-                        entity.setAgeMin(0);
-                        entity.setAgeMax(100);
-                    }
-
+                    // Audit info
                     entity.setCreatedBy(currentUser.getUsername());
                     entity.setUpdatedBy(currentUser.getUsername());
+                    entity.setCreatedAt(LocalDateTime.now());
+                    entity.setUpdatedAt(LocalDateTime.now());
 
                     testReferenceEntities.add(entity);
-                    lab.addTestReference(entity);
-
-
                 } catch (Exception ex) {
-                    LOGGER.warning("Skipping row due to error: " + ex.getMessage());
+                    LOGGER.warning("Skipping row " + record.getRecordNumber() + " due to error: " + ex.getMessage());
+                    throw new RuntimeException("Error in record " + record.getRecordNumber() + ": " + ex.getMessage(), ex);
                 }
             }
-            return testReferenceRepository.saveAll(testReferenceEntities);
+            return testReferenceEntities;
 
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to process CSV file: " + e.getMessage());
+        } catch (Exception ex) {
+            LOGGER.warning("Failed to process CSV file: " + ex.getMessage());
+            throw new RuntimeException("Failed to process CSV file: " + ex.getMessage(), ex);
+        } finally {
+            if (!testReferenceEntities.isEmpty()) {
+                testReferenceRepository.saveAll(testReferenceEntities);
+                for (TestReferenceEntity entity : testReferenceEntities) {
+                    lab.addTestReference(entity);
+                }
+            }
+        }
+    }
+
+
+    private String getStringOrBlank(CSVRecord record, String column) {
+        try {
+            String value = record.get(column);
+            return value == null ? "" : value.trim();
+        } catch (IllegalArgumentException e) {
+            return "";
+        }
+    }
+
+    private Double parseDoubleOrBlank(CSVRecord record, String column) {
+        try {
+            String value = getStringOrBlank(record, column);
+            return value.isEmpty() ? 0 : Double.parseDouble(value);
+        } catch (NumberFormatException e) {
+            LOGGER.warning("Skipping record due to error: " + e.getMessage());
+            return null;
+        }
+    }
+
+    private Integer parseIntWithDefault(CSVRecord record, String column, Integer defaultValue) {
+        try {
+            String value = getStringOrBlank(record, column);
+            return value.isEmpty() ? defaultValue : Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            LOGGER.warning("Skipping record due to error: " + e.getMessage());
+            return defaultValue;
         }
     }
 
@@ -268,5 +370,14 @@ public class TestReferenceServices {
                     return dto;
                 }).toList();
         return testReferenceDTOS;
+    }
+
+    public void deleteAllTestReferences(Lab lab) {
+        List<TestReferenceEntity> testReferences = new ArrayList<>(lab.getTestReferences());
+        for (TestReferenceEntity testReference : testReferences) {
+            lab.removeTestReference(testReference);
+            testReferenceRepository.delete(testReference);
+        }
+        LOGGER.info("All test references deleted successfully.");
     }
 }

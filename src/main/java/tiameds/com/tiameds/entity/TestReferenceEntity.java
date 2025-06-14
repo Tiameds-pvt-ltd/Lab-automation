@@ -33,7 +33,7 @@ public class TestReferenceEntity {
     private String units;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = true)
     private Gender gender;
 
     @Column(nullable = false)
