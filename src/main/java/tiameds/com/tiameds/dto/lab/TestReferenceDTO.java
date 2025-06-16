@@ -17,7 +17,9 @@ public class TestReferenceDTO {
     private Double minReferenceRange;
     private Double maxReferenceRange;
     private Integer ageMin;
+    private String minAgeUnit;   //maxAgeUnit ,minAgeUnit
     private Integer ageMax;
+    private String maxAgeUnit;
     private String createdBy;
     private String updatedBy;
     private LocalDateTime createdAt;

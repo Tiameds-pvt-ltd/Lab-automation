@@ -33,71 +33,6 @@ public class TestReferenceServices {
         this.testReferenceRepository = testReferenceRepository;
     }
 
-//    @Transactional
-//    public List<TestReferenceEntity> uploadCsv(Lab lab, MultipartFile file, User currentUser) {
-//        List<TestReferenceEntity> testReferenceEntities = new ArrayList<>();
-//
-//        if (currentUser == null) {
-//            throw new RuntimeException("User authentication failed.");
-//        }
-//
-//        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()));
-//             CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.withFirstRecordAsHeader())) {
-//
-//            for (CSVRecord record : csvParser) {
-//                try {
-//                    TestReferenceEntity entity = new TestReferenceEntity();
-//                    entity.setCategory(record.get("Category").trim());
-//                    entity.setTestName(record.get("Test Name").trim());
-//                    entity.setTestDescription(record.get("Test Description").trim());
-//                    entity.setUnits(record.get("Units").trim().isEmpty() ? null : record.get("Units").trim());
-//
-//                    // Gender Validation
-//                    String genderStr = record.get("Gender").trim().toUpperCase();
-//                    try {
-//                        entity.setGender(Gender.valueOf(genderStr));
-//                    } catch (IllegalArgumentException e) {
-//                        LOGGER.warning("Skipping record due to invalid gender: " + genderStr);
-//                        continue;
-//                    }
-//
-//                    // Convert Min and Max safely
-//                    try {
-//                        entity.setMinReferenceRange(Double.parseDouble(record.get("Min")));
-//                        entity.setMaxReferenceRange(Double.parseDouble(record.get("Max")));
-//                    } catch (NumberFormatException e) {
-//                        LOGGER.warning("Skipping record due to invalid Min/Max values.");
-//                        continue;
-//                    }
-//
-//                    // Set Age Range
-//                    try {
-//                        entity.setAgeMin(Integer.parseInt(record.get("Age Min").trim()));
-//                        entity.setAgeMax(Integer.parseInt(record.get("Age Max").trim()));
-//                    } catch (NumberFormatException e) {
-//                        entity.setAgeMin(0);
-//                        entity.setAgeMax(100);
-//                    }
-//
-//                    entity.setCreatedBy(currentUser.getUsername());
-//                    entity.setUpdatedBy(currentUser.getUsername());
-//
-//                    testReferenceEntities.add(entity);
-//                    lab.addTestReference(entity);
-//
-//
-//                } catch (Exception ex) {
-//                    LOGGER.warning("Skipping row due to error: " + ex.getMessage());
-//                }
-//            }
-//            return testReferenceRepository.saveAll(testReferenceEntities);
-//
-//        } catch (Exception e) {
-//            throw new RuntimeException("Failed to process CSV file: " + e.getMessage());
-//        }
-//    }
-
-
     @Transactional
     public List<TestReferenceEntity> uploadCsv(Lab lab, MultipartFile file, User currentUser) {
         List<TestReferenceEntity> testReferenceEntities = new ArrayList<>();
@@ -136,8 +71,9 @@ public class TestReferenceServices {
 
                     // Age
                     entity.setAgeMin(parseIntWithDefault(record, "Age Min", 0));
+                    entity.setMinAgeUnit(parseAgeUnitWithDefault(record, "Min Age Unit"));
                     entity.setAgeMax(parseIntWithDefault(record, "Age Max", 100));
-
+                    entity.setMaxAgeUnit(parseAgeUnitWithDefault(record, "Max Age Unit"));
                     // Audit info
                     entity.setCreatedBy(currentUser.getUsername());
                     entity.setUpdatedBy(currentUser.getUsername());
@@ -195,6 +131,18 @@ public class TestReferenceServices {
         }
     }
 
+    private AgeUnit parseAgeUnitWithDefault(CSVRecord record, String column) {
+        String value = getStringOrBlank(record, column);
+        if (value.isEmpty()) return AgeUnit.YEARS;
+        try {
+            return AgeUnit.valueOf(value.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            LOGGER.warning("Invalid age unit '" + value + "' in column '" + column + "'. Defaulting to YEARS.");
+            return AgeUnit.YEARS;
+        }
+    }
+
+
     public List<TestReferenceDTO> getAllTestReferences(Lab lab) {
         List<TestReferenceDTO> testReferenceDTOS = lab.getTestReferences().stream()
                 .sorted(Comparator.comparingLong(TestReferenceEntity::getId))
@@ -209,7 +157,9 @@ public class TestReferenceServices {
                     dto.setMinReferenceRange(TestReferenceEntity.getMinReferenceRange());
                     dto.setMaxReferenceRange(TestReferenceEntity.getMaxReferenceRange());
                     dto.setAgeMin(TestReferenceEntity.getAgeMin());
+                    dto.setMinAgeUnit(TestReferenceEntity.getMinAgeUnit() != null ? TestReferenceEntity.getMinAgeUnit().toString() : null);
                     dto.setAgeMax(TestReferenceEntity.getAgeMax());
+                    dto.setMaxAgeUnit(TestReferenceEntity.getMaxAgeUnit() != null ? TestReferenceEntity.getMaxAgeUnit().toString() : null);
                     dto.setCreatedBy(TestReferenceEntity.getCreatedBy());
                     dto.setUpdatedBy(TestReferenceEntity.getUpdatedBy());
                     dto.setCreatedAt(TestReferenceEntity.getCreatedAt());
@@ -225,7 +175,6 @@ public class TestReferenceServices {
                 .filter(entity -> entity.getId().equals(testReferenceId))
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("Test reference not found."));
-
         testReferenceEntity.setCategory(testReferenceDTO.getCategory());
         testReferenceEntity.setTestName(testReferenceDTO.getTestName());
         testReferenceEntity.setTestDescription(testReferenceDTO.getTestDescription());
@@ -234,11 +183,11 @@ public class TestReferenceServices {
         testReferenceEntity.setMinReferenceRange(testReferenceDTO.getMinReferenceRange());
         testReferenceEntity.setMaxReferenceRange(testReferenceDTO.getMaxReferenceRange());
         testReferenceEntity.setAgeMin(testReferenceDTO.getAgeMin());
+        testReferenceEntity.setMinAgeUnit(AgeUnit.valueOf(testReferenceDTO.getMinAgeUnit()));
         testReferenceEntity.setAgeMax(testReferenceDTO.getAgeMax());
+        testReferenceEntity.setMaxAgeUnit(AgeUnit.valueOf(testReferenceDTO.getMaxAgeUnit()));
         testReferenceEntity.setUpdatedBy(currentUser.getUsername());
-
         testReferenceRepository.save(testReferenceEntity);
-
         TestReferenceDTO dto = new TestReferenceDTO();
         dto.setId(testReferenceEntity.getId());
         dto.setCategory(testReferenceEntity.getCategory());
@@ -254,7 +203,6 @@ public class TestReferenceServices {
         dto.setUpdatedBy(testReferenceEntity.getUpdatedBy());
         dto.setCreatedAt(testReferenceEntity.getCreatedAt());
         dto.setUpdatedAt(testReferenceEntity.getUpdatedAt());
-
         return dto;
     }
 
@@ -278,7 +226,9 @@ public class TestReferenceServices {
         entity.setMinReferenceRange(testReferenceDTO.getMinReferenceRange());
         entity.setMaxReferenceRange(testReferenceDTO.getMaxReferenceRange());
         entity.setAgeMin(testReferenceDTO.getAgeMin());
+        entity.setMinAgeUnit(AgeUnit.valueOf(testReferenceDTO.getMinAgeUnit()));
         entity.setAgeMax(testReferenceDTO.getAgeMax());
+        entity.setMaxAgeUnit(AgeUnit.valueOf(testReferenceDTO.getMaxAgeUnit()));
         entity.setCreatedBy(currentUser.getUsername());
         entity.setUpdatedBy(currentUser.getUsername());
 
@@ -300,7 +250,6 @@ public class TestReferenceServices {
         dto.setUpdatedBy(entity.getUpdatedBy());
         dto.setCreatedAt(entity.getCreatedAt());
         dto.setUpdatedAt(entity.getUpdatedAt());
-
         return dto;
     }
 
@@ -310,7 +259,7 @@ public class TestReferenceServices {
 
         // Generate CSV content
         StringBuilder csvContent = new StringBuilder();
-        csvContent.append("Category,Test Name,Test Description,Units,Gender,Min Reference Range,Max Reference Range,Age Min,Age Max,Created By,Updated By,Created At,Updated At\n");
+        csvContent.append("Category,Test Name,Test Description,Units,Gender,Min Reference Range,Max Reference Range,Min,Min Age Unit,Age Max,Max Age Unit,Created By,Updated By,Created At,Updated At\n");
 
         for (TestReferenceEntity entity : testReferenceEntities) {
             csvContent.append("\"").append(escapeCSV(entity.getCategory())).append("\",");
@@ -321,7 +270,9 @@ public class TestReferenceServices {
             csvContent.append("\"").append(entity.getMinReferenceRange() != null ? entity.getMinReferenceRange().toString() : "").append("\",");
             csvContent.append("\"").append(entity.getMaxReferenceRange() != null ? entity.getMaxReferenceRange().toString() : "").append("\",");
             csvContent.append("\"").append(entity.getAgeMin() != null ? entity.getAgeMin().toString() : "").append("\",");
+            csvContent.append("\"").append(entity.getMinAgeUnit() != null ? entity.getMinAgeUnit().toString() : "").append("\",");
             csvContent.append("\"").append(entity.getAgeMax() != null ? entity.getAgeMax().toString() : "").append("\",");
+            csvContent.append("\"").append(entity.getMaxAgeUnit() != null ? entity.getMaxAgeUnit().toString() : "").append("\",");
             csvContent.append("\"").append(escapeCSV(entity.getCreatedBy())).append("\",");
             csvContent.append("\"").append(escapeCSV(entity.getUpdatedBy())).append("\",");
             csvContent.append("\"").append(entity.getCreatedAt() != null ? entity.getCreatedAt().toString() : "").append("\",");

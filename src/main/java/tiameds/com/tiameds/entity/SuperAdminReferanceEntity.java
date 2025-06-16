@@ -46,8 +46,16 @@ public class SuperAdminReferanceEntity {
     @Column(nullable = true)
     private Integer ageMin;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = true)
+    private AgeUnit minAgeUnit;
+
     @Column(nullable = true)
     private Integer ageMax;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = true)
+    private AgeUnit maxAgeUnit;
 
     @Column(nullable = true)
     private String createdBy;
@@ -61,5 +69,13 @@ public class SuperAdminReferanceEntity {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
-
 }
+
+
+
+//enum AgeUnit {
+//    YEARS,
+//    MONTHS,
+//    WEEKS,
+//    DAYS
+//}

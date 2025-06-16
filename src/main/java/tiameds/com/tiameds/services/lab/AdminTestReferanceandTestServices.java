@@ -163,57 +163,114 @@ public class AdminTestReferanceandTestServices {
 //            throw new RuntimeException("Failed to process CSV file: " + e.getMessage());
 //        }
 //    }
+
+
+//    @Transactional
+//    public List<SuperAdminReferanceEntity> uploadTestReferance(MultipartFile file, User currentUser) {
+//        List<SuperAdminReferanceEntity> testReferenceEntities = new ArrayList<>();
+//        if (currentUser == null) {
+//            throw new RuntimeException("User authentication failed.");
+//        }
+//
+//        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()));
+//             CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.withFirstRecordAsHeader().withIgnoreHeaderCase())) {
+//            for (CSVRecord record : csvParser) {
+//                try {
+//                    String category = getStringOrBlank(record, "Category");
+//                    String testName = getStringOrBlank(record, "Test Name");
+//
+//                    if (category.isEmpty() || testName.isEmpty()) {
+//                        throw new IllegalArgumentException("Category and Test Name are required fields");
+//                    }
+//
+//                    SuperAdminReferanceEntity entity = new SuperAdminReferanceEntity();
+//                    entity.setCategory(category);
+//                    entity.setTestName(testName);
+//                    entity.setTestDescription(getStringOrBlank(record, "Test Description"));
+//                    entity.setUnits(getStringOrBlank(record, "Units"));
+//
+//                    String genderStr = getStringOrBlank(record, "Gender");
+//                    if (!genderStr.isEmpty()) {
+//                        try {
+//                            entity.setGender(Gender.valueOf(genderStr.trim().toUpperCase()));
+//                        } catch (IllegalArgumentException e) {
+//                            LOGGER.warn("Invalid gender value '{}' at record {} — skipping gender", genderStr, record.getRecordNumber());
+//                        }
+//                    }
+//                    // Numeric values
+//                    entity.setMinReferenceRange(parseDoubleOrBlank(record, "Min Reference Range"));
+//                    entity.setMaxReferenceRange(parseDoubleOrBlank(record, "Max Reference Range"));
+//
+//                    // Age
+//                    entity.setAgeMin(parseIntWithDefault(record, "Age Min", 0));
+//                    entity.setAgeMax(parseIntWithDefault(record, "Age Max", 100));
+//
+//                    // Audit info
+//                    entity.setCreatedBy(currentUser.getUsername());
+//                    entity.setUpdatedBy(currentUser.getUsername());
+//                    entity.setCreatedAt(LocalDateTime.now());
+//                    entity.setUpdatedAt(LocalDateTime.now());
+//
+//                    testReferenceEntities.add(superAdminReferanceRepository.save(entity));
+//                } catch (Exception ex) {
+//                    LOGGER.error("Error in record {}: {}", record.getRecordNumber(), ex.getMessage());
+//                    throw new RuntimeException("Error in record " + record.getRecordNumber() + ": " + ex.getMessage(), ex);
+//                }
+//            }
+//            return testReferenceEntities;
+//
+//        } catch (Exception e) {
+//            LOGGER.error("Failed to process CSV file: {}", e.getMessage(), e);
+//            throw new RuntimeException("Failed to process CSV file: " + e.getMessage(), e);
+//        }
+//    }
+//
+//    private String getStringOrBlank(CSVRecord record, String column) {
+//        try {
+//            String value = record.get(column);
+//            return value == null ? "" : value.trim();
+//        } catch (IllegalArgumentException e) {
+//            return "";
+//        }
+//    }
+//
+//    private Double parseDoubleOrBlank(CSVRecord record, String column) {
+//        try {
+//            String value = getStringOrBlank(record, column);
+//            return value.isEmpty() ? 0 : Double.parseDouble(value);
+//        } catch (NumberFormatException e) {
+//            LOGGER.warn("Invalid number in column '{}': {}", column, e.getMessage());
+//            return null;
+//        }
+//    }
+//
+//    private Integer parseIntWithDefault(CSVRecord record, String column, Integer defaultValue) {
+//        try {
+//            String value = getStringOrBlank(record, column);
+//            return value.isEmpty() ? defaultValue : Integer.parseInt(value);
+//        } catch (NumberFormatException e) {
+//            LOGGER.warn("Invalid integer in column '{}': {}. Using default: {}", column, e.getMessage(), defaultValue);
+//            return defaultValue;
+//        }
+//    }
+//
     @Transactional
     public List<SuperAdminReferanceEntity> uploadTestReferance(MultipartFile file, User currentUser) {
-        List<SuperAdminReferanceEntity> testReferenceEntities = new ArrayList<>();
         if (currentUser == null) {
             throw new RuntimeException("User authentication failed.");
         }
 
+        List<SuperAdminReferanceEntity> testReferenceEntities = new ArrayList<>();
+
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()));
-             CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.withFirstRecordAsHeader().withIgnoreHeaderCase())) {
+             CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT
+                     .withFirstRecordAsHeader()
+                     .withIgnoreHeaderCase()
+                     .withTrim())) {
+
             for (CSVRecord record : csvParser) {
-                try {
-                    String category = getStringOrBlank(record, "Category");
-                    String testName = getStringOrBlank(record, "Test Name");
-
-                    if (category.isEmpty() || testName.isEmpty()) {
-                        throw new IllegalArgumentException("Category and Test Name are required fields");
-                    }
-
-                    SuperAdminReferanceEntity entity = new SuperAdminReferanceEntity();
-                    entity.setCategory(category);
-                    entity.setTestName(testName);
-                    entity.setTestDescription(getStringOrBlank(record, "Test Description"));
-                    entity.setUnits(getStringOrBlank(record, "Units"));
-
-                    String genderStr = getStringOrBlank(record, "Gender");
-                    if (!genderStr.isEmpty()) {
-                        try {
-                            entity.setGender(Gender.valueOf(genderStr.trim().toUpperCase()));
-                        } catch (IllegalArgumentException e) {
-                            LOGGER.warn("Invalid gender value '{}' at record {} — skipping gender", genderStr, record.getRecordNumber());
-                        }
-                    }
-                    // Numeric values
-                    entity.setMinReferenceRange(parseDoubleOrBlank(record, "Min Reference Range"));
-                    entity.setMaxReferenceRange(parseDoubleOrBlank(record, "Max Reference Range"));
-
-                    // Age
-                    entity.setAgeMin(parseIntWithDefault(record, "Age Min", 0));
-                    entity.setAgeMax(parseIntWithDefault(record, "Age Max", 100));
-
-                    // Audit info
-                    entity.setCreatedBy(currentUser.getUsername());
-                    entity.setUpdatedBy(currentUser.getUsername());
-                    entity.setCreatedAt(LocalDateTime.now());
-                    entity.setUpdatedAt(LocalDateTime.now());
-
-                    testReferenceEntities.add(superAdminReferanceRepository.save(entity));
-                } catch (Exception ex) {
-                    LOGGER.error("Error in record {}: {}", record.getRecordNumber(), ex.getMessage());
-                    throw new RuntimeException("Error in record " + record.getRecordNumber() + ": " + ex.getMessage(), ex);
-                }
+                SuperAdminReferanceEntity entity = processRecord(record, currentUser);
+                testReferenceEntities.add(superAdminReferanceRepository.save(entity));
             }
             return testReferenceEntities;
 
@@ -223,65 +280,170 @@ public class AdminTestReferanceandTestServices {
         }
     }
 
+    private SuperAdminReferanceEntity processRecord(CSVRecord record, User currentUser) {
+        // Required fields validation
+        String category = getStringOrBlank(record, "Category");
+        String testName = getStringOrBlank(record, "Test Name");
+        if (category.isEmpty() || testName.isEmpty()) {
+            throw new IllegalArgumentException("Record #" + record.getRecordNumber() + ": Category and Test Name are required");
+        }
+
+        SuperAdminReferanceEntity entity = new SuperAdminReferanceEntity();
+        entity.setCategory(category);
+        entity.setTestName(testName);
+        entity.setTestDescription(getStringOrBlank(record, "Test Description"));
+        entity.setUnits(getStringOrBlank(record, "Units"));
+
+        // Handle Gender (optional)
+        parseGender(record, entity);
+
+        // Reference ranges (nullable Double)
+        entity.setMinReferenceRange(parseDoubleOrNull(record, "Min Reference Range"));
+        entity.setMaxReferenceRange(parseDoubleOrNull(record, "Max Reference Range"));
+
+        // Age handling with DEFAULTS
+        entity.setAgeMin(parseIntWithDefault(record, "Age Min", 0));          // Default: 0
+        entity.setAgeMax(parseIntWithDefault(record, "Age Max", 100));       // Default: 100
+        entity.setMinAgeUnit(parseAgeUnitWithDefault(record, "Min Age Unit")); // Default: YEARS
+        entity.setMaxAgeUnit(parseAgeUnitWithDefault(record, "Max Age Unit")); // Default: YEARS
+
+        // Audit fields
+        entity.setCreatedBy(currentUser.getUsername());
+        entity.setUpdatedBy(currentUser.getUsername());
+        entity.setCreatedAt(LocalDateTime.now());
+        entity.setUpdatedAt(LocalDateTime.now());
+
+        return entity;
+    }
+
+    // Helper Methods
     private String getStringOrBlank(CSVRecord record, String column) {
         try {
             String value = record.get(column);
-            return value == null ? "" : value.trim();
+            return (value == null) ? "" : value.trim();
         } catch (IllegalArgumentException e) {
             return "";
         }
     }
 
-    private Double parseDoubleOrBlank(CSVRecord record, String column) {
+    private Double parseDoubleOrNull(CSVRecord record, String column) {
+        String value = getStringOrBlank(record, column);
+        if (value.isEmpty()) return null;
         try {
-            String value = getStringOrBlank(record, column);
-            return value.isEmpty() ? 0 : Double.parseDouble(value);
+            return Double.parseDouble(value);
         } catch (NumberFormatException e) {
-            LOGGER.warn("Invalid number in column '{}': {}", column, e.getMessage());
+            LOGGER.warn("Invalid number in column '{}' (record {}): {}", column, record.getRecordNumber(), e.getMessage());
             return null;
         }
     }
 
-    private Integer parseIntWithDefault(CSVRecord record, String column, Integer defaultValue) {
+    private Integer parseIntWithDefault(CSVRecord record, String column, int defaultValue) {
+        String value = getStringOrBlank(record, column);
+        if (value.isEmpty()) return defaultValue;
         try {
-            String value = getStringOrBlank(record, column);
-            return value.isEmpty() ? defaultValue : Integer.parseInt(value);
+            return Integer.parseInt(value);
         } catch (NumberFormatException e) {
-            LOGGER.warn("Invalid integer in column '{}': {}. Using default: {}", column, e.getMessage(), defaultValue);
+            LOGGER.warn("Invalid integer in column '{}' (record {}). Using default: {}",
+                    column, record.getRecordNumber(), defaultValue);
             return defaultValue;
         }
     }
 
+    private AgeUnit parseAgeUnitWithDefault(CSVRecord record, String column) {
+        String value = getStringOrBlank(record, column);
+        if (value.isEmpty()) return AgeUnit.YEARS; // Default unit
+        try {
+            return AgeUnit.valueOf(value.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            LOGGER.warn("Invalid age unit '{}' (record {}). Defaulting to YEARS",
+                    value, record.getRecordNumber());
+            return AgeUnit.YEARS;
+        }
+    }
 
+    private void parseGender(CSVRecord record, SuperAdminReferanceEntity entity) {
+        String genderStr = getStringOrBlank(record, "Gender");
+        if (!genderStr.isEmpty()) {
+            try {
+                entity.setGender(Gender.valueOf(genderStr.trim().toUpperCase()));
+            } catch (IllegalArgumentException e) {
+                LOGGER.warn("Invalid gender '{}' (record {}). Skipping.",
+                        genderStr, record.getRecordNumber());
+            }
+        }
+    }
+//
+//    public ResponseEntity<?> downloadTestReferanceCSV() {
+//        List<SuperAdminReferanceEntity> testReferences = superAdminReferanceRepository.findAll();
+//        // Generate CSV content
+//        StringBuilder csvContent = new StringBuilder();
+
+    /// /        csvContent.append("Category,Test Name,Test Description,Units,Gender,Min,Max,Age Min,Age Max\n");
+//        csvContent.append("Category,Test Name,Test Description,Units,Gender,Min,Max,Age Min,Min Age Unit,Age Max,Max Age Unit\n");
+//
+//        for (SuperAdminReferanceEntity testReference : testReferences) {
+//            // Ensure proper formatting by escaping commas in values
+//            csvContent.append("\"").append(testReference.getCategory().replace("\"", "\"\"")).append("\",");
+//            csvContent.append("\"").append(testReference.getTestName().replace("\"", "\"\"")).append("\",");
+//            csvContent.append("\"").append(testReference.getTestDescription().replace("\"", "\"\"")).append("\",");
+//            csvContent.append("\"").append(testReference.getUnits() != null ? testReference.getUnits().replace("\"", "\"\"") : "").append("\",");
+//            csvContent.append("\"").append(testReference.getGender()).append("\",");
+//            csvContent.append(testReference.getMinReferenceRange()).append(",");
+//            csvContent.append(testReference.getMaxReferenceRange()).append(",");
+//            csvContent.append(testReference.getAgeMin()).append(",");
+//            csvContent.append(testReference.getMinAgeUnit()).append(",");
+//            csvContent.append(testReference.getAgeMax()).append("\n");
+//            csvContent.append(testReference.getMaxAgeUnit()).append(",");
+//        }
+//        // Set the response headers for file download
+//        HttpHeaders headers = new HttpHeaders();
+//        headers.add("Content-Disposition", "attachment; filename=" + "_test_references.csv");
+//        headers.add("Content-Type", "text/csv; charset=UTF-8");
+//
+//        // Return the CSV content as a ResponseEntity
+//        return ResponseEntity.ok()
+//                .headers(headers)
+//                .body(csvContent.toString());
+//
+//    }
     public ResponseEntity<?> downloadTestReferanceCSV() {
         List<SuperAdminReferanceEntity> testReferences = superAdminReferanceRepository.findAll();
+
         // Generate CSV content
         StringBuilder csvContent = new StringBuilder();
-        csvContent.append("Category,Test Name,Test Description,Units,Gender,Min,Max,Age Min,Age Max\n");
+        csvContent.append("Category,Test Name,Test Description,Units,Gender,Min,Max,Age Min,Min Age Unit,Age Max,Max Age Unit\n");
 
         for (SuperAdminReferanceEntity testReference : testReferences) {
-            // Ensure proper formatting by escaping commas in values
-            csvContent.append("\"").append(testReference.getCategory().replace("\"", "\"\"")).append("\",");
-            csvContent.append("\"").append(testReference.getTestName().replace("\"", "\"\"")).append("\",");
-            csvContent.append("\"").append(testReference.getTestDescription().replace("\"", "\"\"")).append("\",");
-            csvContent.append("\"").append(testReference.getUnits() != null ? testReference.getUnits().replace("\"", "\"\"") : "").append("\",");
-            csvContent.append("\"").append(testReference.getGender()).append("\",");
-            csvContent.append(testReference.getMinReferenceRange()).append(",");
-            csvContent.append(testReference.getMaxReferenceRange()).append(",");
-            csvContent.append(testReference.getAgeMin()).append(",");
-            csvContent.append(testReference.getAgeMax()).append("\n");
+            csvContent.append("\"").append(escapeCsv(testReference.getCategory())).append("\",");
+            csvContent.append("\"").append(escapeCsv(testReference.getTestName())).append("\",");
+            csvContent.append("\"").append(escapeCsv(testReference.getTestDescription())).append("\",");
+            csvContent.append("\"").append(escapeCsv(testReference.getUnits())).append("\",");
+            csvContent.append("\"").append(escapeCsv(String.valueOf(testReference.getGender()))).append("\",");
+
+            csvContent.append(testReference.getMinReferenceRange() != null ? testReference.getMinReferenceRange() : "").append(",");
+            csvContent.append(testReference.getMaxReferenceRange() != null ? testReference.getMaxReferenceRange() : "").append(",");
+            csvContent.append(testReference.getAgeMin() != null ? testReference.getAgeMin() : "").append(",");
+            csvContent.append("\"").append(escapeCsv(String.valueOf(testReference.getMinAgeUnit()))).append("\",");
+            csvContent.append(testReference.getAgeMax() != null ? testReference.getAgeMax() : "").append(",");
+            csvContent.append("\"").append(escapeCsv(String.valueOf(testReference.getMaxAgeUnit()))).append("\"\n");
         }
+
         // Set the response headers for file download
         HttpHeaders headers = new HttpHeaders();
-        headers.add("Content-Disposition", "attachment; filename=" + "_test_references.csv");
-        headers.add("Content-Type", "text/csv; charset=UTF-8");
+        headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=test_references.csv");
+        headers.add(HttpHeaders.CONTENT_TYPE, "text/csv; charset=UTF-8");
 
-        // Return the CSV content as a ResponseEntity
         return ResponseEntity.ok()
                 .headers(headers)
                 .body(csvContent.toString());
-
     }
+
+    // Utility method to escape double quotes in CSV
+    private String escapeCsv(String value) {
+        if (value == null) return "";
+        return value.replace("\"", "\"\"");
+    }
+
 
     public ResponseEntity<?> getAllTestPriceList() {
         List<SuperAdminTestEntity> testPriceList = superAdminTestRepository.findAll();
@@ -327,7 +489,9 @@ public class AdminTestReferanceandTestServices {
                     dto.setMinReferenceRange(testReference.getMinReferenceRange());
                     dto.setMaxReferenceRange(testReference.getMaxReferenceRange());
                     dto.setAgeMin(testReference.getAgeMin());
+                    dto.setMinAgeUnit(String.valueOf(testReference.getMinAgeUnit()));
                     dto.setAgeMax(testReference.getAgeMax());
+                    dto.setMaxAgeUnit(String.valueOf(testReference.getMaxAgeUnit()));
                     dto.setCreatedAt(testReference.getCreatedAt());
                     dto.setUpdatedAt(testReference.getUpdatedAt());
                     return dto;

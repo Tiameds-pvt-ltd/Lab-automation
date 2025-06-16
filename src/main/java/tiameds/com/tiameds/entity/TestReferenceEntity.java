@@ -45,8 +45,16 @@ public class TestReferenceEntity {
     @Column(nullable = false)
     private Integer ageMin;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = true)
+    private AgeUnit minAgeUnit;
+
     @Column(nullable = false)
     private Integer ageMax;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = true)
+    private AgeUnit maxAgeUnit;
 
     @Column(nullable = false)
     private String createdBy;
