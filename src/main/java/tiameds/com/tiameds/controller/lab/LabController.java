@@ -1,10 +1,11 @@
 package tiameds.com.tiameds.controller.lab;
-
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.transaction.Transactional;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import tiameds.com.tiameds.dto.lab.LabListDTO;
 import tiameds.com.tiameds.dto.lab.LabRequestDTO;
 import tiameds.com.tiameds.dto.lab.LabResponseDTO;
@@ -12,39 +13,43 @@ import tiameds.com.tiameds.dto.lab.UserResponseDTO;
 import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.repository.LabRepository;
+import tiameds.com.tiameds.services.lab.TestReferenceServices;
+import tiameds.com.tiameds.services.lab.TestServices;
 import tiameds.com.tiameds.services.lab.UserLabService;
-
-import tiameds.com.tiameds.utils.ApiResponse;
-import tiameds.com.tiameds.utils.ApiResponseHelper;
-import tiameds.com.tiameds.utils.LabAccessableFilter;
-import tiameds.com.tiameds.utils.UserAuthService;
-
+import tiameds.com.tiameds.utils.*;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.logging.Logger;
+
 
 @Transactional
 @RestController
 @RequestMapping("/lab/admin")
-@Tag(name = "Lab Admin", description = "Endpoints for Lab Admin")
+@Tag(name = "Lab Admin", description = "Endpoints for Lab Admin where lab admin can manage labs, add members, and handle lab-related operations")
 public class LabController {
-
     private final UserLabService userService;
     private final LabRepository labRepository;
     private final UserAuthService userAuthService;
     private final LabAccessableFilter labAccessableFilter;
     private UserLabService userLabService;
+    private final TestServices testServices;
+    private final TestReferenceServices testReferenceServices;
+    private static final Logger LOGGER = Logger.getLogger(LabController.class.getName());
 
-
-    public LabController(UserLabService userService, LabRepository labRepository, UserAuthService userAuthService, LabAccessableFilter labAccessableFilter, UserLabService userLabService) {
+    public LabController(UserLabService userService, LabRepository labRepository, UserAuthService userAuthService, LabAccessableFilter labAccessableFilter, UserLabService userLabService, TestServices testServices, TestReferenceServices testReferenceServices) {
         this.userService = userService;
         this.labRepository = labRepository;
         this.userAuthService = userAuthService;
         this.labAccessableFilter = labAccessableFilter;
         this.userLabService = userLabService;
+        this.testServices = testServices;
+        this.testReferenceServices = testReferenceServices;
     }
 
-    // get all labs created by user
+    // ---------- Get all labs created by the user ----------
     @GetMapping("/get-labs")
     public ResponseEntity<?> getLabsCreatedByUser(
             @RequestHeader("Authorization") String token) {
@@ -86,7 +91,7 @@ public class LabController {
     }
 
 
-    // delete lab by their respective id
+    //-------------------- Delete lab by ID --------------------
     @DeleteMapping("/delete-lab/{labId}")
     public ResponseEntity<?> deleteLab(
             @PathVariable Long labId,
@@ -124,7 +129,7 @@ public class LabController {
         return ApiResponseHelper.successResponseWithDataAndMessage("Lab deleted successfully", HttpStatus.OK, null);
     }
 
-    // update lab by their respective id
+    //--------------------- Update lab by ID --------------------
     @PutMapping("/update-lab/{labId}")
     public ResponseEntity<?> updateLab(
             @PathVariable Long labId,
@@ -168,19 +173,18 @@ public class LabController {
         return ApiResponseHelper.successResponseWithDataAndMessage("Lab updated successfully", HttpStatus.OK, lab);
     }
 
+
     @Transactional
     @PostMapping("/add-lab")
     public ResponseEntity<Map<String, Object>> addLab(
             @RequestBody LabRequestDTO labRequestDTO,
             @RequestHeader("Authorization") String token) {
 
-        // Validate token format
         Optional<User> currentUserOptional = userAuthService.authenticateUser(token);
         if (currentUserOptional.isEmpty()) {
             ApiResponse<String> response = new ApiResponse<>("error", "User not found", null);
             return new ResponseEntity(response, HttpStatus.UNAUTHORIZED);
         }
-
         User currentUser = currentUserOptional.get();
 
         // Check if the lab already exists
@@ -189,6 +193,7 @@ public class LabController {
             return new ResponseEntity(response, HttpStatus.BAD_REQUEST);
         }
 
+        // Create and save the lab
         Lab lab = new Lab();
         lab.setName(labRequestDTO.getName());
         lab.setAddress(labRequestDTO.getAddress());
@@ -198,7 +203,7 @@ public class LabController {
         lab.setIsActive(true);
         lab.setCreatedBy(currentUser);
 
-//======================new feilds=========================
+        // Set new fields
         lab.setLabLogo(labRequestDTO.getLabLogo());
         lab.setLicenseNumber(labRequestDTO.getLicenseNumber());
         lab.setLabType(labRequestDTO.getLabType());
@@ -218,7 +223,58 @@ public class LabController {
         lab.setLabAccreditation(labRequestDTO.getLabAccreditation());
         lab.setDataPrivacyAgreement(labRequestDTO.getDataPrivacyAgreement());
 
-        labRepository.save(lab);
+        Lab savedLab = labRepository.save(lab);
+
+        try {
+            addMemberToLab(savedLab.getId(), currentUser.getId(), token);
+        } catch (Exception e) {
+            ApiResponse<String> response = new ApiResponse<>("error", "Failed to add user as member", null);
+            return new ResponseEntity(response, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+
+        // Return success response
+        try {
+            // Process price list file
+            ClassPathResource priceListResource = new ClassPathResource("tiamed_price_list.csv");
+            try (BufferedReader priceListReader = new BufferedReader(new InputStreamReader(((ClassPathResource) priceListResource).getInputStream()))) {
+                // Convert BufferedReader content to MultipartFile for the service
+                StringBuilder contentBuilder = new StringBuilder();
+                String line;
+                while ((line = priceListReader.readLine()) != null) {
+                    contentBuilder.append(line).append("\n");
+                }
+                byte[] contentBytes = contentBuilder.toString().getBytes();
+                MultipartFile priceListFile = new CustomMockMultipartFile(
+                        "tiamed_price_list.csv",
+                        "tiamed_price_list.csv",
+                        "text/csv",
+                        contentBytes
+                );
+                testServices.uploadCSV(priceListFile, savedLab);
+            }
+
+            // Process reference point file
+            ClassPathResource referencePointResource = new ClassPathResource("tiamed_test_referance_point.csv");
+            try (BufferedReader referencePointReader = new BufferedReader(new InputStreamReader(referencePointResource.getInputStream()))) {
+                // Convert BufferedReader content to MultipartFile for the service
+                StringBuilder contentBuilder = new StringBuilder();
+                String line;
+                while ((line = referencePointReader.readLine()) != null) {
+                    contentBuilder.append(line).append("\n");
+                }
+                byte[] contentBytes = contentBuilder.toString().getBytes();
+                MultipartFile referencePointFile = new CustomMockMultipartFile(
+                        "tiamed_test_referance_point.csv",
+                        "tiamed_test_referance_point.csv",
+                        "text/csv",
+                        contentBytes
+                );
+                testReferenceServices.uploadCsv(savedLab, referencePointFile, currentUser);
+            }
+        } catch (Exception e) {
+            // Log the error but don't fail the entire operation
+            System.err.println("Error processing default CSV files: " + e.getMessage());
+        }
 
         // Create DTOs for response
         UserResponseDTO userResponseDTO = new UserResponseDTO(
@@ -230,25 +286,18 @@ public class LabController {
         );
 
         LabResponseDTO labResponseDTO = new LabResponseDTO(
-                lab.getId(),
-                lab.getName(),
-                lab.getAddress(),
-                lab.getCity(),
-                lab.getState(),
-                lab.getDescription(),
+                savedLab.getId(),
+                savedLab.getName(),
+                savedLab.getAddress(),
+                savedLab.getCity(),
+                savedLab.getState(),
+                savedLab.getDescription(),
                 userResponseDTO
         );
 
         // Automatically add the current user as a member of the newly created lab
-        try {
-            addMemberToLab(lab.getId(), currentUser.getId(), token);  // Calling the logic to add the user as a member
-        } catch (Exception e) {
-            ApiResponse<String> response = new ApiResponse<>("error", "Failed to add user as member", null);
-            return new ResponseEntity(response, HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-
-        // Return success response
         return ApiResponseHelper.successResponseWithDataAndMessage("Lab created successfully and user added as a member", HttpStatus.OK, labResponseDTO);
+
     }
 
     private void addMemberToLab(Long labId, Long userId, String token) {
@@ -289,5 +338,4 @@ public class LabController {
         labRepository.save(lab);
     }
 }
-
 

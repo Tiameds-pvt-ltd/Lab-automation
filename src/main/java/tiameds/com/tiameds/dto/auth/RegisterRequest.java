@@ -51,7 +51,7 @@ public class RegisterRequest {
     @JsonProperty("verified")
     private boolean isVerified;
 
-    private List<Long> modules;
+//    private List<Long> modules;
 
 
 }

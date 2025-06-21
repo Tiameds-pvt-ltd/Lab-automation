@@ -105,7 +105,6 @@ public class TestController {
             Lab lab = labRepository.findById(labId)
                     .orElseThrow(() -> new RuntimeException("Lab not found"));
 
-
             // Check if the lab is active
             boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
             if (!isAccessible) {

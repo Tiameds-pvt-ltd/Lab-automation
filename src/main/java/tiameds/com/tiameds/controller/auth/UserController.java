@@ -55,55 +55,6 @@ public class  UserController {
         return "Service is up  and running";
     }
 
-    @PostMapping("/register")
-    public ResponseEntity<Map<String, Object>> register(@Valid @RequestBody RegisterRequest registerRequest) {
-
-        // Check if the username is already taken
-        if (userService.existsByUsername(registerRequest.getUsername())) {
-            return ApiResponseHelper.successResponseWithDataAndMessage("Username is already taken", HttpStatus.BAD_REQUEST,null);
-        }
-
-        // Check if the email is already taken
-        if (userService.existsByEmail(registerRequest.getEmail())) {
-            return ApiResponseHelper.successResponseWithDataAndMessage("Email is already taken", HttpStatus.BAD_REQUEST,null);
-        }
-
-        // Fetch the modules based on the module IDs from the RegisterRequest
-        List<Long> moduleIds = registerRequest.getModules();
-        Set<ModuleEntity> modules = new HashSet<>();
-
-        // Iterate over the moduleIds and fetch corresponding ModuleEntity objects
-        for (Long moduleId : moduleIds) {
-            Optional<ModuleEntity> moduleOptional = moduleRepository.findById(moduleId);
-            if (!moduleOptional.isPresent()) {
-                return ApiResponseHelper.successResponseWithDataAndMessage("Module not found", HttpStatus.BAD_REQUEST,null);
-            }
-            modules.add(moduleOptional.get());
-        }
-        // Create a new User
-        User user = new User();
-        user.setUsername(registerRequest.getUsername());
-        user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));  // Encrypt password
-        user.setEmail(registerRequest.getEmail());
-        user.setFirstName(registerRequest.getFirstName());
-        user.setLastName(registerRequest.getLastName());
-        user.setPhone(registerRequest.getPhone());
-        user.setAddress(registerRequest.getAddress());
-        user.setCity(registerRequest.getCity());
-        user.setState(registerRequest.getState());
-        user.setZip(registerRequest.getZip());
-        user.setCountry(registerRequest.getCountry());
-        user.setVerified(registerRequest.isVerified());
-        user.setEnabled(true); // Enable the user by default
-
-        user.setModules(modules);
-
-        // Save the user (assuming the save method exists in the UserService)
-        userService.saveUser(user);
-
-        return ApiResponseHelper.successResponseWithDataAndMessage("User registered successfully", HttpStatus.CREATED,null);
-    }
-
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest loginRequest) {
@@ -163,12 +114,98 @@ public class  UserController {
         loginResponse.setCountry(user.getCountry());
         loginResponse.setVerified(user.isVerified());
         loginResponse.setEnabled(user.isEnabled());
-        loginResponse.setModules(moduleDTOList);
+//        loginResponse.setModules(moduleDTOList);
 
         // Create and return the AuthResponse
         return ResponseEntity.ok(new AuthResponse(
                 HttpStatus.OK,
                 "Login successful", token, loginResponse));
     }
+
+
+//    @PostMapping("/register")
+//    public ResponseEntity<Map<String, Object>> register(@Valid @RequestBody RegisterRequest registerRequest) {
+//
+//        if (userService.existsByUsername(registerRequest.getUsername())) {
+//            return ApiResponseHelper.successResponseWithDataAndMessage("Username is already taken", HttpStatus.BAD_REQUEST,null);
+//        }
+//        if (userService.existsByEmail(registerRequest.getEmail())) {
+//            return ApiResponseHelper.successResponseWithDataAndMessage("Email is already taken", HttpStatus.BAD_REQUEST,null);
+//        }
+//
+//        List<Long> moduleIds = registerRequest.getModules();
+//        Set<ModuleEntity> modules = new HashSet<>();
+//
+//        // Iterate over the moduleIds and fetch corresponding ModuleEntity objects
+//        for (Long moduleId : moduleIds) {
+//            Optional<ModuleEntity> moduleOptional = moduleRepository.findById(moduleId);
+//            if (!moduleOptional.isPresent()) {
+//                return ApiResponseHelper.successResponseWithDataAndMessage("Module not found", HttpStatus.BAD_REQUEST,null);
+//            }
+//            modules.add(moduleOptional.get());
+//        }
+//        // Create a new User
+//        User user = new User();
+//        user.setUsername(registerRequest.getUsername());
+//        user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));  // Encrypt password
+//        user.setEmail(registerRequest.getEmail());
+//        user.setFirstName(registerRequest.getFirstName());
+//        user.setLastName(registerRequest.getLastName());
+//        user.setPhone(registerRequest.getPhone());
+//        user.setAddress(registerRequest.getAddress());
+//        user.setCity(registerRequest.getCity());
+//        user.setState(registerRequest.getState());
+//        user.setZip(registerRequest.getZip());
+//        user.setCountry(registerRequest.getCountry());
+//        user.setVerified(registerRequest.isVerified());
+//        user.setEnabled(true);
+//        user.setModules(modules);
+//        userService.saveUser(user);
+//
+//        return ApiResponseHelper.successResponseWithDataAndMessage("User registered successfully", HttpStatus.CREATED,null);
+//    }
+
+
+    @PostMapping("/register")
+    public ResponseEntity<Map<String, Object>> register(@Valid @RequestBody RegisterRequest registerRequest) {
+
+        if (userService.existsByUsername(registerRequest.getUsername())) {
+            return ApiResponseHelper.successResponseWithDataAndMessage("Username is already taken", HttpStatus.BAD_REQUEST,null);
+        }
+        if (userService.existsByEmail(registerRequest.getEmail())) {
+            return ApiResponseHelper.successResponseWithDataAndMessage("Email is already taken", HttpStatus.BAD_REQUEST,null);
+        }
+
+//        List<Long> moduleIds = registerRequest.getModules();
+//        Set<ModuleEntity> modules = new HashSet<>();
+//
+//        // Iterate over the moduleIds and fetch corresponding ModuleEntity objects
+//        for (Long moduleId : moduleIds) {
+//            Optional<ModuleEntity> moduleOptional = moduleRepository.findById(moduleId);
+//            if (!moduleOptional.isPresent()) {
+//                return ApiResponseHelper.successResponseWithDataAndMessage("Module not found", HttpStatus.BAD_REQUEST,null);
+//            }
+//            modules.add(moduleOptional.get());
+//        }
+        // Create a new User
+        User user = new User();
+        user.setUsername(registerRequest.getUsername());
+        user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));  // Encrypt password
+        user.setEmail(registerRequest.getEmail());
+        user.setFirstName(registerRequest.getFirstName());
+        user.setLastName(registerRequest.getLastName());
+        user.setPhone(registerRequest.getPhone());
+        user.setAddress(registerRequest.getAddress());
+        user.setCity(registerRequest.getCity());
+        user.setState(registerRequest.getState());
+        user.setZip(registerRequest.getZip());
+        user.setCountry(registerRequest.getCountry());
+        user.setVerified(registerRequest.isVerified());
+        user.setEnabled(true);
+//        user.setModules(modules);
+        userService.saveUser(user);
+        return ApiResponseHelper.successResponseWithDataAndMessage("User registered successfully", HttpStatus.CREATED,null);
+    }
+
 }
 
