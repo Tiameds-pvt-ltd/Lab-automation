@@ -38,41 +38,6 @@ public class SpringSecurityConfig {
         return authProvider;
     }
 
-
-//    @Bean
-//    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-//        return http
-//                .csrf(AbstractHttpConfigurer::disable)
-//                .authorizeRequests(req -> req
-//
-//                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()  // CORS pre-flight requests
-//                        // Role-based authorization first
-//                        .requestMatchers("/admin/**").hasRole("ADMIN")
-//                        .requestMatchers("/lab/**").hasRole("ADMIN")
-//                        .requestMatchers("/lab-super-admin/**").hasRole("SUPERADMIN")
-//                        .requestMatchers("/error").permitAll()
-//                        // Allow login and registration paths to be accessed without authentication
-//                        .requestMatchers("/login/**", "/register/**").permitAll()
-//
-//                        // Allow Swagger and public resources to be accessed without authentication
-//                        .requestMatchers(
-//                                "/v3/api-docs/**",
-//                                "/doc/**",
-//                                "/swagger-ui/**",
-//                                "/swagger-ui.html",
-//                                "/public/**"
-//                        ).permitAll()
-//
-//                        // Catch-all for any other request, ensuring that they are authenticated
-//                        .anyRequest().authenticated()
-//                )
-//                .userDetailsService(userDetailsService)
-//                .sessionManagement(c -> c
-//                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))  // Stateless (JWT) authentication
-//                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)  // JWT filter for authentication
-//                .build();
-//    }
-
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
@@ -80,12 +45,54 @@ public class SpringSecurityConfig {
                 .cors(cors -> cors.configurationSource(new CorsConfig().corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
 //                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()  // Permit CORS preflight requests
-                                .requestMatchers("/admin/**").hasRole("ADMIN")  // Restrict /admin/** to ADMIN role
-                                .requestMatchers("/lab/admin/**").hasRole("ADMIN")  // Restrict /lab/admin/** to ADMIN role
-                                .requestMatchers("/lab/**").hasRole("ADMIN")    // Restrict /lab/** to ADMIN role
-                                .requestMatchers("/lab-super-admin/**").hasRole("SUPERADMIN") // SUPERADMIN-only endpoints
-                                .requestMatchers("/error").permitAll()          // Allow error endpoint without authentication
-                                .requestMatchers("/login/**", "/register/**").permitAll()  // Public login & registration
+
+                                // ---------------list of all endpoints with roles as DESKROLE and admin---------------------
+                                .requestMatchers(
+                                        "/lab/*/visits",
+                                        "/admin/lab/*/doctors",
+                                        "/admin/lab/*/packages",
+                                        "/lab/*/add-patient",
+                                        "/lab/*/patients",
+                                        "/admin/lab/*/doctors/{doctorId}",
+                                        "/admin/lab/*/doctors",
+                                        "/admin/lab/*/packages",
+                                        "/admin/lab/*/doctors",
+                                        "/lab/*/update-patient-details/{patientId}",
+                                        "/admin/lab/*/doctors/{doctorId}",
+                                        "/lab/admin/insurance/{labId}"
+                                ).hasAnyRole("ADMIN", "DESKROLE")
+
+                                .requestMatchers(
+                                        "/admin/lab/*/test/{testId}",
+                                        "/admin/lab/*/package/{packageId}",
+                                        "/lab/sample-list",
+                                        "/lab/*/*/report/{visitId}",
+                                        "/admin/lab/*/tests",
+                                        "/lab/test-reference/{labId}",
+                                        "/lab/test-reference/{labId}/download"
+                                ).hasAnyRole("ADMIN", "DESKROLE", "TECHNICIAN")
+
+                                // ---------------list of all endpoints with roles as TECHNICIAN and admin---------------------
+                                .requestMatchers(
+                                        "/lab/*/visitsdatewise",
+                                        "/lab/add-samples",
+                                        "/lab/update-samples",
+                                        "/lab/delete-samples",
+                                        "/lab/*/get-visit-samples",
+                                        "lab/*/report",
+                                        "lab/test-reference/{labId}/test/{testName}",
+                                        "lab/*/report/{visitId}",
+                                        "lab/*/report"
+
+                                ).hasAnyRole("ADMIN", "TECHNICIAN")
+
+                                .requestMatchers("/admin/**").hasRole("ADMIN")
+                                .requestMatchers("/lab/admin/get-user-labs").hasAnyRole("ADMIN", "TECHNICIAN", "DESKROLE")
+                                .requestMatchers("/lab/admin/**").hasRole("ADMIN")
+                                .requestMatchers("/lab/**").hasRole("ADMIN")
+                                .requestMatchers("/lab-super-admin/**").hasRole("SUPERADMIN")
+                                .requestMatchers("/error").permitAll()
+                                .requestMatchers("/login/**", "/register/**").permitAll()
                                 .requestMatchers("/api/v1/public/health-check").permitAll()
                                 .requestMatchers(
                                         "/v3/api-docs/**",
@@ -102,19 +109,15 @@ public class SpringSecurityConfig {
                 .build();
     }
 
-
     @Bean
     PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
-
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
         return configuration.getAuthenticationManager();
     }
-
-
 }
 
 

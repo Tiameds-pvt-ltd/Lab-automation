@@ -466,7 +466,7 @@ public class LabMemberController {
 
 
     @Transactional
-    @GetMapping("get-user-labs")
+    @GetMapping("/get-user-labs")
     public ResponseEntity<?> getUserLabs(
             @RequestHeader("Authorization") String token
     ) {
@@ -492,7 +492,6 @@ public class LabMemberController {
                 ))
                 .toList();
         return ApiResponseHelper.successResponseWithDataAndMessage("Labs fetched successfully", HttpStatus.OK, labListDTOs);
-
     }
 
 
