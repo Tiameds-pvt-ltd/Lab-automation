@@ -38,10 +38,10 @@ public class UserService {
         }
 
         // Find or create the USER role
-        Role userRole = roleRepository.findByName("ADMIN")
+        Role userRole = roleRepository.findByName("SUPERADMIN")
                 .orElseGet(() -> {
                     Role newRole = new Role();
-                    newRole.setName("ADMIN");
+                    newRole.setName("SUPERADMIN");
                     try {
                         return roleRepository.save(newRole);
                     } catch (Exception e) {
@@ -49,15 +49,10 @@ public class UserService {
                         throw new RuntimeException("Role could not be saved", e);
                     }
                 });
-
         // Assign the USER role to the new user
         Set<Role> roles = new HashSet<>();
         roles.add(userRole);
         user.setRoles(roles);
-
-
-
-
 
         log.info("Assigning roles to user: {} with roles: {}", user.getUsername(), roles);
         try {

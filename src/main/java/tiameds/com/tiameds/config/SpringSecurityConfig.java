@@ -60,17 +60,17 @@ public class SpringSecurityConfig {
                                         "/lab/*/update-patient-details/{patientId}",
                                         "/admin/lab/*/doctors/{doctorId}",
                                         "/lab/admin/insurance/{labId}"
-                                ).hasAnyRole("ADMIN", "DESKROLE")
+                                ).hasAnyRole("ADMIN", "DESKROLE","SUPERADMIN")
 
                                 .requestMatchers(
                                         "/admin/lab/*/test/{testId}",
                                         "/admin/lab/*/package/{packageId}",
                                         "/lab/sample-list",
-                                        "/lab/*/*/report/{visitId}",
+                                        "/lab/*/report/{visitId}",
                                         "/admin/lab/*/tests",
                                         "/lab/test-reference/{labId}",
                                         "/lab/test-reference/{labId}/download"
-                                ).hasAnyRole("ADMIN", "DESKROLE", "TECHNICIAN")
+                                ).hasAnyRole("ADMIN", "DESKROLE", "TECHNICIAN","SUPERADMIN")
 
                                 // ---------------list of all endpoints with roles as TECHNICIAN and admin---------------------
                                 .requestMatchers(
@@ -83,12 +83,11 @@ public class SpringSecurityConfig {
                                         "lab/test-reference/{labId}/test/{testName}",
                                         "lab/*/report/{visitId}",
                                         "lab/*/report"
-
-                                ).hasAnyRole("ADMIN", "TECHNICIAN")
+                                ).hasAnyRole("ADMIN", "TECHNICIAN","SUPERADMIN")
 
                                 .requestMatchers("/admin/**").hasRole("ADMIN")
-                                .requestMatchers("/lab/admin/get-user-labs").hasAnyRole("ADMIN", "TECHNICIAN", "DESKROLE")
-                                .requestMatchers("/lab/admin/**").hasRole("ADMIN")
+                                .requestMatchers("/lab/admin/get-user-labs").hasAnyRole("ADMIN", "TECHNICIAN", "DESKROLE","SUPERADMIN")
+                                .requestMatchers("/lab/admin/**").hasAnyRole("SUPERADMIN", "ADMIN")
                                 .requestMatchers("/lab/**").hasRole("ADMIN")
                                 .requestMatchers("/lab-super-admin/**").hasRole("SUPERADMIN")
                                 .requestMatchers("/error").permitAll()

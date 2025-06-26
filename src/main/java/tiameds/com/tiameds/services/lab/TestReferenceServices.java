@@ -313,7 +313,9 @@ public class TestReferenceServices {
                     dto.setMinReferenceRange(TestReferenceEntity.getMinReferenceRange());
                     dto.setMaxReferenceRange(TestReferenceEntity.getMaxReferenceRange());
                     dto.setAgeMin(TestReferenceEntity.getAgeMin());
+                    dto.setMinAgeUnit(TestReferenceEntity.getMinAgeUnit() != null ? TestReferenceEntity.getMinAgeUnit().toString() : null);
                     dto.setAgeMax(TestReferenceEntity.getAgeMax());
+                    dto.setMaxAgeUnit(TestReferenceEntity.getMaxAgeUnit() != null ? TestReferenceEntity.getMaxAgeUnit().toString() : null);
                     dto.setCreatedBy(TestReferenceEntity.getCreatedBy());
                     dto.setUpdatedBy(TestReferenceEntity.getUpdatedBy());
                     dto.setCreatedAt(TestReferenceEntity.getCreatedAt());

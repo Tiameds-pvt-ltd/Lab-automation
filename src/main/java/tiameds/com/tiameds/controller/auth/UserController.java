@@ -1,4 +1,5 @@
 package tiameds.com.tiameds.controller.auth;
+
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +25,7 @@ import tiameds.com.tiameds.services.auth.UserService;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.JwtUtil;
 import tiameds.com.tiameds.entity.Role;
+
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -31,13 +33,13 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/public")
 @Tag(name = "User Controller", description = "Operations pertaining to user management ")
-public class  UserController {
+public class UserController {
 
     private final UserService userService;
     private final AuthenticationManager authenticationManager;
     private final UserDetailsServiceImpl userDetailsService;
     private final PasswordEncoder passwordEncoder;
-    private final JwtUtil jwtUtils; 
+    private final JwtUtil jwtUtils;
     private final ModuleRepository moduleRepository;
 
     @Autowired
@@ -67,7 +69,7 @@ public class  UserController {
         } catch (BadCredentialsException e) {
             // Return error response
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(new AuthResponse(HttpStatus.BAD_REQUEST , "Incorrect username or password", null, null));
+                    .body(new AuthResponse(HttpStatus.BAD_REQUEST, "Incorrect username or password", null, null));
         }
 
         // Load user details
@@ -170,10 +172,10 @@ public class  UserController {
     public ResponseEntity<Map<String, Object>> register(@Valid @RequestBody RegisterRequest registerRequest) {
 
         if (userService.existsByUsername(registerRequest.getUsername())) {
-            return ApiResponseHelper.successResponseWithDataAndMessage("Username is already taken", HttpStatus.BAD_REQUEST,null);
+            return ApiResponseHelper.successResponseWithDataAndMessage("Username is already taken", HttpStatus.BAD_REQUEST, null);
         }
         if (userService.existsByEmail(registerRequest.getEmail())) {
-            return ApiResponseHelper.successResponseWithDataAndMessage("Email is already taken", HttpStatus.BAD_REQUEST,null);
+            return ApiResponseHelper.successResponseWithDataAndMessage("Email is already taken", HttpStatus.BAD_REQUEST, null);
         }
 
 //        List<Long> moduleIds = registerRequest.getModules();
@@ -204,7 +206,7 @@ public class  UserController {
         user.setEnabled(true);
 //        user.setModules(modules);
         userService.saveUser(user);
-        return ApiResponseHelper.successResponseWithDataAndMessage("User registered successfully", HttpStatus.CREATED,null);
+        return ApiResponseHelper.successResponseWithDataAndMessage("User registered successfully", HttpStatus.CREATED, null);
     }
 
 }
