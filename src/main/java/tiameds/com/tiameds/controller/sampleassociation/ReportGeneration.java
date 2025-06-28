@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.*;
 import tiameds.com.tiameds.dto.lab.ReportDto;
 import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.entity.User;
+import tiameds.com.tiameds.entity.VisitEntity;
 import tiameds.com.tiameds.repository.LabRepository;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
@@ -56,12 +57,68 @@ public class ReportGeneration {
         if (!currentUser.get().getLabs().contains(lab.get())) {
             return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
         }
-        // Ensure report list is valid
-        if (reportDtoList == null || reportDtoList.isEmpty()) {
-            return ApiResponseHelper.errorResponse("Report list cannot be empty", HttpStatus.BAD_REQUEST);
-        }
         return reportService.createReports(reportDtoList, labId, currentUser.get());
     }
+
+
+    @PutMapping("{labId}/complete-visit/{visitId}")
+    public ResponseEntity<?> completeVisit(
+            @PathVariable Long labId,
+            @PathVariable Long visitId,
+            @RequestHeader("Authorization") String token) {
+        Optional<User> currentUser = userAuthService.authenticateUser(token);
+        if (currentUser.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+        }
+        if (!labAccessableFilter.isLabAccessible(labId)) {
+            return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+        }
+
+        Optional<Lab> lab = labRepository.findById(labId);
+        if (lab.isEmpty()) {
+            return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
+        }
+
+        // Check if the user is a member of the lab
+//        if (!currentUser.get().getLabs().contains(lab.get())) {
+//            return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
+//        }
+
+        // Ensure visit ID is valid
+        if (visitId == null) {
+            return ApiResponseHelper.errorResponse("Visit ID cannot be empty", HttpStatus.BAD_REQUEST);
+        }
+        // Call the service to complete the visit
+        return reportService.completeVisit(visitId);
+    }
+
+
+    @PutMapping("{labId}/cancled-visit/{visitId}")
+    public ResponseEntity<?> canceldVisit(
+            @PathVariable Long labId,
+            @PathVariable Long visitId,
+            @RequestHeader("Authorization") String token) {
+        Optional<User> currentUser = userAuthService.authenticateUser(token);
+        if (currentUser.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+        }
+        if (!labAccessableFilter.isLabAccessible(labId)) {
+            return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+        }
+
+        Optional<Lab> lab = labRepository.findById(labId);
+        if (lab.isEmpty()) {
+            return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
+        }
+
+        // Ensure visit ID is valid
+        if (visitId == null) {
+            return ApiResponseHelper.errorResponse("Visit ID cannot be empty", HttpStatus.BAD_REQUEST);
+        }
+        return reportService.canceledVisit(visitId);
+    }
+
+
 
     @Transactional
     @GetMapping("{labId}/report/{visitId}")
@@ -121,9 +178,5 @@ public class ReportGeneration {
 
         return reportService.updateReports(reportDtoList, currentUser.get());
     }
-
-
-
-
 
 }

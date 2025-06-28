@@ -204,4 +204,29 @@ public class VisitController {
     }
 
 
+
+    // start and end date for visit
+    @GetMapping("/{labId}/datewise-lab-visits")
+    public ResponseEntity<?> getVisits(
+            @PathVariable Long labId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestHeader("Authorization") String token
+    ) {
+        try {
+            Optional<User> currentUser = userAuthService.authenticateUser(token);
+            if (currentUser.isEmpty()) {
+                return ApiResponseHelper.successResponseWithDataAndMessage("User not found", HttpStatus.UNAUTHORIZED, null);
+            }
+            boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+            if (!isAccessible) {
+                return ApiResponseHelper.successResponseWithDataAndMessage("Lab is not accessible", HttpStatus.UNAUTHORIZED, null);
+            }
+            Object visits = visitService.getVisitDateWise(labId, startDate, endDate, currentUser);
+//            List visits = (List) visitService.getVisitDateWise(labId, startDate, endDate, currentUser);
+            return ApiResponseHelper.successResponseWithDataAndMessage("Visits fetched successfully", HttpStatus.OK, visits);
+        } catch (Exception e) {
+            return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
 }

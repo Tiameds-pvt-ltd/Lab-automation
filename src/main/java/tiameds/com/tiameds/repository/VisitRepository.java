@@ -1,6 +1,8 @@
 package tiameds.com.tiameds.repository;
 
+import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -33,4 +35,10 @@ public interface VisitRepository extends JpaRepository<VisitEntity, Long> {
     List<VisitEntity> findAllByPatient_LabsAndVisitDateBetween(Lab lab, LocalDate startDate, LocalDate endDate);
 
     List<VisitEntity> findAllByPatient_LabsAndVisitDateBetweenAndVisitStatus(Lab lab, LocalDate startDate, LocalDate endDate, String visitStatus);
+
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE VisitEntity v SET v.visitStatus = :status WHERE v.visitId = :visitId")
+    int updateVisitStatus(@Param("visitId") Long visitId, @Param("status") String status);
 }

@@ -82,10 +82,11 @@ public class LabAdminController {
         if (isAccessible == false) {
             return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
         }
-        if (!lab.getCreatedBy().equals(currentUser)) {
-            return ApiResponseHelper.errorResponse("You are not authorized to view members of this lab", HttpStatus.UNAUTHORIZED);
-        }
+//        if (!lab.getCreatedBy().equals(currentUser)) {
+//            return ApiResponseHelper.errorResponse("You are not authorized to view members of this lab", HttpStatus.UNAUTHORIZED);
+//        }
 
+        // check if the user is correct role to view members SUPERADMIN AND ADMIN
 
         List<UserInLabDTO> memberDTOs = MemberUserServices.getMembersInLab(lab);
         return ApiResponseHelper.successResponse("Lab members retrieved successfully", memberDTOs);
@@ -113,9 +114,9 @@ public class LabAdminController {
             return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
 
         // Check creator of the lab
-        if (!lab.getCreatedBy().equals(currentUser)) {
-            return ApiResponseHelper.errorResponse("You are not authorized to create members in this lab", HttpStatus.UNAUTHORIZED);
-        }
+//        if (!lab.getCreatedBy().equals(currentUser)) {
+//            return ApiResponseHelper.errorResponse("You are not authorized to create members in this lab", HttpStatus.UNAUTHORIZED);
+//        }
         //check the user is already a member of the lab using username and email
         if (lab.getMembers().stream().anyMatch(user -> user.getUsername().equals(registerRequest.getUsername()) || user.getEmail().equals(registerRequest.getEmail()))) {
             return ApiResponseHelper.errorResponse("User is already a member of this lab", HttpStatus.CONFLICT);

@@ -8,7 +8,6 @@ import tiameds.com.tiameds.dto.lab.*;
 import tiameds.com.tiameds.entity.*;
 import tiameds.com.tiameds.repository.*;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
-
 import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -390,6 +389,27 @@ public class VisitService {
     }
 
 
+    public Object getVisitDateWise(Long labId, LocalDate startDate, LocalDate endDate, Optional<User> currentUser) {
+        Optional<Lab> labOptional = labRepository.findById(labId);
+        if (labOptional.isEmpty()) {
+            return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
+        }
+        if (currentUser.isEmpty() || !currentUser.get().getLabs().contains(labOptional.get())) {
+            return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
+        }
+        if (startDate == null || endDate == null) {
+            return ApiResponseHelper.errorResponse("Start date and end date are required", HttpStatus.BAD_REQUEST);
+        }
+        List<VisitEntity> visits = visitRepository.findAllByPatient_LabsAndVisitDateBetween(
+                labOptional.get(), startDate, endDate
+        );
+        if (visits.isEmpty()) {
+            return ApiResponseHelper.successResponseWithDataAndMessage("No visits found for the given date range", HttpStatus.OK, Collections.emptyList());
+        }
+        return visits.stream()
+                .map(this::mapVisitToPatientDTO)
+                .collect(Collectors.toList());
+    }
 }
 
 
