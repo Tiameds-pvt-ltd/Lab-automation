@@ -83,9 +83,13 @@ public class SpringSecurityConfig {
                                         "lab/test-reference/{labId}/test/{testName}",
                                         "lab/*/report/{visitId}",
                                         "lab/*/report",
-//        {labId}/complete-visit/{visitId}
                                         "/lab/*/complete-visit/{visitId}"
                                 ).hasAnyRole("ADMIN", "TECHNICIAN","SUPERADMIN")
+
+                                .requestMatchers(
+                                        "/lab/*/datewise-lab-visits"
+                                ).hasAnyRole("ADMIN", "TECHNICIAN","SUPERADMIN", "DESKROLE")
+
 
                         //---------- admin and super admin endpoints -------------------
                                 .requestMatchers(
