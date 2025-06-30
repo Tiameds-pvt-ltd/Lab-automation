@@ -82,8 +82,9 @@ public class SpringSecurityConfig {
                                         "lab/*/report",
                                         "lab/test-reference/{labId}/test/{testName}",
                                         "lab/*/report/{visitId}",
-                                        "lab/*/report",
-                                        "/lab/*/complete-visit/{visitId}"
+                                        "/lab/*/complete-visit/{visitId}",
+                                        "lab/test-reference/{labId}/add",
+                                        "lab/test-reference/{labId}/update/{testReferenceId}"
                                 ).hasAnyRole("ADMIN", "TECHNICIAN","SUPERADMIN")
 
                                 .requestMatchers(
@@ -93,6 +94,18 @@ public class SpringSecurityConfig {
 
                         //---------- admin and super admin endpoints -------------------
                                 .requestMatchers(
+                                        "admin/lab/*/test/{testId}",
+                                        "admin/lab/*/test",
+                                        "admin/lab/*/package/{packageId}",
+                                        "admin/lab/*/package",
+                                        "admin/lab/*/test-reference/{testReferenceId}",
+                                        "admin/lab/*/test-reference",
+                                        "admin/lab/*/test-reference/{testReferenceId}/update",
+                                        "admin/lab/*/test-reference/{testReferenceId}/remove",
+                                        "admin/lab/*/test-reference/add",
+                                        "admin/lab/*/add",
+                                        "admin/lab/*/update/{testId}",
+                                        "admin/lab/*/remove/{testId}",
                                         "/lab/admin/get-members/{labId}",
                                         "/lab/admin/create-user/{labId}"
                                 ).hasAnyRole("SUPERADMIN", "ADMIN")
