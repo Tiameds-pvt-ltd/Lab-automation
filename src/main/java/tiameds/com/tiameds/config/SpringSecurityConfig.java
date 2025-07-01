@@ -58,7 +58,7 @@ public class SpringSecurityConfig {
                                         "/lab/*/update-patient-details/{patientId}",
                                         "/admin/lab/*/doctors/{doctorId}",
                                         "/lab/admin/insurance/{labId}"
-                                ).hasAnyRole("ADMIN", "DESKROLE","SUPER ADMIN")
+                                ).hasAnyRole("ADMIN", "DESKROLE","SUPERADMIN")
 
                                 .requestMatchers(
                                         "/admin/lab/*/test/{testId}",
