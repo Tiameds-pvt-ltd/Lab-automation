@@ -1,5 +1,4 @@
 package tiameds.com.tiameds.config;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,11 +15,9 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import tiameds.com.tiameds.filter.JwtFilter;
 import tiameds.com.tiameds.services.auth.UserDetailsServiceImpl;
 
-
 @Configuration
 @EnableWebSecurity
 public class SpringSecurityConfig {
-
     private final JwtFilter jwtFilter;
     private final UserDetailsServiceImpl userDetailsService;
 
@@ -46,6 +43,7 @@ public class SpringSecurityConfig {
                 .authorizeHttpRequests(auth -> auth
 //                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()  // Permit CORS preflight requests
 
+
                                 // ---------------list of all endpoints with roles as DESKROLE and admin---------------------
                                 .requestMatchers(
                                         "/lab/*/visits",
@@ -60,7 +58,7 @@ public class SpringSecurityConfig {
                                         "/lab/*/update-patient-details/{patientId}",
                                         "/admin/lab/*/doctors/{doctorId}",
                                         "/lab/admin/insurance/{labId}"
-                                ).hasAnyRole("ADMIN", "DESKROLE","SUPERADMIN")
+                                ).hasAnyRole("ADMIN", "DESKROLE","SUPER ADMIN")
 
                                 .requestMatchers(
                                         "/admin/lab/*/test/{testId}",
@@ -84,13 +82,12 @@ public class SpringSecurityConfig {
                                         "lab/*/report/{visitId}",
                                         "/lab/*/complete-visit/{visitId}",
                                         "lab/test-reference/{labId}/add",
-                                        "lab/test-reference/{labId}/update/{testReferenceId}"
+                                        "lab/test-reference/{labId}/{testReferenceId}"
                                 ).hasAnyRole("ADMIN", "TECHNICIAN","SUPERADMIN")
 
                                 .requestMatchers(
                                         "/lab/*/datewise-lab-visits"
                                 ).hasAnyRole("ADMIN", "TECHNICIAN","SUPERADMIN", "DESKROLE")
-
 
                         //---------- admin and super admin endpoints -------------------
                                 .requestMatchers(
@@ -106,14 +103,28 @@ public class SpringSecurityConfig {
                                         "admin/lab/*/add",
                                         "admin/lab/*/update/{testId}",
                                         "admin/lab/*/remove/{testId}",
-                                        "/lab/admin/get-members/{labId}",
-                                        "/lab/admin/create-user/{labId}"
+                                        "/lab/static/{labId}",
+                                        "lab/admin/get-labs",
+//                                        /admin/lab/18/download
+                                        "/admin/lab/{labId}/download"
                                 ).hasAnyRole("SUPERADMIN", "ADMIN")
+
+
+                              //-------------userManagement endpoints for admin and super admin-------------------
+                                .requestMatchers(
+                                        "/user-management/get-members/**",
+                                        "/user-management/create-user/**",
+                                        "/user-management/update-user/**",
+                                        "/user-management/reset-password/**",
+                                        "/user-management/delete-user/**",
+                                        "/user-management/get-user/**"
+                                ).hasAnyRole("ADMIN", "SUPERADMIN")
+
 
                                 .requestMatchers("/admin/**").hasRole("ADMIN")
                                 .requestMatchers("/lab/admin/get-user-labs").hasAnyRole("ADMIN", "TECHNICIAN", "DESKROLE","SUPERADMIN")
                                 .requestMatchers("/lab/admin/**").hasAnyRole("SUPERADMIN", "ADMIN")
-                                .requestMatchers("/lab/**").hasRole("ADMIN")
+//                                .requestMatchers("/lab/**").hasRole("ADMIN")
                                 .requestMatchers("/lab-super-admin/**").hasRole("SUPERADMIN")
                                 .requestMatchers("/error").permitAll()
                                 .requestMatchers("/login/**", "/register/**").permitAll()

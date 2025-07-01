@@ -20,13 +20,12 @@ import tiameds.com.tiameds.services.lab.UserLabService;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
 import tiameds.com.tiameds.utils.UserAuthService;
-
 import java.util.List;
 import java.util.Map;
 
 
 @RestController
-@RequestMapping("/lab/admin")
+@RequestMapping("/user-management")
 public class LabAdminController {
     private final UserRepository userRepository;
     private UserLabService userLabService;
@@ -162,9 +161,9 @@ public class LabAdminController {
         }
 
         // Check creator of the lab
-        if (!lab.getCreatedBy().equals(currentUser)) {
-            return ApiResponseHelper.errorResponse("You are not authorized to update members in this lab", HttpStatus.UNAUTHORIZED);
-        }
+//        if (!lab.getCreatedBy().equals(currentUser)) {
+//            return ApiResponseHelper.errorResponse("You are not authorized to update members in this lab", HttpStatus.UNAUTHORIZED);
+//        }
 
         User userToUpdate = userRepository.findById(userId).orElse(null);
         if (userToUpdate == null) {
@@ -178,7 +177,6 @@ public class LabAdminController {
 
     }
 
-    //reset user password
     @Transactional
     @PutMapping("/reset-password/{labId}/{userId}")
     public ResponseEntity<?> resetUserPassword(
@@ -186,7 +184,6 @@ public class LabAdminController {
             @PathVariable Long userId,
             @RequestBody Map<String, String> passwordRequest, // Change to accept JSON object
             @RequestHeader("Authorization") String token) {
-
         User currentUser = userAuthService.authenticateUser(token).orElse(null);
         if (currentUser == null) {
             return ApiResponseHelper.errorResponse("User not found or unauthorized", HttpStatus.UNAUTHORIZED);
