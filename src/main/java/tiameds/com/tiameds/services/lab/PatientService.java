@@ -780,9 +780,7 @@ package tiameds.com.tiameds.services.lab;
 
 import jakarta.transaction.Transactional;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.PutMapping;
 import tiameds.com.tiameds.dto.lab.BillingDTO;
 import tiameds.com.tiameds.dto.lab.PatientDTO;
 import tiameds.com.tiameds.dto.lab.TestDiscountDTO;
@@ -792,7 +790,6 @@ import tiameds.com.tiameds.repository.*;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -887,17 +884,23 @@ public class PatientService {
         patientRepository.delete(patientEntity);
     }
 
-    @Transactional
-    public Optional<PatientEntity> findByPhoneAndFirstName(String phone, String firstName) {
-        return patientRepository.findByPhoneAndFirstName(phone, firstName);
+//    @Transactional
+//    public Optional<PatientEntity> findByPhoneAndFirstName(String phone, String firstName) {
+//        return patientRepository.findByPhoneAndFirstName(phone, firstName);
+//    }
+
+    public Optional<PatientEntity> findByPhoneAndFirstNameAndLabsId(String phone, String firstName, long id) {
+        return patientRepository.findByPhoneAndFirstNameAndLabsId(phone, firstName, id);
     }
+
 
     @Transactional(rollbackOn = Exception.class)
     public PatientDTO savePatientWithDetails(Lab lab, PatientDTO patientDTO) {
         try {
-            Optional<PatientEntity> existingPatient = findByPhoneAndFirstName(
+            Optional<PatientEntity> existingPatient = findByPhoneAndFirstNameAndLabsId(
                     patientDTO.getPhone(),
                     patientDTO.getFirstName()
+            , lab.getId()
             );
 
             if (existingPatient.isPresent()) {
@@ -1068,7 +1071,9 @@ public class PatientService {
     }
 
 
-//    ----------------------------------------------------------------------------------------------
+
+    //-----------------new code for updating patient details-----------------
+
 
     @Transactional(rollbackOn = Exception.class)
     public PatientDTO updatePatientDetails(PatientEntity existingPatient, Lab lab, PatientDTO patientDTO) {

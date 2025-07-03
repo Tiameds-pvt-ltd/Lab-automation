@@ -35,4 +35,7 @@ public interface PatientRepository extends JpaRepository<PatientEntity, Long> {
     );
 
     Optional<PatientEntity> findFirstByPhoneOrderByPatientIdAsc(String phone);
+
+    @Query("SELECT p FROM PatientEntity p JOIN p.labs l WHERE p.phone = :phone AND p.firstName = :firstName AND l.id = :id")
+    Optional<PatientEntity> findByPhoneAndFirstNameAndLabsId(String phone, String firstName, long id);
 }

@@ -2,11 +2,13 @@ package tiameds.com.tiameds.controller.lab;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+import software.amazon.awssdk.services.secretsmanager.model.ResourceNotFoundException;
 import tiameds.com.tiameds.dto.lab.PatientDTO;
+import tiameds.com.tiameds.dto.lab.PatientProcessingResult;
 import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.entity.PatientEntity;
 import tiameds.com.tiameds.entity.User;
@@ -16,7 +18,6 @@ import tiameds.com.tiameds.services.lab.PatientService;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
 import tiameds.com.tiameds.utils.UserAuthService;
-
 import java.util.Optional;
 
 @Transactional
@@ -25,7 +26,6 @@ import java.util.Optional;
 @Tag(name = "Patient Controller", description = "Endpoints for managing patients in a lab")
 @Slf4j
 public class PatientController {
-
     private final PatientService patientService;
     private final UserAuthService userAuthService;
     private final LabRepository labRepository;
@@ -39,55 +39,55 @@ public class PatientController {
         this.labAccessableFilter = labAccessableFilter;
         this.patientRepository = patientRepository;
     }
-
-    @PostMapping("/{labId}/add-patient")
-    public ResponseEntity<?> addPatient(@PathVariable Long labId,
-                                        @RequestHeader("Authorization") String token,
-                                        @RequestBody PatientDTO patientDTO) {
-        try {
-            Optional<User> currentUser = userAuthService.authenticateUser(token);
-            if (currentUser.isEmpty()) {
-                return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
-            }
-            Optional<Lab> labOptional = labRepository.findById(labId);
-            if (labOptional.isEmpty()) {
-                return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
-            }
-            boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
-            if (!isAccessible) {
-                return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
-            }
-            if (!currentUser.get().getLabs().contains(labOptional.get())) {
-                return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
-            }
-            // Check if patient exists (phone AND first name match)
-            Optional<PatientEntity> existingPatient = patientService.findByPhoneAndFirstName(
-                    patientDTO.getPhone(),
-                    patientDTO.getFirstName()
-            );
-            if (existingPatient.isPresent()) {
-                PatientDTO updatedPatient = patientService.addVisitAndBillingToExistingPatient(
-                        labOptional.get(),
-                        patientDTO,
-                        existingPatient.get()
-                );
-                return ApiResponseHelper.successResponseWithDataAndMessage(
-                        "Visit and billing added to existing patient",
-                        HttpStatus.OK,
-                        updatedPatient
-                );
-            }
-            // New patient
-            PatientDTO newPatient = patientService.savePatientWithDetails(labOptional.get(), patientDTO);
-            return ApiResponseHelper.successResponseWithDataAndMessage(
-                    "New patient added successfully",
-                    HttpStatus.CREATED,
-                    newPatient
-            );
-        } catch (Exception e) {
-            return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
-        }
-    }
+//
+//    @PostMapping("/{labId}/add-patient")
+//    public ResponseEntity<?> addPatient(@PathVariable Long labId,
+//                                        @RequestHeader("Authorization") String token,
+//                                        @RequestBody PatientDTO patientDTO) {
+//        try {
+//            Optional<User> currentUser = userAuthService.authenticateUser(token);
+//            if (currentUser.isEmpty()) {
+//                return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+//            }
+//            Optional<Lab> labOptional = labRepository.findById(labId);
+//            if (labOptional.isEmpty()) {
+//                return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
+//            }
+//            boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+//            if (!isAccessible) {
+//                return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+//            }
+//            if (!currentUser.get().getLabs().contains(labOptional.get())) {
+//                return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
+//            }
+//            // Check if patient exists (phone AND first name match)
+//            Optional<PatientEntity> existingPatient = patientService.findByPhoneAndFirstName(
+//                    patientDTO.getPhone(),
+//                    patientDTO.getFirstName()
+//            );
+//            if (existingPatient.isPresent()) {
+//                PatientDTO updatedPatient = patientService.addVisitAndBillingToExistingPatient(
+//                        labOptional.get(),
+//                        patientDTO,
+//                        existingPatient.get()
+//                );
+//                return ApiResponseHelper.successResponseWithDataAndMessage(
+//                        "Visit and billing added to existing patient",
+//                        HttpStatus.OK,
+//                        updatedPatient
+//                );
+//            }
+//            // New patient
+//            PatientDTO newPatient = patientService.savePatientWithDetails(labOptional.get(), patientDTO);
+//            return ApiResponseHelper.successResponseWithDataAndMessage(
+//                    "New patient added successfully",
+//                    HttpStatus.CREATED,
+//                    newPatient
+//            );
+//        } catch (Exception e) {
+//            return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
+//        }
+//    }
 
     @GetMapping("/{labId}/patients")
     public ResponseEntity<?> getAllPatients(@PathVariable Long labId, @RequestHeader("Authorization") String token) {
@@ -264,6 +264,67 @@ public class PatientController {
                     "Patient updated successfully",
                     HttpStatus.OK,
                     updatedPatient
+            );
+        } catch (Exception e) {
+            return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @PostMapping("/{labId}/add-patient")
+    public ResponseEntity<?> addPatient(@PathVariable Long labId,
+                                        @RequestHeader("Authorization") String token,
+                                        @RequestBody PatientDTO patientDTO) {
+        try {
+            Optional<User> currentUser = userAuthService.authenticateUser(token);
+            if (currentUser.isEmpty()) {
+                return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+            }
+            Optional<Lab> labOptional = labRepository.findById(labId);
+            if (labOptional.isEmpty()) {
+                return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
+            }
+            boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+            if (!isAccessible) {
+                return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+            }
+            if (!currentUser.get().getLabs().contains(labOptional.get())) {
+                return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
+            }
+            // Check if patient exists (phone AND first name match)
+//            Optional<PatientEntity> existingPatient = patientService.findByPhoneAndFirstName(
+//                    patientDTO.getPhone(),
+//                    patientDTO.getFirstName(),
+//                    labOptional.get().getId()
+//
+//            );
+
+            // check if patient exists by phone and first name on the particular lab
+            Optional<PatientEntity> existingPatient = patientService.findByPhoneAndFirstNameAndLabsId(
+                    patientDTO.getPhone(),
+                    patientDTO.getFirstName(),
+                    labOptional.get().getId()
+            );
+
+
+            if (existingPatient.isPresent()) {
+
+                PatientDTO updatedPatient = patientService.addVisitAndBillingToExistingPatient(
+                        labOptional.get(),
+                        patientDTO,
+                        existingPatient.get()
+                );
+                return ApiResponseHelper.successResponseWithDataAndMessage(
+                        "Visit and billing added to existing patient",
+                        HttpStatus.OK,
+                        updatedPatient
+                );
+            }
+            // New patient
+            PatientDTO newPatient = patientService.savePatientWithDetails(labOptional.get(), patientDTO);
+            return ApiResponseHelper.successResponseWithDataAndMessage(
+                    "New patient added successfully",
+                    HttpStatus.CREATED,
+                    newPatient
             );
         } catch (Exception e) {
             return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
