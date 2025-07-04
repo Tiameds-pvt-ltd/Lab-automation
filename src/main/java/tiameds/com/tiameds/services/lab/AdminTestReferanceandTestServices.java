@@ -22,6 +22,7 @@ import tiameds.com.tiameds.utils.ApiResponseHelper;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -262,7 +263,7 @@ public class AdminTestReferanceandTestServices {
 
         List<SuperAdminReferanceEntity> testReferenceEntities = new ArrayList<>();
 
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()));
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8));
              CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT
                      .withFirstRecordAsHeader()
                      .withIgnoreHeaderCase()
