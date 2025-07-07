@@ -47,16 +47,13 @@ public class SpringSecurityConfig {
                                 // ---------------list of all endpoints with roles as DESKROLE and admin---------------------
                                 .requestMatchers(
                                         "/lab/*/visits",
-                                        "/admin/lab/*/doctors",
+//                                        "/admin/lab/*/doctors",
                                         "/admin/lab/*/packages",
                                         "/lab/*/add-patient",
                                         "/lab/*/patients",
-                                        "/admin/lab/*/doctors/{doctorId}",
-                                        "/admin/lab/*/doctors",
+//                                        "/admin/lab/*/doctors/{doctorId}",
                                         "/admin/lab/*/packages",
-                                        "/admin/lab/*/doctors",
                                         "/lab/*/update-patient-details/{patientId}",
-                                        "/admin/lab/*/doctors/{doctorId}",
                                         "/lab/admin/insurance/{labId}"
                                 ).hasAnyRole("ADMIN", "DESKROLE","SUPERADMIN")
 
@@ -67,7 +64,10 @@ public class SpringSecurityConfig {
                                         "/lab/*/report/{visitId}",
                                         "/admin/lab/*/tests",
                                         "/lab/test-reference/{labId}",
-                                        "/lab/test-reference/{labId}/download"
+                                        "/lab/test-reference/{labId}/download",
+                                        //------------------------
+                                        "/admin/lab/*/doctors",
+                                        "/admin/lab/*/doctors/{doctorId}"
                                 ).hasAnyRole("ADMIN", "DESKROLE", "TECHNICIAN","SUPERADMIN")
 
                                 // ---------------list of all endpoints with roles as TECHNICIAN and admin---------------------
