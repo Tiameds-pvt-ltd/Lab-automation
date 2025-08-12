@@ -58,6 +58,9 @@ public class PatientEntity {
     @Column(name = "date_of_birth")
     private LocalDate dateOfBirth;
 
+    @Column(name = "age")
+    private String age;
+
     @Column(name="gender")
     private String gender;
 
@@ -67,6 +70,12 @@ public class PatientEntity {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    @Column(name = "created_by")
+    private String createdBy;
+
+    @Column(name = "updated_by")
+    private String updatedBy;
 
     // One patient can have multiple visits
 
@@ -81,8 +90,6 @@ public class PatientEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "guardian_id", referencedColumnName = "patient_id", insertable = false, updatable = false)
     private PatientEntity guardian;
-
-
 
 
     // One patient can have multiple labs and one lab can have multiple patients

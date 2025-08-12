@@ -70,57 +70,57 @@ public class BillingService {
 
 
 
-    public List<BillingDTO> getBillingDetailsByPatientId(Long labId, Optional<User> currentUser, Long patientId) {
-
-        // Check if the lab exists
-        Optional<Lab> labOptional = labRepository.findById(labId);
-        if (labOptional.isEmpty()) {
-            throw new RuntimeException("Lab not found");
-        }
-
-        // Check if the user is authorized for the lab
-        if (currentUser.isEmpty() || !currentUser.get().getLabs().contains(labOptional.get())) {
-            throw new RuntimeException("User is not authorized for this lab");
-        }
-
-        // Check if the patient exists
-        Optional<PatientEntity> patientOptional = patientRepository.findById(patientId);
-        if (patientOptional.isEmpty()) {
-            throw new RuntimeException("Patient not found");
-        }
-
-        // Ensure the patient belongs to the lab
-        PatientEntity patientEntity = patientRepository.findById(patientId)
-                .filter(patient -> patient.getLabs().stream()
-                        .anyMatch(existingLab -> Objects.equals(existingLab.getId(), labId)))
-                .orElseThrow(() -> new RuntimeException("Patient not found for the specified lab"));
-
-        // Fetch visits associated with the patient
-        List<VisitEntity> visits = visitRepository.findByPatientId(patientId);
-
-        // Extract and map billing details from visits
-        // Include only visits with billing information
-
-        return visits.stream()
-                .map(VisitEntity::getBilling)
-                .filter(Objects::nonNull) // Include only visits with billing information
-                .map(billing -> new BillingDTO(
-                        billing.getId(),
-                        billing.getTotalAmount(),
-                        billing.getPaymentStatus(),
-                        billing.getPaymentMethod(),
-                        billing.getPaymentDate() != null ? billing.getPaymentDate().toString() : null,
-                        billing.getDiscount(),
-                        billing.getGstRate(),
-                        billing.getGstAmount(),
-                        billing.getCgstAmount(),
-                        billing.getSgstAmount(),
-                        billing.getIgstAmount(),
-                        billing.getNetAmount(),
-                        billing.getDiscountReason()
-                ))
-                .collect(Collectors.toList());
-    }
+//    public List<BillingDTO> getBillingDetailsByPatientId(Long labId, Optional<User> currentUser, Long patientId) {
+//
+//        // Check if the lab exists
+//        Optional<Lab> labOptional = labRepository.findById(labId);
+//        if (labOptional.isEmpty()) {
+//            throw new RuntimeException("Lab not found");
+//        }
+//
+//        // Check if the user is authorized for the lab
+//        if (currentUser.isEmpty() || !currentUser.get().getLabs().contains(labOptional.get())) {
+//            throw new RuntimeException("User is not authorized for this lab");
+//        }
+//
+//        // Check if the patient exists
+//        Optional<PatientEntity> patientOptional = patientRepository.findById(patientId);
+//        if (patientOptional.isEmpty()) {
+//            throw new RuntimeException("Patient not found");
+//        }
+//
+//        // Ensure the patient belongs to the lab
+//        PatientEntity patientEntity = patientRepository.findById(patientId)
+//                .filter(patient -> patient.getLabs().stream()
+//                        .anyMatch(existingLab -> Objects.equals(existingLab.getId(), labId)))
+//                .orElseThrow(() -> new RuntimeException("Patient not found for the specified lab"));
+//
+//        // Fetch visits associated with the patient
+//        List<VisitEntity> visits = visitRepository.findByPatientId(patientId);
+//
+//        // Extract and map billing details from visits
+//        // Include only visits with billing information
+//
+//        return visits.stream()
+//                .map(VisitEntity::getBilling)
+//                .filter(Objects::nonNull) // Include only visits with billing information
+//                .map(billing -> new BillingDTO(
+//                        billing.getId(),
+//                        billing.getTotalAmount(),
+//                        billing.getPaymentStatus(),
+//                        billing.getPaymentMethod(),
+//                        billing.getPaymentDate() != null ? billing.getPaymentDate().toString() : null,
+//                        billing.getDiscount(),
+//                        billing.getGstRate(),
+//                        billing.getGstAmount(),
+//                        billing.getCgstAmount(),
+//                        billing.getSgstAmount(),
+//                        billing.getIgstAmount(),
+//                        billing.getNetAmount(),
+//                        billing.getDiscountReason()
+//                ))
+//                .collect(Collectors.toList());
+//    }
 }
 
 

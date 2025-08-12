@@ -41,4 +41,6 @@ public interface VisitRepository extends JpaRepository<VisitEntity, Long> {
     @Transactional
     @Query("UPDATE VisitEntity v SET v.visitStatus = :status WHERE v.visitId = :visitId")
     int updateVisitStatus(@Param("visitId") Long visitId, @Param("status") String status);
+
+
 }

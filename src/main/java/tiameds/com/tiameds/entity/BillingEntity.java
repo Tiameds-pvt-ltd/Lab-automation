@@ -1,3 +1,4 @@
+
 package tiameds.com.tiameds.entity;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
@@ -7,8 +8,10 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -25,45 +28,41 @@ public class BillingEntity {
     @Column(name = "billing_id")
     private Long id;
 
+
     @Column(name = "total_amount", nullable = false)
-    private BigDecimal totalAmount; // Total amount before taxes and discount
+    private BigDecimal totalAmount;
 
     @Column(name = "payment_status", nullable = false)
-    private String paymentStatus; // PAID, UNPAID, PARTIAL
+    private String paymentStatus;
 
     @Column(name = "payment_method", nullable = false)
-    private String paymentMethod; // CASH, CARD, ONLINE
+    private String paymentMethod;
 
     @Column(name = "payment_date", nullable = false)
-    private String paymentDate; // Date of payment
+    private String paymentDate;
 
     @Column(name = "discount", nullable = false)
-    private BigDecimal discount; // Discount applied on the total amount
+    private BigDecimal discount;
 
-    // GST Rate and Amounts (CGST, SGST, IGST)
     @Column(name = "gst_rate", nullable = false)
-    private BigDecimal gstRate; // GST rate (e.g., 18% or 5%)
+    private BigDecimal gstRate;
 
     @Column(name = "gst_amount", nullable = false)
-    private BigDecimal gstAmount; // Total GST amount calculated (sum of CGST + SGST or IGST)
+    private BigDecimal gstAmount;
 
-    // CGST (Intra-state transactions only)
     @Column(name = "cgst_amount", nullable = false)
-    private BigDecimal cgstAmount; // CGST amount (if intra-state transaction)
+    private BigDecimal cgstAmount;
 
-    // SGST (Intra-state transactions only)
     @Column(name = "sgst_amount", nullable = false)
-    private BigDecimal sgstAmount; // SGST amount (if intra-state transaction)
+    private BigDecimal sgstAmount;
 
-    // IGST (Inter-state transactions only)
     @Column(name = "igst_amount", nullable = false)
-    private BigDecimal igstAmount; // IGST amount (if inter-state transaction)
+    private BigDecimal igstAmount;
 
     @Column(name = "net_amount", nullable = false)
-    private BigDecimal netAmount; // Net amount after applying discount and GST
+    private BigDecimal netAmount;
 
-
-    @ManyToMany(fetch = FetchType.LAZY,cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @ManyToMany(fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinTable(name = "lab_billing",
             joinColumns = @JoinColumn(name = "billing_id"),
             inverseJoinColumns = @JoinColumn(name = "lab_id"))
@@ -73,14 +72,37 @@ public class BillingEntity {
     @JsonManagedReference
     private Set<TestDiscountEntity> testDiscounts = new HashSet<>();
 
-    //discountReason
     @Column(name = "discount_reason")
-    private String discountReason; // Reason for the discount applied
+    private String discountReason;
+
+    // Transaction-related amounts (optional summary)
+    @Column(name = "received_amount")
+    private BigDecimal receivedAmount;
+
+    @Column(name = "due_amount")
+    private BigDecimal dueAmount;
+
+    @Column(name = "created_by")
+    private String createdBy;
+
+    @Column(name = "billing_time", nullable = false)
+    private LocalTime billingTime;
+
+    @Column(name = "billing_date")
+    private String billingDate;
+
+    @Column(name = "updated_by")
+    private String updatedBy;
 
     @CreationTimestamp
     @Column(updatable = false)
-    private LocalDateTime createdAt; // Timestamp when the record is created
+    private LocalDateTime createdAt;
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    // New relation for tracking transactions
+    @OneToMany(mappedBy = "billing", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
+    private Set<TransactionEntity> transactions = new HashSet<>();
 }

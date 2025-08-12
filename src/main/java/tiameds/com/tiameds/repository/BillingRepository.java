@@ -8,6 +8,8 @@ import tiameds.com.tiameds.entity.BillingEntity;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Optional;
+import java.util.UUID;
 
 public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
 
@@ -25,5 +27,6 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
 
     @Query("SELECT SUM(b.totalAmount) FROM BillingEntity b JOIN b.labs l WHERE l.id = :labId AND b.totalAmount > 0 AND b.createdAt BETWEEN :startDate AND :endDate")
     BigDecimal sumGrossByLabId(@Param("labId") Long labId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
 
 }

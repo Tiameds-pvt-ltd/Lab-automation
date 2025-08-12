@@ -10,6 +10,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import tiameds.com.tiameds.dto.auth.RegisterRequest;
+import tiameds.com.tiameds.dto.lab.LabDetailsDetails;
 import tiameds.com.tiameds.dto.lab.LabListDTO;
 import tiameds.com.tiameds.dto.lab.UserInLabDTO;
 import tiameds.com.tiameds.entity.Lab;
@@ -492,6 +493,62 @@ public class LabMemberController {
                 ))
                 .toList();
         return ApiResponseHelper.successResponseWithDataAndMessage("Labs fetched successfully", HttpStatus.OK, labListDTOs);
+    }
+
+    //--------------------get lab details by lab id---------------------\\
+    @Transactional
+    @GetMapping("/get-lab/{labId}")
+    public ResponseEntity<?> getLabById(
+            @PathVariable Long labId,
+            @RequestHeader("Authorization") String token) {
+
+        // Check if the user is authenticated
+        User currentUser = userAuthService.authenticateUser(token).orElse(null);
+        if (currentUser == null)
+            return ApiResponseHelper.errorResponse("User not found or unauthorized", HttpStatus.UNAUTHORIZED);
+
+        // Check if the lab exists
+        Lab lab = labRepository.findById(labId).orElse(null);
+        System.out.println("Lab: " + lab.getName());
+        if (lab == null)
+            return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
+
+        // Check if the lab is accessible
+        boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+        if (!isAccessible) {
+            return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+        }
+        LabDetailsDetails labDetails = new LabDetailsDetails(
+                lab.getId(),
+                lab.getName(),
+                lab.getLabLogo(),
+                lab.getAddress(),
+                lab.getCity(),
+                lab.getState(),
+                lab.getIsActive(),
+                lab.getDescription(),
+                lab.getLabZip(),
+                lab.getLabCountry(),
+                lab.getLabPhone(),
+                lab.getLabEmail(),
+                lab.getLicenseNumber(),
+                lab.getLabType(),
+                lab.getCreatedBy().getUsername(),
+                lab.getCreatedAt().toString(),
+                lab.getUpdatedAt().toString(),
+                lab.getDirectorName(),
+                lab.getDirectorEmail(),
+                lab.getDirectorPhone(),
+                lab.getCertificationBody(),
+                lab.getLabCertificate(),
+                lab.getDirectorGovtId(),
+                lab.getLabBusinessRegistration(),
+                lab.getLabLicense(),
+                lab.getTaxId(),
+                lab.getLabAccreditation(),
+                lab.getDataPrivacyAgreement()
+        );
+        return ApiResponseHelper.successResponseWithDataAndMessage("Lab details fetched successfully", HttpStatus.OK, labDetails);
     }
 
 

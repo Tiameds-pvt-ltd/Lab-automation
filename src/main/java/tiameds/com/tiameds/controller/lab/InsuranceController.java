@@ -132,7 +132,6 @@ public class InsuranceController {
     }
 
 
-
     // update insurance by id where labid and insuranceid are matched means insurance is associated with that lab only
     @PutMapping("{labId}/insurance/{insuranceId}")
     public ResponseEntity<?> updateInsurance(

@@ -52,29 +52,29 @@ public class BillingController {
             return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
-
-    @GetMapping("/{labId}/billing/{patientId}")
-    public ResponseEntity<?> getBillingDetailsByPatientId(
-            @RequestHeader("Authorization") String token,
-            @PathVariable("labId") Long labId,
-            @PathVariable("patientId") Long patientId) {
-
-        try {
-            Optional<User> currentUser = userAuthService.authenticateUser(token);
-            if (currentUser.isEmpty()) {
-                return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
-            }
-            boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
-            if (!isAccessible) {
-                return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
-            }
-
-            List<BillingDTO> billingDetails = billingService.getBillingDetailsByPatientId(labId, currentUser, patientId);
-            return ApiResponseHelper.successResponse("Billing details fetched successfully", billingDetails);
-        } catch (Exception e) {
-            return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-    }
+//
+//    @GetMapping("/{labId}/billing/{patientId}")
+//    public ResponseEntity<?> getBillingDetailsByPatientId(
+//            @RequestHeader("Authorization") String token,
+//            @PathVariable("labId") Long labId,
+//            @PathVariable("patientId") Long patientId) {
+//
+//        try {
+//            Optional<User> currentUser = userAuthService.authenticateUser(token);
+//            if (currentUser.isEmpty()) {
+//                return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+//            }
+//            boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+//            if (!isAccessible) {
+//                return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+//            }
+//
+//            List<BillingDTO> billingDetails = billingService.getBillingDetailsByPatientId(labId, currentUser, patientId);
+//            return ApiResponseHelper.successResponse("Billing details fetched successfully", billingDetails);
+//        } catch (Exception e) {
+//            return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+//        }
+//    }
 
 
 }

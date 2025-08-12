@@ -10,6 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 import tiameds.com.tiameds.dto.lab.PatientDTO;
 import tiameds.com.tiameds.dto.lab.PatientDetailsDto;
 import tiameds.com.tiameds.dto.lab.VisitDTO;
+import tiameds.com.tiameds.dto.visits.PatientVisitDTO;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.services.lab.BillingService;
 import tiameds.com.tiameds.services.lab.VisitService;
@@ -37,6 +38,7 @@ public class VisitController {
         this.userAuthService = userAuthService;
         this.labAccessableFilter = labAccessableFilter;
     }
+
     @PostMapping("/{labId}/add-visit/{patientId}")
     public ResponseEntity<?> addVisit(
             @PathVariable Long labId,
@@ -204,8 +206,6 @@ public class VisitController {
     }
 
 
-
-    // start and end date for visit
     @GetMapping("/{labId}/datewise-lab-visits")
     public ResponseEntity<?> getVisits(
             @PathVariable Long labId,
@@ -229,4 +229,29 @@ public class VisitController {
             return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+
+    @GetMapping("/{labId}/datewise-patient-visits")
+    public ResponseEntity<?> getPatientVisits(
+            @PathVariable Long labId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestHeader("Authorization") String token
+    ) {
+        try {
+            Optional<User> currentUser = userAuthService.authenticateUser(token);
+            if (currentUser.isEmpty()) {
+                return ApiResponseHelper.successResponseWithDataAndMessage("User not found", HttpStatus.UNAUTHORIZED, null);
+            }
+            boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+            if (!isAccessible) {
+                return ApiResponseHelper.successResponseWithDataAndMessage("Lab is not accessible", HttpStatus.UNAUTHORIZED, null);
+            }
+            List<PatientVisitDTO> patientVisits = visitService.getPatientVisits(labId, startDate, endDate, currentUser);
+            return ApiResponseHelper.successResponseWithDataAndMessage("Patient visits fetched successfully", HttpStatus.OK, patientVisits);
+        } catch (Exception e) {
+            return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
 }

@@ -1,7 +1,5 @@
 package tiameds.com.tiameds.entity;
-
 import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -13,10 +11,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Getter
 @Setter
@@ -82,7 +78,7 @@ public class VisitEntity {
 
     @ManyToMany(fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinTable(
-            name ="patient_visit_sample",
+            name = "patient_visit_sample",
             joinColumns = @JoinColumn(name = "visit_id"),
             inverseJoinColumns = @JoinColumn(name = "sample_id")
     )
@@ -90,7 +86,7 @@ public class VisitEntity {
     private Set<SampleEntity> samples = new HashSet<>();
 
 
-    @ManyToMany(fetch = FetchType.LAZY,cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @ManyToMany(fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinTable(name = "lab_visit",
             joinColumns = @JoinColumn(name = "visit_id"),
             inverseJoinColumns = @JoinColumn(name = "lab_id"))
@@ -100,6 +96,35 @@ public class VisitEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "doctor_id", nullable = true)
     private Doctors doctor;
+
+    // new data for visit table------------------------
+
+    @Column(name = "visit_cancellation_reason")
+    private String visitCancellationReason;
+
+    @Column(name = "visit_cancellation_date")
+    private LocalDate visitCancellationDate;
+
+    @Column(name = "visit_cancellation_by")
+    private String visitCancellationBy;
+
+    @Column(name = "visit_cancellation_time")
+    private LocalDateTime visitCancellationTime;
+
+//    visitTime
+    @Column(name = "visit_time")
+    private LocalDateTime visitTime;
+
+    @Column(name ="created_by")
+    private String createdBy;
+
+    @Column(name ="updated_by")
+    private String updatedBy;
+
+
+
+
+    //------------------------------------------------
 
 
     @CreationTimestamp

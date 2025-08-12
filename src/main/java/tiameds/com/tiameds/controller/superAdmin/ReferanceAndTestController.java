@@ -27,20 +27,6 @@ public class ReferanceAndTestController {
         this.adminTestReferanceandTestServices = adminTestReferanceandTestServices;
     }
 
-
-    /**
-     * 1 . upload referance and test data
-     * 2 . get all referance and test data download endpoint
-     * 3 . get referance and test data by id
-     * 4 . update referance and test data by id
-     * 5 . delete referance and test data by id
-     * 6 . get referance and test data by type (e.g. lab, radiology, etc.)
-     */
-
-
-       //1. upload test referance
-       //2.upload test data csv
-
     @PostMapping(value = "/upload-testcsv",consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<String>> uploadReferance(
             SuperAdminReferanceEntity superAdminReferanceEntity,

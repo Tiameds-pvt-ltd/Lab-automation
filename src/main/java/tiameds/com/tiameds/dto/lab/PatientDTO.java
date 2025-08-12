@@ -1,6 +1,4 @@
 package tiameds.com.tiameds.dto.lab;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -26,8 +24,11 @@ public class PatientDTO {
     private String zip;
     private String bloodGroup;
     private LocalDate dateOfBirth;
+    private String age; // This can be calculated based on dateOfBirth
     private String gender;
     private VisitDTO visit;
+    private String createdBy;
+    private String updatedBy;
 
     public PatientDTO(PatientEntity patient) {
         this.id = patient.getPatientId();
@@ -42,6 +43,9 @@ public class PatientDTO {
         this.bloodGroup = patient.getBloodGroup();
         this.dateOfBirth = patient.getDateOfBirth();
         this.gender = patient.getGender();
+        this.age = patient.getAge();
+        this.createdBy = patient.getCreatedBy();
+        this.updatedBy = patient.getUpdatedBy();
 
         // Get latest visit
         if (patient.getVisits() != null && !patient.getVisits().isEmpty()) {

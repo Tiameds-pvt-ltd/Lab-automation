@@ -5,6 +5,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import tiameds.com.tiameds.dto.lab.*;
+import tiameds.com.tiameds.dto.visits.PatientVisitDTO;
+import tiameds.com.tiameds.dto.visits.VisitDetailsDTO;
 import tiameds.com.tiameds.entity.*;
 import tiameds.com.tiameds.repository.*;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
@@ -92,11 +94,11 @@ public class VisitService {
         billingEntity.setPaymentMethod(visitDTO.getBilling().getPaymentMethod());
         billingEntity.setPaymentDate(visitDTO.getBilling().getPaymentDate());
         billingEntity.setDiscount(visitDTO.getBilling().getDiscount());
-        billingEntity.setGstRate(visitDTO.getBilling().getGstRate());
-        billingEntity.setGstAmount(visitDTO.getBilling().getGstAmount());
-        billingEntity.setCgstAmount(visitDTO.getBilling().getCgstAmount());
-        billingEntity.setSgstAmount(visitDTO.getBilling().getSgstAmount());
-        billingEntity.setIgstAmount(visitDTO.getBilling().getIgstAmount());
+//        billingEntity.setGstRate(visitDTO.getBilling().getGstRate());
+//        billingEntity.setGstAmount(visitDTO.getBilling().getGstAmount());
+//        billingEntity.setCgstAmount(visitDTO.getBilling().getCgstAmount());
+//        billingEntity.setSgstAmount(visitDTO.getBilling().getSgstAmount());
+//        billingEntity.setIgstAmount(visitDTO.getBilling().getIgstAmount());
         billingEntity.setNetAmount(visitDTO.getBilling().getNetAmount());
         billingRepository.save(billingEntity);
         visit.setBilling(billingEntity);
@@ -114,7 +116,6 @@ public class VisitService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User is not a member of this lab");
         }
         List<VisitEntity> visits = visitRepository.findAllByPatient_Labs(labOptional.get());
-
         return visits.stream()
                 .map(this::mapVisitToPatientDTO)
                 .collect(Collectors.toList());
@@ -125,16 +126,17 @@ public class VisitService {
         PatientDTO patientDTO = new PatientDTO();
         patientDTO.setId(visitEntity.getPatient().getPatientId());
         patientDTO.setFirstName(visitEntity.getPatient().getFirstName());
-        patientDTO.setLastName(visitEntity.getPatient().getLastName());
-        patientDTO.setEmail(visitEntity.getPatient().getEmail());
+//        patientDTO.setLastName(visitEntity.getPatient().getLastName());
+//        patientDTO.setEmail(visitEntity.getPatient().getEmail());
         patientDTO.setPhone(visitEntity.getPatient().getPhone());
-        patientDTO.setAddress(visitEntity.getPatient().getAddress());
+//        patientDTO.setAddress(visitEntity.getPatient().getAddress());
         patientDTO.setCity(visitEntity.getPatient().getCity());
-        patientDTO.setState(visitEntity.getPatient().getState());
-        patientDTO.setZip(visitEntity.getPatient().getZip());
-        patientDTO.setBloodGroup(visitEntity.getPatient().getBloodGroup());
+//        patientDTO.setState(visitEntity.getPatient().getState());
+//        patientDTO.setZip(visitEntity.getPatient().getZip());
+//        patientDTO.setBloodGroup(visitEntity.getPatient().getBloodGroup());
         patientDTO.setDateOfBirth(visitEntity.getPatient().getDateOfBirth());
         patientDTO.setGender(visitEntity.getPatient().getGender());
+        patientDTO.setAge(visitEntity.getPatient().getAge());
 
         // Map visit details
         VisitDTO visitDTO = new VisitDTO();
@@ -159,13 +161,27 @@ public class VisitService {
             billingDTO.setPaymentMethod(visitEntity.getBilling().getPaymentMethod());
             billingDTO.setPaymentDate(visitEntity.getBilling().getPaymentDate());
             billingDTO.setDiscount(visitEntity.getBilling().getDiscount());
-            billingDTO.setGstRate(visitEntity.getBilling().getGstRate());
-            billingDTO.setGstAmount(visitEntity.getBilling().getGstAmount());
-            billingDTO.setCgstAmount(visitEntity.getBilling().getCgstAmount());
-            billingDTO.setSgstAmount(visitEntity.getBilling().getSgstAmount());
-            billingDTO.setIgstAmount(visitEntity.getBilling().getIgstAmount());
+
+
+//            billingDTO.setGstRate(visitEntity.getBilling().getGstRate());
+//            billingDTO.setGstAmount(visitEntity.getBilling().getGstAmount());
+//            billingDTO.setCgstAmount(visitEntity.getBilling().getCgstAmount());
+//            billingDTO.setSgstAmount(visitEntity.getBilling().getSgstAmount());
+//            billingDTO.setIgstAmount(visitEntity.getBilling().getIgstAmount());
+
             billingDTO.setNetAmount(visitEntity.getBilling().getNetAmount());
             billingDTO.setDiscountReason(visitEntity.getBilling().getDiscountReason());
+
+
+            if (billingDTO.getTransactions() != null) {
+                List<TransactionDTO> transactionDTOs = visitEntity.getBilling().getTransactions().stream()
+                        .map(TransactionDTO::new)
+                        .collect(Collectors.toList());
+                billingDTO.setTransactions((Set<TransactionDTO>) transactionDTOs);
+            } else {
+                billingDTO.setTransactions(new HashSet<>());
+            }
+
             visitDTO.setBilling(billingDTO);
         }
         // Map test discounts
@@ -230,11 +246,11 @@ public class VisitService {
         billingEntity.setPaymentMethod(visitDTO.getBilling().getPaymentMethod());
         billingEntity.setPaymentDate(visitDTO.getBilling().getPaymentDate());
         billingEntity.setDiscount(visitDTO.getBilling().getDiscount());
-        billingEntity.setGstRate(visitDTO.getBilling().getGstRate());
-        billingEntity.setGstAmount(visitDTO.getBilling().getGstAmount());
-        billingEntity.setCgstAmount(visitDTO.getBilling().getCgstAmount());
-        billingEntity.setSgstAmount(visitDTO.getBilling().getSgstAmount());
-        billingEntity.setIgstAmount(visitDTO.getBilling().getIgstAmount());
+//        billingEntity.setGstRate(visitDTO.getBilling().getGstRate());
+//        billingEntity.setGstAmount(visitDTO.getBilling().getGstAmount());
+//        billingEntity.setCgstAmount(visitDTO.getBilling().getCgstAmount());
+//        billingEntity.setSgstAmount(visitDTO.getBilling().getSgstAmount());
+//        billingEntity.setIgstAmount(visitDTO.getBilling().getIgstAmount());
         billingEntity.setNetAmount(visitDTO.getBilling().getNetAmount());
         billingEntity.getLabs().add(labOptional.get());
         billingRepository.save(billingEntity);
@@ -403,12 +419,54 @@ public class VisitService {
         List<VisitEntity> visits = visitRepository.findAllByPatient_LabsAndVisitDateBetween(
                 labOptional.get(), startDate, endDate
         );
-        if (visits.isEmpty()) {
-            return ApiResponseHelper.successResponseWithDataAndMessage("No visits found for the given date range", HttpStatus.OK, Collections.emptyList());
-        }
-        return visits.stream()
+        List<PatientDTO> patientDTOList = visits.stream()
                 .map(this::mapVisitToPatientDTO)
                 .collect(Collectors.toList());
+        return patientDTOList;
+    }
+
+
+    public List<PatientVisitDTO> getPatientVisits(Long labId, LocalDate startDate, LocalDate endDate, Optional<User> currentUser) {
+        Optional<Lab> labOptional = labRepository.findById(labId);
+        if (labOptional.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Lab not found");
+        }
+        if (currentUser.isEmpty() || !currentUser.get().getLabs().contains(labOptional.get())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User is not a member of this lab");
+        }
+        if (startDate == null || endDate == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Start date and end date are required");
+        }
+        List<VisitEntity> visits = visitRepository.findAllByPatient_LabsAndVisitDateBetween(
+                labOptional.get(), startDate, endDate
+        );
+
+        // make a response object
+        List<PatientVisitDTO> patientVisitDTOs = visits.stream()
+                .map(visit -> {
+                    PatientEntity patient = visit.getPatient();
+                    VisitDetailsDTO visitDetailsDTO = new VisitDetailsDTO(visit);
+                    return new PatientVisitDTO(
+                            patient.getPatientId(),
+                            patient.getFirstName(),
+                            patient.getPhone(),
+                            patient.getCity(),
+                            patient.getDateOfBirth(),
+                            patient.getAge(),
+                            patient.getGender(),
+                            patient.getVisits().isEmpty()
+                                    ? null
+                                    : visitDetailsDTO,
+                            visit.getCreatedBy(),
+                            visit.getUpdatedBy()
+                    );
+                })
+                .collect(Collectors.toList());
+
+        if (patientVisitDTOs.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No visits found for the given date range");
+        }
+        return patientVisitDTOs;
     }
 }
 
