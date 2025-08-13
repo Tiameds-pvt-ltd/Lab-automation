@@ -40,8 +40,6 @@ public class TestController {
         this.labAccessableFilter = labAccessableFilter;
         this.testServices = testServices;
     }
-
-
     // 1. Get all tests in a lab
     @Transactional
     @GetMapping("/{labId}/tests")

@@ -1,5 +1,4 @@
 package tiameds.com.tiameds.controller.lab;
-
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,8 +19,6 @@ import java.util.Optional;
 @RequestMapping("/lab")
 @Tag(name = "Billing Controller", description = "Manage billing in the lab")
 public class BillingController {
-
-
     private final BillingService billingService;
     private final UserAuthService userAuthService;
     private final LabAccessableFilter labAccessableFilter;

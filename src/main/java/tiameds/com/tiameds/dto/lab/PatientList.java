@@ -21,9 +21,16 @@ public class PatientList{
     private String city;
     private LocalDate dateOfBirth;
     private String gender;
+    private String age;
 
 
-    public PatientList(Long patientId, String firstName, String lastName, String phone, String email, String address, String city, String state, String zip, String bloodGroup, LocalDate dateOfBirth, String gender) {
+    public PatientList(Long patientId, String firstName, String lastName, String phone, String email, String address, String city, String state, String zip, String bloodGroup, LocalDate dateOfBirth, String gender , String age) {
+        this.id = patientId;
+        this.firstName = firstName;
+        this.phone = phone;
+        this.city = city;
+        this.dateOfBirth = dateOfBirth;
+        this.age = age;
     }
 
     public PatientList(PatientEntity patientEntity) {

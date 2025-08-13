@@ -1236,6 +1236,7 @@ public class PatientService {
                     patientList.setCity(patient.getCity());
                     patientList.setGender(patient.getGender());
                     patientList.setDateOfBirth(patient.getDateOfBirth());
+                    patientList.setAge(patient.getAge());
                     // Optional: Debug log
                     System.out.println("Mapped PatientList: " + patientList);
                     return patientList;

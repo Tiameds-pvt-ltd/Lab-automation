@@ -1,5 +1,4 @@
 package tiameds.com.tiameds.controller.lab;
-
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -7,7 +6,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
-import tiameds.com.tiameds.dto.lab.PatientDTO;
 import tiameds.com.tiameds.dto.lab.PatientDetailsDto;
 import tiameds.com.tiameds.dto.lab.VisitDTO;
 import tiameds.com.tiameds.dto.visits.PatientVisitDTO;
@@ -17,10 +15,8 @@ import tiameds.com.tiameds.services.lab.VisitService;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
 import tiameds.com.tiameds.utils.UserAuthService;
-
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 
@@ -253,5 +249,4 @@ public class VisitController {
             return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
-
 }

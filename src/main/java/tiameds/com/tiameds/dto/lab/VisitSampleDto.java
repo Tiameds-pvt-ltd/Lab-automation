@@ -9,7 +9,6 @@ import java.util.Set;
 
 @Data
 public class VisitSampleDto {
-
     private Long visitId;
     private String patientname;
     private String gender;
