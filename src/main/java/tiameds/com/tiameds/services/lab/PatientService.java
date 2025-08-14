@@ -1078,6 +1078,34 @@ public class PatientService {
                 testDiscountRepository.saveAll(discountEntities);
             }
         }
+        // handle visit TestResults
+        if (visitDTO.getTestResult() != null && !visitDTO.getTestResult().isEmpty()) {
+            Set<VisitTestResult> testResults = visitDTO.getTestResult().stream()
+                    .map(testResultDTO -> {
+                        VisitTestResult testResult = new VisitTestResult();
+                        // Set visit reference
+                        testResult.setVisit(visit);
+                        // Set isFilled only if provided in DTO, else stays false
+                        if (testResultDTO.getIsFilled() != null) {
+                            testResult.setIsFilled(testResultDTO.getIsFilled());
+                        }
+                        // Fetch and set test entity
+                        testResult.setTest(
+                                testResultDTO.getTestId() != null
+                                        ? testRepository.findById(testResultDTO.getTestId())
+                                        .orElseThrow(() -> new EntityNotFoundException(
+                                                "Test not found with ID: " + testResultDTO.getTestId()))
+                                        : null
+                        );
+                        // Set audit fields
+                        testResult.setCreatedBy(currentUser);
+                        testResult.setUpdatedBy(currentUser);
+
+                        return testResult;
+                    })
+                    .collect(Collectors.toSet());
+            visit.setTestResults(testResults);
+        }
         return visit;
     }
 

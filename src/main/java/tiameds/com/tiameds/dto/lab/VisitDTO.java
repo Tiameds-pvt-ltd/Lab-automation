@@ -27,22 +27,17 @@ public class VisitDTO {
     private List<Long> packageIds;
     private List<Long> insuranceIds;
     private BillingDTO billing;
-//    visitTime
-//    private LocalDateTime visitTime; // Assuming this is the time of the visit
     private String createdBy;
     private String updatedBy;
-
-
-
     //------
     private String visitCancellationReason;
     private LocalDate visitCancellationDate;
     private String visitCancellationBy;
     private LocalDateTime visitCancellationTime;
-
     @JsonProperty("listofeachtestdiscount")
     private List<TestDiscountDTO> listOfEachTestDiscount;
-
+    @JsonProperty("testResult")
+    private List<VisitTestResultResponseDTO> testResult;
 
     public VisitDTO(VisitEntity visitEntity) {
         this.visitId = visitEntity.getVisitId();
@@ -79,7 +74,6 @@ public class VisitDTO {
                     .collect(Collectors.toList());
         }
 
-
         // new fields for cancellation
         this.visitCancellationReason = visitEntity.getVisitCancellationReason();
         this.visitCancellationDate = visitEntity.getVisitCancellationDate();
@@ -89,6 +83,15 @@ public class VisitDTO {
 //        this.visitTime = visitEntity.getVisitTime();
         this.createdBy = visitEntity.getCreatedBy();
         this.updatedBy = visitEntity.getUpdatedBy();
+
+        // Populate test results
+        if (visitEntity.getTestResults() != null && !visitEntity.getTestResults().isEmpty()) {
+            this.testResult = visitEntity.getTestResults().stream()
+                    .map(VisitTestResultResponseDTO::new)
+                    .collect(Collectors.toList());
+        } else {
+            this.testResult = List.of();
+        }
 
     }
 

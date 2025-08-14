@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import tiameds.com.tiameds.dto.lab.TestDiscountDTO;
+import tiameds.com.tiameds.dto.lab.VisitTestResultResponseDTO;
 import tiameds.com.tiameds.entity.HealthPackage;
 import tiameds.com.tiameds.entity.Test;
 import tiameds.com.tiameds.entity.VisitEntity;
@@ -39,6 +40,7 @@ public class VisitDetailsDTO {
     private LocalDateTime visitCancellationTime;
     @JsonProperty("listofeachtestdiscount")
     private List<TestDiscountDTO> listOfEachTestDiscount;
+    private List <VisitTestResultResponseDTO> testResult;
     public VisitDetailsDTO(VisitEntity visitEntity) {
         this.visitId = visitEntity.getVisitId();
         this.visitDate = visitEntity.getVisitDate();
@@ -54,12 +56,6 @@ public class VisitDetailsDTO {
         this.packageIds = visitEntity.getPackages() != null
                 ? visitEntity.getPackages().stream().map(HealthPackage::getId).collect(Collectors.toList())
                 : Collections.emptyList();
-//
-//        this.insuranceIds = visitEntity.getInsurance() != null
-//                ? visitEntity.getInsurance().stream().map(InsuranceEntity::getId).collect(Collectors.toList())
-//                : Collections.emptyList();
-
-        // Handle billing with proper null checks
         if (visitEntity.getBilling() != null) {
             this.billing = new BillDTO(visitEntity.getBilling());
 
@@ -81,6 +77,15 @@ public class VisitDetailsDTO {
         } else {
             this.billing = null;
             this.listOfEachTestDiscount = Collections.emptyList();
+        }
+
+        // Handle test results
+        if (visitEntity.getTestResults() != null) {
+            this.testResult = visitEntity.getTestResults().stream()
+                    .map(result -> new VisitTestResultResponseDTO(result))
+                    .collect(Collectors.toList());
+        } else {
+            this.testResult = Collections.emptyList();
         }
 
         // Cancellation fields

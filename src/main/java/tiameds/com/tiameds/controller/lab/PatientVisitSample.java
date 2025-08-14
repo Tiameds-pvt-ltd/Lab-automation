@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import tiameds.com.tiameds.dto.lab.PatientVisitSampleDto;
 import tiameds.com.tiameds.dto.lab.VisitSampleDto;
+import tiameds.com.tiameds.dto.lab.VisitTestResultResponseDTO;
 import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.entity.SampleEntity;
 import tiameds.com.tiameds.entity.User;
@@ -21,6 +22,9 @@ import tiameds.com.tiameds.repository.LabRepository;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
+
+
+
 @RestController
 @RequestMapping("/lab")
 @Tag(name = "patient visit sample", description = "manage the patient visit sample in the lab")

@@ -30,6 +30,7 @@ public class PatientDTO {
     private String createdBy;
     private String updatedBy;
 
+
     public PatientDTO(PatientEntity patient) {
         this.id = patient.getPatientId();
         this.firstName = patient.getFirstName();
