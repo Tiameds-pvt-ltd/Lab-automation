@@ -336,6 +336,7 @@ public class PatientController {
         }
     }
 
+
     @PutMapping("/{labId}/visit/{visitId}/cancel")
     public ResponseEntity<?> cancelVisit(
             @PathVariable Long labId,
