@@ -246,7 +246,8 @@ public class VisitController {
             List<PatientVisitDTO> patientVisits = visitService.getPatientVisits(labId, startDate, endDate, currentUser);
             return ApiResponseHelper.successResponseWithDataAndMessage("Patient visits fetched successfully", HttpStatus.OK, patientVisits);
         } catch (Exception e) {
-            return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+            return ApiResponseHelper.errorResponse("No Visits Found", HttpStatus.INTERNAL_SERVER_ERROR);
+
         }
     }
 }

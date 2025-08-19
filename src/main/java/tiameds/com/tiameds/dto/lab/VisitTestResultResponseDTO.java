@@ -32,4 +32,7 @@ public class VisitTestResultResponseDTO {
 
 
     }
+
+    public VisitTestResultResponseDTO(Long id, long id1, String name, Boolean isFilled, LocalDateTime createdAt) {
+    }
 }

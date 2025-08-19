@@ -6,6 +6,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 
 @Data
@@ -24,11 +25,14 @@ public class VisitSampleDto {
     private List<VisitTestResultResponseDTO> testResult;
 
 
-    public VisitSampleDto(Long visitId, String patientname, String gender, String dateOfBirth, String contactNumber, String email, LocalDate visitDate, String visitStatus, String s, Set<String> sampleNames, List<Long> testIds, List<Long> packageIds) {
+    public VisitSampleDto(Long visitId, String patientname, String gender, String dateOfBirth, String contactNumber,
+                          String email, LocalDate visitDate, String visitStatus, String gender1,
+                          Set<String> sampleNames, List<Long> testIds, List<Long> packageIds,
+                          List<VisitTestResultResponseDTO> testResult) {
         this.visitId = visitId;
         this.patientname = patientname;
         this.gender = gender;
-        DateOfBirth = dateOfBirth;
+        this.DateOfBirth = dateOfBirth;
         this.contactNumber = contactNumber;
         this.email = email;
         this.visitDate = visitDate;
@@ -36,9 +40,11 @@ public class VisitSampleDto {
         this.sampleNames = sampleNames;
         this.testIds = testIds;
         this.packageIds = packageIds;
-        this.testResult = null; // Initialize testResult as null or empty if needed
-
+        this.testResult = testResult;
     }
+
+
+
 }
 
 

@@ -1,4 +1,5 @@
 package tiameds.com.tiameds.controller.lab;
+
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.transaction.Transactional;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -24,7 +25,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 
-
 @RestController
 @RequestMapping("/lab")
 @Tag(name = "patient visit sample", description = "manage the patient visit sample in the lab")
@@ -42,6 +42,7 @@ public class PatientVisitSample {
         this.labAccessableFilter = labAccessableFilter;
         this.labRepository = labRepository;
     }
+
     @PostMapping("/add-samples")
     @Transactional
     public ResponseEntity<?> createSampleWithPatientVisit(@RequestBody PatientVisitSampleDto request,
@@ -167,13 +168,16 @@ public class PatientVisitSample {
         if (!labAccessableFilter.isLabAccessible(labId)) {
             return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
         }
+
         Lab lab = labRepository.findById(labId).orElse(null);
         if (lab == null) {
             return ResponseEntity.badRequest().body("Lab not found");
         }
+
         if (startDate == null || endDate == null) {
             return ApiResponseHelper.errorResponse("Start date and end date are required", HttpStatus.BAD_REQUEST);
         }
+
         List<VisitEntity> visits;
         if (visitStatus != null && !visitStatus.isBlank()) {
             visits = visitRepository.findAllByPatient_LabsAndVisitDateBetweenAndVisitStatus(
@@ -184,6 +188,7 @@ public class PatientVisitSample {
                     lab, startDate, endDate
             );
         }
+
         List<VisitSampleDto> visitSamples = visits.stream()
                 .map(visit -> new VisitSampleDto(
                         visit.getVisitId(),
@@ -194,7 +199,7 @@ public class PatientVisitSample {
                         visit.getPatient().getEmail(),
                         visit.getVisitDate(),
                         visit.getVisitStatus(),
-                        //get gender using visit.getPatient().getGender()
+                        // gender again (possibly redundant)
                         visit.getPatient().getGender(),
                         visit.getSamples().stream()
                                 .map(SampleEntity::getName)
@@ -204,6 +209,18 @@ public class PatientVisitSample {
                                 .collect(Collectors.toList()),
                         visit.getPackages().stream()
                                 .map(pkg -> pkg.getId())
+                                .collect(Collectors.toList()),
+//                        visit.getTestResults().stream()
+//                                .map(testResult -> new VisitTestResultResponseDTO(
+//                                        testResult.getId(),
+//                                        testResult.getTest().getId(),
+//                                        testResult.getTest().getName(),
+//                                        testResult.getIsFilled(),
+//                                        testResult.getCreatedAt()
+//                                ))
+//                                .collect(Collectors.toList())
+                        visit.getTestResults().stream()
+                                .map(VisitTestResultResponseDTO::new)
                                 .collect(Collectors.toList())
                 ))
                 .collect(Collectors.toList());
