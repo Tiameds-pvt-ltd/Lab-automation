@@ -210,15 +210,6 @@ public class PatientVisitSample {
                         visit.getPackages().stream()
                                 .map(pkg -> pkg.getId())
                                 .collect(Collectors.toList()),
-//                        visit.getTestResults().stream()
-//                                .map(testResult -> new VisitTestResultResponseDTO(
-//                                        testResult.getId(),
-//                                        testResult.getTest().getId(),
-//                                        testResult.getTest().getName(),
-//                                        testResult.getIsFilled(),
-//                                        testResult.getCreatedAt()
-//                                ))
-//                                .collect(Collectors.toList())
                         visit.getTestResults().stream()
                                 .map(VisitTestResultResponseDTO::new)
                                 .collect(Collectors.toList())

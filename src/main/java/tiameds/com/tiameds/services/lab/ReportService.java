@@ -6,18 +6,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import software.amazon.awssdk.services.secretsmanager.model.ResourceNotFoundException;
 import tiameds.com.tiameds.dto.lab.ReportDto;
+import tiameds.com.tiameds.dto.lab.TestResultDto;
 import tiameds.com.tiameds.entity.ReportEntity;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.entity.VisitEntity;
-import tiameds.com.tiameds.repository.LabRepository;
-import tiameds.com.tiameds.repository.ReportRepository;
-import tiameds.com.tiameds.repository.TestRepository;
-import tiameds.com.tiameds.repository.VisitRepository;
+import tiameds.com.tiameds.entity.VisitTestResult;
+import tiameds.com.tiameds.repository.*;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 @Service
 public class ReportService {
@@ -25,63 +22,60 @@ public class ReportService {
     private final VisitRepository visitRepository;
     private final TestRepository testRepository;
     private final LabRepository labRepository;
+    private final VisitTestResultRepository visitTestResultRepository;
 
-    public ReportService(ReportRepository reportRepository, VisitRepository visitRepository, TestRepository testRepository, LabRepository labRepository) {
+    public ReportService(ReportRepository reportRepository, VisitRepository visitRepository, TestRepository testRepository, LabRepository labRepository, VisitTestResultRepository visitTestResultRepository) {
         this.reportRepository = reportRepository;
         this.visitRepository = visitRepository;
         this.testRepository = testRepository;
         this.labRepository = labRepository;
+        this.visitTestResultRepository = visitTestResultRepository;
     }
 
-    public ResponseEntity<?> createReports(List<ReportDto> reportDtoList, Long labId, User user) {
-        List<ReportEntity> reportEntities = new ArrayList<>();
-
-        // Ensure report list is valid
+//    public ResponseEntity<?> createReports(List<ReportDto> reportDtoList, Long labId, User user) {
+//        List<ReportEntity> reportEntities = new ArrayList<>();
+//
+//        // Ensure report list is valid
 //        if (reportDtoList == null || reportDtoList.isEmpty()) {
-//            return ApiResponseHelper.errorResponse("Report list cannot be empty", HttpStatus.BAD_REQUEST);
+//            // if reportDtoList is empty,which means no reports to create, that is hard copy given to patient by some other machine
+//            VisitEntity visitEntity = new VisitEntity();
+//            visitEntity.setVisitStatus("Completed");
+//            return ApiResponseHelper.successResponse(
+//                    "No digital reports submitted. Visit marked as completed—reports may have been provided externally in hard copy.",
+//                    visitEntity
+//            );
+//
 //        }
-
-        // Ensure report list is valid
-        if (reportDtoList == null || reportDtoList.isEmpty()) {
-            // if reportDtoList is empty,which means no reports to create, that is hard copy given to patient by some other machine
-            VisitEntity visitEntity = new VisitEntity();
-            visitEntity.setVisitStatus("Completed");
-            return ApiResponseHelper.successResponse(
-                    "No digital reports submitted. Visit marked as completed—reports may have been provided externally in hard copy.",
-                    visitEntity
-            );
-
-        }
-
-        for (ReportDto reportDto : reportDtoList) {
-            // Validate if visit exists
-            Optional<VisitEntity> optionalVisit = visitRepository.findById(reportDto.getVisitId());
-            if (optionalVisit.isEmpty()) {
-                return ApiResponseHelper.errorResponse("Visit not found", HttpStatus.NOT_FOUND);
-            }
-            VisitEntity visit = optionalVisit.get();
-            visit.setVisitStatus("Completed");
-
-            // Convert DTO to Entity
-            ReportEntity reportEntity = new ReportEntity();
-            reportEntity.setVisitId(reportDto.getVisitId());
-            reportEntity.setTestName(reportDto.getTestName());
-            reportEntity.setTestCategory(reportDto.getTestCategory());
-            reportEntity.setPatientName(reportDto.getPatientName()); // Set patient name if required
-            reportEntity.setLabId(labId); // Use the provided labId
-            reportEntity.setReferenceDescription(reportDto.getReferenceDescription());
-            reportEntity.setReferenceRange(reportDto.getReferenceRange());
-            reportEntity.setReferenceAgeRange(reportDto.getReferenceAgeRange());
-            reportEntity.setEnteredValue(reportDto.getEnteredValue());
-            reportEntity.setUnit(reportDto.getUnit());
-            reportEntity.setCreatedBy(user.getId());
-            reportEntities.add(reportEntity);
-
-        }
-        List<ReportEntity> savedEntities = reportRepository.saveAll(reportEntities);
-        savedEntities.forEach(report -> System.out.println("Saved Report ID: " + report.getReportId()));
-        return ApiResponseHelper.successResponse("Reports created successfully", savedEntities);
-    }
+//
+//        for (ReportDto reportDto : reportDtoList) {
+//            // Validate if visit exists
+//            Optional<VisitEntity> optionalVisit = visitRepository.findById(reportDto.getVisitId());
+//            if (optionalVisit.isEmpty()) {
+//                return ApiResponseHelper.errorResponse("Visit not found", HttpStatus.NOT_FOUND);
+//            }
+//            VisitEntity visit = optionalVisit.get();
+//            visit.setVisitStatus("Completed");
+//
+//            // Convert DTO to Entity
+//            ReportEntity reportEntity = new ReportEntity();
+//            reportEntity.setVisitId(reportDto.getVisitId());
+//            reportEntity.setTestName(reportDto.getTestName());
+//            reportEntity.setTestCategory(reportDto.getTestCategory());
+//            reportEntity.setPatientName(reportDto.getPatientName()); // Set patient name if required
+//            reportEntity.setLabId(labId); // Use the provided labId
+//            reportEntity.setReferenceDescription(reportDto.getReferenceDescription());
+//            reportEntity.setReferenceRange(reportDto.getReferenceRange());
+//            reportEntity.setReferenceAgeRange(reportDto.getReferenceAgeRange());
+//            reportEntity.setEnteredValue(reportDto.getEnteredValue());
+//            reportEntity.setUnit(reportDto.getUnit());
+//            reportEntity.setCreatedBy(user.getId());
+//            reportEntities.add(reportEntity);
+//
+//        }
+//        List<ReportEntity> savedEntities = reportRepository.saveAll(reportEntities);
+//        savedEntities.forEach(report -> System.out.println("Saved Report ID: " + report.getReportId()));
+//        return ApiResponseHelper.successResponse("Reports created successfully", savedEntities);
+//    }
 
     public ResponseEntity<?> getReport(Long visitId, Long labId) {
         List<ReportEntity> reportEntities = reportRepository.findByVisitIdAndLabId(visitId, labId);
@@ -90,7 +84,6 @@ public class ReportService {
         }
         return ApiResponseHelper.successResponse("Report fetched successfully", reportEntities);
     }
-
 
     public ResponseEntity<?> updateReports(List<ReportDto> reportDtoList, User user) {
         List<ReportEntity> updatedReports = new ArrayList<>();
@@ -125,7 +118,6 @@ public class ReportService {
         return ApiResponseHelper.successResponse("Reports updated successfully", savedReports);
     }
 
-
     @Transactional
     public ResponseEntity<?> completeVisit(Long visitId) {
         Optional<VisitEntity> optionalVisit = visitRepository.findById(visitId);
@@ -144,7 +136,6 @@ public class ReportService {
         return ApiResponseHelper.successResponse("Visit completed successfully", HttpStatus.CREATED);
     }
 
-
     public ResponseEntity<?> canceledVisit(Long visitId) {
         Optional<VisitEntity> optionalVisit = visitRepository.findById(visitId);
         if (optionalVisit.isEmpty()) {
@@ -161,5 +152,85 @@ public class ReportService {
 
         return ApiResponseHelper.successResponse("Visit Canceled successfully", HttpStatus.CREATED);
     }
+
+
+
+    public ResponseEntity<?> createReports(List<ReportDto> reportDtoList, Long labId, User user, TestResultDto testResultDto) {
+
+        List<ReportEntity> reportEntities = new ArrayList<>();
+
+        // Validate testResultDto
+        if (testResultDto == null || testResultDto.getTestId() == null || testResultDto.getIsFilled() == null) {
+            return ApiResponseHelper.errorResponse("Test result cannot be null or missing required fields", HttpStatus.BAD_REQUEST);
+        }
+
+        // Handle empty report list case
+        if (reportDtoList == null || reportDtoList.isEmpty()) {
+            Optional<VisitTestResult> optionalVisitTestResult = visitTestResultRepository.findByVisitIdAndTestId(null, testResultDto.getTestId()); // you might need to pass visitId separately in this case
+
+            if (optionalVisitTestResult.isPresent()) {
+                VisitTestResult existingVisitTestResult = optionalVisitTestResult.get();
+                existingVisitTestResult.setIsFilled(testResultDto.getIsFilled());
+                existingVisitTestResult.setUpdatedBy(String.valueOf(user.getUsername()));
+                visitTestResultRepository.save(existingVisitTestResult);
+            } else {
+                return ApiResponseHelper.errorResponse("Visit Test Result not found for the given visit and test ID", HttpStatus.NOT_FOUND);
+            }
+
+            return ApiResponseHelper.successResponse("No digital reports submitted. Visit marked as completed", testResultDto);
+        }
+
+        // Update VisitTestResult
+        Optional<VisitTestResult> optionalVisitTestResult = visitTestResultRepository.findByVisitIdAndTestId(reportDtoList.get(0).getVisitId(), testResultDto.getTestId());
+
+        if (optionalVisitTestResult.isPresent()) {
+            VisitTestResult existingVisitTestResult = optionalVisitTestResult.get();
+            existingVisitTestResult.setIsFilled(testResultDto.getIsFilled());
+            existingVisitTestResult.setUpdatedBy(String.valueOf(user.getId()));
+            visitTestResultRepository.save(existingVisitTestResult);
+        } else {
+            return ApiResponseHelper.errorResponse("Visit Test Result not found for the given visit and test ID", HttpStatus.NOT_FOUND);
+        }
+
+        // Save report entities
+        for (ReportDto reportDto : reportDtoList) {
+            Optional<VisitEntity> optionalVisit = visitRepository.findById(reportDto.getVisitId());
+            if (optionalVisit.isEmpty()) {
+                return ApiResponseHelper.errorResponse("Visit not found", HttpStatus.NOT_FOUND);
+            }
+
+            VisitEntity visit = optionalVisit.get();
+            visit.setVisitStatus("Completed");
+            visitRepository.save(visit); // ✅ save the updated visit
+
+            ReportEntity reportEntity = new ReportEntity();
+            reportEntity.setVisitId(reportDto.getVisitId());
+            reportEntity.setTestName(reportDto.getTestName());
+            reportEntity.setTestCategory(reportDto.getTestCategory());
+            reportEntity.setPatientName(reportDto.getPatientName());
+            reportEntity.setLabId(labId);
+            reportEntity.setReferenceDescription(reportDto.getReferenceDescription());
+            reportEntity.setReferenceRange(reportDto.getReferenceRange());
+            reportEntity.setReferenceAgeRange(reportDto.getReferenceAgeRange());
+            reportEntity.setEnteredValue(reportDto.getEnteredValue());
+            reportEntity.setDescription(reportDto.getDescription());
+            reportEntity.setRemarks(reportDto.getRemarks());
+            reportEntity.setComments(reportDto.getComments());
+            reportEntity.setUnit(reportDto.getUnit());
+            reportEntity.setCreatedBy(user.getId());
+
+            reportEntities.add(reportEntity);
+        }
+
+        List<ReportEntity> savedEntities = reportRepository.saveAll(reportEntities);
+
+        Map<String, Object> responsePayload = new HashMap<>();
+        responsePayload.put("reports", savedEntities);
+        responsePayload.put("testResult", testResultDto);
+
+        return ApiResponseHelper.successResponse("Reports created successfully", responsePayload);
+    }
+
+
 }
 

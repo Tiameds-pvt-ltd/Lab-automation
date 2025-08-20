@@ -52,6 +52,16 @@ public class ReportEntity {
     @Column(name = "unit")
     private String unit;
 
+    // new fields added
+    @Column(name = "description",length = 500)
+    private String description;
+
+    @Column(name = "remarks" , length = 300)
+    private String remarks;
+
+    @Column(name= "comment", length = 500)
+    private String comments;
+
     @Column(name = "created_by")
     private Long createdBy;
 

@@ -5,6 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import tiameds.com.tiameds.dto.lab.ReportDto;
+import tiameds.com.tiameds.dto.lab.ReportRequestDto;
 import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.entity.VisitEntity;
@@ -34,31 +35,31 @@ public class ReportGeneration {
         this.labRepository = labRepository;
     }
 
-    @Transactional
-    @PostMapping("{labId}/report")
-    public ResponseEntity<?> createReport(
-            @PathVariable Long labId,
-            @RequestBody List<ReportDto> reportDtoList,
-            @RequestHeader("Authorization") String token) {
-
-        Optional<User> currentUser = userAuthService.authenticateUser(token);
-        if (currentUser.isEmpty()) {
-            return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
-        }
-        Optional<Lab> lab = labRepository.findById(labId);
-        if (lab.isEmpty()) {
-            return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
-        }
-        boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
-        if (!isAccessible) {
-            return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
-        }
-        // Check if the user is a member of the lab
-        if (!currentUser.get().getLabs().contains(lab.get())) {
-            return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
-        }
-        return reportService.createReports(reportDtoList, labId, currentUser.get());
-    }
+//    @Transactional
+//    @PostMapping("{labId}/report")
+//    public ResponseEntity<?> createReport(
+//            @PathVariable Long labId,
+//            @RequestBody List<ReportDto> reportDtoList,
+//            @RequestHeader("Authorization") String token) {
+//
+//        Optional<User> currentUser = userAuthService.authenticateUser(token);
+//        if (currentUser.isEmpty()) {
+//            return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+//        }
+//        Optional<Lab> lab = labRepository.findById(labId);
+//        if (lab.isEmpty()) {
+//            return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
+//        }
+//        boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+//        if (!isAccessible) {
+//            return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+//        }
+//        // Check if the user is a member of the lab
+//        if (!currentUser.get().getLabs().contains(lab.get())) {
+//            return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
+//        }
+//        return reportService.createReports(reportDtoList, labId, currentUser.get());
+//    }
 
 
     @PutMapping("{labId}/complete-visit/{visitId}")
@@ -177,6 +178,42 @@ public class ReportGeneration {
         }
 
         return reportService.updateReports(reportDtoList, currentUser.get());
+    }
+
+
+
+    @Transactional
+    @PostMapping("{labId}/report")
+    public ResponseEntity<?> createReport(
+            @PathVariable Long labId,
+            @RequestBody ReportRequestDto reportRequestDto,
+            @RequestHeader("Authorization") String token) {
+
+        Optional<User> currentUser = userAuthService.authenticateUser(token);
+        if (currentUser.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+        }
+
+        Optional<Lab> lab = labRepository.findById(labId);
+        if (lab.isEmpty()) {
+            return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
+        }
+
+        boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+        if (!isAccessible) {
+            return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+        }
+
+        if (!currentUser.get().getLabs().contains(lab.get())) {
+            return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
+        }
+
+        return reportService.createReports(
+                reportRequestDto.getTestData(),
+                labId,
+                currentUser.get(),
+                reportRequestDto.getTestResult()
+        );
     }
 
 }
