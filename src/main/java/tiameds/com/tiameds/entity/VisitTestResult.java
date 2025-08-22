@@ -35,6 +35,9 @@ public class VisitTestResult {
     @Column(name = "is_filled", nullable = false)
     private Boolean isFilled = false;
 
+    @Column(name ="reportStatus")
+    private String reportStatus;  // PENDING, COMPLETED
+
     @Column(name = "created_by")
     private String createdBy;
 

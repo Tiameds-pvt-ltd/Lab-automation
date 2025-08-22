@@ -16,6 +16,7 @@ public class VisitTestResultResponseDTO {
     private Long id;
     private Long testId;
     private Boolean isFilled;
+    private String reportStatus;  // PENDING, COMPLETED
     private String createdBy;
     private String updatedBy;
     private LocalDateTime createdAt;
@@ -25,11 +26,11 @@ public class VisitTestResultResponseDTO {
         this.id = visitTestResult.getId();
         this.testId = visitTestResult.getTest().getId();
         this.isFilled = visitTestResult.getIsFilled();
+        this.reportStatus = visitTestResult.getReportStatus();
         this.createdBy = visitTestResult.getCreatedBy();
         this.updatedBy = visitTestResult.getUpdatedBy();
         this.createdAt = visitTestResult.getCreatedAt();
         this.updatedAt = visitTestResult.getUpdatedAt();
-
 
     }
 

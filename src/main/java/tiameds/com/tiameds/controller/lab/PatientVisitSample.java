@@ -45,8 +45,7 @@ public class PatientVisitSample {
 
     @PostMapping("/add-samples")
     @Transactional
-    public ResponseEntity<?> createSampleWithPatientVisit(@RequestBody PatientVisitSampleDto request,
-                                                          @RequestHeader("Authorization") String token) {
+    public ResponseEntity<?> createSampleWithPatientVisit(@RequestBody PatientVisitSampleDto request, @RequestHeader("Authorization") String token) {
         // Authenticate user
         if (userAuthService.authenticateUser(token).isEmpty()) {
             return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
@@ -60,12 +59,11 @@ public class PatientVisitSample {
         // 2. Fetch or create samples
         Set<SampleEntity> samples = new HashSet<>();
         for (String sampleName : request.getSampleNames()) {
-            SampleEntity sample = sampleAssocationRepository.findByName(sampleName)
-                    .orElseGet(() -> {
-                        SampleEntity newSample = new SampleEntity();
-                        newSample.setName(sampleName);
-                        return sampleAssocationRepository.save(newSample); // Save new sample
-                    });
+            SampleEntity sample = sampleAssocationRepository.findByName(sampleName).orElseGet(() -> {
+                SampleEntity newSample = new SampleEntity();
+                newSample.setName(sampleName);
+                return sampleAssocationRepository.save(newSample); // Save new sample
+            });
 
             samples.add(sample);
         }
@@ -83,8 +81,7 @@ public class PatientVisitSample {
 
     @PutMapping("/update-samples")
     @Transactional
-    public ResponseEntity<?> updateSampleWithPatientVisit(@RequestBody PatientVisitSampleDto request,
-                                                          @RequestHeader("Authorization") String token) {
+    public ResponseEntity<?> updateSampleWithPatientVisit(@RequestBody PatientVisitSampleDto request, @RequestHeader("Authorization") String token) {
         // Authenticate user
         if (userAuthService.authenticateUser(token).isEmpty()) {
             return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
@@ -99,12 +96,11 @@ public class PatientVisitSample {
         // 2. update the samples
         Set<SampleEntity> samples = new HashSet<>();
         for (String sampleName : request.getSampleNames()) {
-            SampleEntity sample = sampleAssocationRepository.findByName(sampleName)
-                    .orElseGet(() -> {
-                        SampleEntity newSample = new SampleEntity();
-                        newSample.setName(sampleName);
-                        return sampleAssocationRepository.save(newSample); // Save new sample
-                    });
+            SampleEntity sample = sampleAssocationRepository.findByName(sampleName).orElseGet(() -> {
+                SampleEntity newSample = new SampleEntity();
+                newSample.setName(sampleName);
+                return sampleAssocationRepository.save(newSample); // Save new sample
+            });
 
             samples.add(sample);
         }
@@ -117,8 +113,7 @@ public class PatientVisitSample {
 
     @DeleteMapping("/delete-samples")
     @Transactional
-    public ResponseEntity<?> deleteSampleWithPatientVisit(@RequestBody PatientVisitSampleDto request,
-                                                          @RequestHeader("Authorization") String token) {
+    public ResponseEntity<?> deleteSampleWithPatientVisit(@RequestBody PatientVisitSampleDto request, @RequestHeader("Authorization") String token) {
         // Authenticate user
         if (userAuthService.authenticateUser(token).isEmpty()) {
             return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
@@ -131,12 +126,11 @@ public class PatientVisitSample {
         // 2. Fetch or create samples
         Set<SampleEntity> samplesToRemove = new HashSet<>();
         for (String sampleName : request.getSampleNames()) {
-            SampleEntity sample = sampleAssocationRepository.findByName(sampleName)
-                    .orElseGet(() -> {
-                        SampleEntity newSample = new SampleEntity();
-                        newSample.setName(sampleName);
-                        return sampleAssocationRepository.save(newSample); // Save new sample
-                    });
+            SampleEntity sample = sampleAssocationRepository.findByName(sampleName).orElseGet(() -> {
+                SampleEntity newSample = new SampleEntity();
+                newSample.setName(sampleName);
+                return sampleAssocationRepository.save(newSample); // Save new sample
+            });
             samplesToRemove.add(sample);
         }
         // 3. Remove samples from the visit
@@ -153,12 +147,7 @@ public class PatientVisitSample {
 
     @GetMapping("/{labId}/get-visit-samples")
     @Transactional
-    public ResponseEntity<?> getVisitSamplesByDateRange(
-            @PathVariable("labId") Long labId,
-            @RequestHeader("Authorization") String token,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-            @RequestParam(required = false) String visitStatus) {
+    public ResponseEntity<?> getVisitSamplesByDateRange(@PathVariable("labId") Long labId, @RequestHeader("Authorization") String token, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate, @RequestParam(required = false) String visitStatus) {
 
         Optional<User> currentUser = userAuthService.authenticateUser(token);
         if (currentUser.isEmpty()) {
@@ -180,41 +169,47 @@ public class PatientVisitSample {
 
         List<VisitEntity> visits;
         if (visitStatus != null && !visitStatus.isBlank()) {
-            visits = visitRepository.findAllByPatient_LabsAndVisitDateBetweenAndVisitStatus(
-                    lab, startDate, endDate, visitStatus
-            );
+            visits = visitRepository.findAllByPatient_LabsAndVisitDateBetweenAndVisitStatus(lab, startDate, endDate, visitStatus);
         } else {
-            visits = visitRepository.findAllByPatient_LabsAndVisitDateBetween(
-                    lab, startDate, endDate
-            );
+            visits = visitRepository.findAllByPatient_LabsAndVisitDateBetween(lab, startDate, endDate);
         }
 
-        List<VisitSampleDto> visitSamples = visits.stream()
-                .map(visit -> new VisitSampleDto(
-                        visit.getVisitId(),
-                        visit.getPatient().getFirstName() + " " + visit.getPatient().getLastName(),
-                        visit.getPatient().getGender(),
-                        visit.getPatient().getDateOfBirth().toString(),
-                        visit.getPatient().getPhone(),
-                        visit.getPatient().getEmail(),
-                        visit.getVisitDate(),
-                        visit.getVisitStatus(),
-                        // gender again (possibly redundant)
-                        visit.getPatient().getGender(),
-                        visit.getSamples().stream()
-                                .map(SampleEntity::getName)
-                                .collect(Collectors.toSet()),
-                        visit.getTests().stream()
-                                .map(test -> test.getId())
-                                .collect(Collectors.toList()),
-                        visit.getPackages().stream()
-                                .map(pkg -> pkg.getId())
-                                .collect(Collectors.toList()),
-                        visit.getTestResults().stream()
-                                .map(VisitTestResultResponseDTO::new)
-                                .collect(Collectors.toList())
-                ))
-                .collect(Collectors.toList());
+        List<VisitSampleDto> visitSamples = visits.stream().map(visit -> new VisitSampleDto(visit.getVisitId(), visit.getPatient().getFirstName() + " " + visit.getPatient().getLastName(), visit.getPatient().getGender(), visit.getPatient().getDateOfBirth().toString(), visit.getPatient().getPhone(), visit.getPatient().getEmail(), visit.getVisitDate(), visit.getVisitStatus(),
+                // gender again (possibly redundant)
+                visit.getPatient().getGender(), visit.getSamples().stream().map(SampleEntity::getName).collect(Collectors.toSet()), visit.getTests().stream().map(test -> test.getId()).collect(Collectors.toList()), visit.getPackages().stream().map(pkg -> pkg.getId()).collect(Collectors.toList()), visit.getTestResults().stream().map(VisitTestResultResponseDTO::new).collect(Collectors.toList()))).collect(Collectors.toList());
         return ApiResponseHelper.successResponse("Visits filtered by date and status", visitSamples);
     }
+
+    @GetMapping("/{labId}/patients/collected-completed")
+    @Transactional
+    public ResponseEntity<?> getCollectedAndCompletedPatientData(
+            @PathVariable("labId") Long labId,
+            @RequestHeader("Authorization") String token,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+
+        Optional<User> currentUser = userAuthService.authenticateUser(token);
+        if (currentUser.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+        }
+
+        if (!labAccessableFilter.isLabAccessible(labId)) {
+            return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+        }
+        Lab lab = labRepository.findById(labId).orElse(null);
+        if (lab == null) {
+            return ResponseEntity.badRequest().body("Lab not found");
+        }
+        if (startDate == null || endDate == null) {
+            return ApiResponseHelper.errorResponse("Start date and end date are required", HttpStatus.BAD_REQUEST);
+        }
+        List<String> visitStatus = Arrays.asList("Collected", "Completed");
+        List<VisitEntity> visits = visitRepository.findAllByPatient_LabsAndVisitDateBetweenAndVisitStatusIn(lab, startDate, endDate, visitStatus);
+        List<VisitSampleDto> visitSamples = visits.stream().map(visit -> new VisitSampleDto(visit.getVisitId(), visit.getPatient().getFirstName() + " " + visit.getPatient().getLastName(), visit.getPatient().getGender(), visit.getPatient().getDateOfBirth().toString(), visit.getPatient().getPhone(), visit.getPatient().getEmail(), visit.getVisitDate(), visit.getVisitStatus(),
+                // gender again (possibly redundant)
+                visit.getPatient().getGender(), visit.getSamples().stream().map(SampleEntity::getName).collect(Collectors.toSet()), visit.getTests().stream().map(test -> test.getId()).collect(Collectors.toList()), visit.getPackages().stream().map(pkg -> pkg.getId()).collect(Collectors.toList()), visit.getTestResults().stream().map(VisitTestResultResponseDTO::new).collect(Collectors.toList()))).collect(Collectors.toList());
+        return ApiResponseHelper.successResponse("Visits filtered by date and status", visitSamples);
+    }
+
+
 }

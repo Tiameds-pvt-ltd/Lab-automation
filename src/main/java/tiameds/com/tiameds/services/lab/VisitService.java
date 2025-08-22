@@ -464,7 +464,8 @@ public class VisitService {
                 .collect(Collectors.toList());
 
         if (patientVisitDTOs.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No visits found for the given date range");
+            //send Message no visit found
+            ApiResponseHelper.successResponseWithDataAndMessage("No visits found for the given date range", HttpStatus.OK, Collections.emptyList());
         }
         return patientVisitDTOs;
     }

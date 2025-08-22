@@ -1088,6 +1088,9 @@ public class PatientService {
                         // Set isFilled only if provided in DTO, else stays false
                         if (testResultDTO.getIsFilled() != null) {
                             testResult.setIsFilled(testResultDTO.getIsFilled());
+                            testResult.setReportStatus(testResultDTO.getReportStatus() != null
+                                    ? testResultDTO.getReportStatus()
+                                    : "PENDING");
                         }
                         // Fetch and set test entity
                         testResult.setTest(

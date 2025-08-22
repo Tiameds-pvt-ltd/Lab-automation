@@ -43,4 +43,5 @@ public interface VisitRepository extends JpaRepository<VisitEntity, Long> {
     int updateVisitStatus(@Param("visitId") Long visitId, @Param("status") String status);
 
 
+    List<VisitEntity> findAllByPatient_LabsAndVisitDateBetweenAndVisitStatusIn(Lab lab, LocalDate startDate, LocalDate endDate, List<String> visitStatus);
 }
