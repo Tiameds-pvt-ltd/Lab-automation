@@ -187,7 +187,7 @@ public class ReportService {
             VisitTestResult existingVisitTestResult = optionalVisitTestResult.get();
             existingVisitTestResult.setIsFilled(testResultDto.getIsFilled());
             existingVisitTestResult.setUpdatedBy(String.valueOf(user.getId()));
-            existingVisitTestResult.setReportStatus("COMPLETED");
+            existingVisitTestResult.setReportStatus("Completed");
             visitTestResultRepository.save(existingVisitTestResult);
         } else {
             return ApiResponseHelper.errorResponse("Visit Test Result not found for the given visit and test ID", HttpStatus.NOT_FOUND);
