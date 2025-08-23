@@ -18,6 +18,8 @@ public class VisitSampleDto {
     private String contactNumber;
     private String email;
     private LocalDate visitDate;
+    private String visitType;
+    private String doctorName;
     private String visitStatus;
     private Set<String> sampleNames;
     private List<Long> testIds;
@@ -25,8 +27,16 @@ public class VisitSampleDto {
     private List<VisitTestResultResponseDTO> testResult;
 
 
-    public VisitSampleDto(Long visitId, String patientname, String gender, String dateOfBirth, String contactNumber,
-                          String email, LocalDate visitDate, String visitStatus, String gender1,
+    public VisitSampleDto(Long visitId,
+                          String patientname,
+                          String gender,
+                          String dateOfBirth,
+                          String contactNumber,
+                          String email,
+                          LocalDate visitDate,
+                          String visitStatus,
+                          String visitType,
+                          String doctorName,
                           Set<String> sampleNames, List<Long> testIds, List<Long> packageIds,
                           List<VisitTestResultResponseDTO> testResult) {
         this.visitId = visitId;
@@ -41,6 +51,8 @@ public class VisitSampleDto {
         this.testIds = testIds;
         this.packageIds = packageIds;
         this.testResult = testResult;
+        this.visitType = visitType;
+        this.doctorName = doctorName;
     }
 
 

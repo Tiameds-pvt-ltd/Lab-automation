@@ -145,40 +145,72 @@ public class PatientVisitSample {
         return ResponseEntity.ok("Samples deleted from visit successfully");
     }
 
-    @GetMapping("/{labId}/get-visit-samples")
-    @Transactional
-    public ResponseEntity<?> getVisitSamplesByDateRange(@PathVariable("labId") Long labId, @RequestHeader("Authorization") String token, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate, @RequestParam(required = false) String visitStatus) {
+//    @GetMapping("/{labId}/get-visit-samples")
+//    @Transactional
+//    public ResponseEntity<?> getVisitSamplesByDateRange(@PathVariable("labId") Long labId, @RequestHeader("Authorization") String token, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate, @RequestParam(required = false) String visitStatus) {
+//
+//        Optional<User> currentUser = userAuthService.authenticateUser(token);
+//        if (currentUser.isEmpty()) {
+//            return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+//        }
+//
+//        if (!labAccessableFilter.isLabAccessible(labId)) {
+//            return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+//        }
+//
+//        Lab lab = labRepository.findById(labId).orElse(null);
+//        if (lab == null) {
+//            return ResponseEntity.badRequest().body("Lab not found");
+//        }
+//
+//        if (startDate == null || endDate == null) {
+//            return ApiResponseHelper.errorResponse("Start date and end date are required", HttpStatus.BAD_REQUEST);
+//        }
+//
+//        List<VisitEntity> visits;
+//        if (visitStatus != null && !visitStatus.isBlank()) {
+//            visits = visitRepository.findAllByPatient_LabsAndVisitDateBetweenAndVisitStatus(lab, startDate, endDate, visitStatus);
+//        } else {
+//            visits = visitRepository.findAllByPatient_LabsAndVisitDateBetween(lab, startDate, endDate);
+//        }
+//
+//        List<VisitSampleDto> visitSamples = visits.stream().map(visit -> new VisitSampleDto(visit.getVisitId(), visit.getPatient().getFirstName() + " " + visit.getPatient().getLastName(), visit.getPatient().getGender(), visit.getPatient().getDateOfBirth().toString(), visit.getPatient().getPhone(), visit.getPatient().getEmail(), visit.getVisitDate(), visit.getVisitStatus(),
+//                // gender again (possibly redundant)
+//                visit.getPatient().getGender(), visit.getSamples().stream().map(SampleEntity::getName).collect(Collectors.toSet()), visit.getTests().stream().map(test -> test.getId()).collect(Collectors.toList()), visit.getPackages().stream().map(pkg -> pkg.getId()).collect(Collectors.toList()), visit.getTestResults().stream().map(VisitTestResultResponseDTO::new).collect(Collectors.toList()))).collect(Collectors.toList());
+//        return ApiResponseHelper.successResponse("Visits filtered by date and status", visitSamples);
+//    }
 
-        Optional<User> currentUser = userAuthService.authenticateUser(token);
-        if (currentUser.isEmpty()) {
-            return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
-        }
-
-        if (!labAccessableFilter.isLabAccessible(labId)) {
-            return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
-        }
-
-        Lab lab = labRepository.findById(labId).orElse(null);
-        if (lab == null) {
-            return ResponseEntity.badRequest().body("Lab not found");
-        }
-
-        if (startDate == null || endDate == null) {
-            return ApiResponseHelper.errorResponse("Start date and end date are required", HttpStatus.BAD_REQUEST);
-        }
-
-        List<VisitEntity> visits;
-        if (visitStatus != null && !visitStatus.isBlank()) {
-            visits = visitRepository.findAllByPatient_LabsAndVisitDateBetweenAndVisitStatus(lab, startDate, endDate, visitStatus);
-        } else {
-            visits = visitRepository.findAllByPatient_LabsAndVisitDateBetween(lab, startDate, endDate);
-        }
-
-        List<VisitSampleDto> visitSamples = visits.stream().map(visit -> new VisitSampleDto(visit.getVisitId(), visit.getPatient().getFirstName() + " " + visit.getPatient().getLastName(), visit.getPatient().getGender(), visit.getPatient().getDateOfBirth().toString(), visit.getPatient().getPhone(), visit.getPatient().getEmail(), visit.getVisitDate(), visit.getVisitStatus(),
-                // gender again (possibly redundant)
-                visit.getPatient().getGender(), visit.getSamples().stream().map(SampleEntity::getName).collect(Collectors.toSet()), visit.getTests().stream().map(test -> test.getId()).collect(Collectors.toList()), visit.getPackages().stream().map(pkg -> pkg.getId()).collect(Collectors.toList()), visit.getTestResults().stream().map(VisitTestResultResponseDTO::new).collect(Collectors.toList()))).collect(Collectors.toList());
-        return ApiResponseHelper.successResponse("Visits filtered by date and status", visitSamples);
-    }
+//    @GetMapping("/{labId}/patients/collected-completed")
+//    @Transactional
+//    public ResponseEntity<?> getCollectedAndCompletedPatientData(
+//            @PathVariable("labId") Long labId,
+//            @RequestHeader("Authorization") String token,
+//            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+//            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+//
+//        Optional<User> currentUser = userAuthService.authenticateUser(token);
+//        if (currentUser.isEmpty()) {
+//            return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+//        }
+//
+//        if (!labAccessableFilter.isLabAccessible(labId)) {
+//            return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+//        }
+//        Lab lab = labRepository.findById(labId).orElse(null);
+//        if (lab == null) {
+//            return ResponseEntity.badRequest().body("Lab not found");
+//        }
+//        if (startDate == null || endDate == null) {
+//            return ApiResponseHelper.errorResponse("Start date and end date are required", HttpStatus.BAD_REQUEST);
+//        }
+//        List<String> visitStatus = Arrays.asList("Collected", "Completed");
+//        List<VisitEntity> visits = visitRepository.findAllByPatient_LabsAndVisitDateBetweenAndVisitStatusIn(lab, startDate, endDate, visitStatus);
+//        List<VisitSampleDto> visitSamples = visits.stream().map(visit -> new VisitSampleDto(visit.getVisitId(), visit.getPatient().getFirstName() + " " + visit.getPatient().getLastName(), visit.getPatient().getGender(), visit.getPatient().getDateOfBirth().toString(), visit.getPatient().getPhone(), visit.getPatient().getEmail(), visit.getVisitDate(), visit.getVisitStatus(),
+//                // gender again (possibly redundant)
+//                visit.getPatient().getGender(),
+//                visit.getSamples().stream().map(SampleEntity::getName).collect(Collectors.toSet()), visit.getTests().stream().map(test -> test.getId()).collect(Collectors.toList()), visit.getPackages().stream().map(pkg -> pkg.getId()).collect(Collectors.toList()), visit.getTestResults().stream().map(VisitTestResultResponseDTO::new).collect(Collectors.toList()))).collect(Collectors.toList());
+//        return ApiResponseHelper.successResponse("Visits filtered by date and status", visitSamples);
+//    }
 
     @GetMapping("/{labId}/patients/collected-completed")
     @Transactional
@@ -196,20 +228,48 @@ public class PatientVisitSample {
         if (!labAccessableFilter.isLabAccessible(labId)) {
             return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
         }
+
         Lab lab = labRepository.findById(labId).orElse(null);
         if (lab == null) {
             return ResponseEntity.badRequest().body("Lab not found");
         }
+
         if (startDate == null || endDate == null) {
             return ApiResponseHelper.errorResponse("Start date and end date are required", HttpStatus.BAD_REQUEST);
         }
+
         List<String> visitStatus = Arrays.asList("Collected", "Completed");
-        List<VisitEntity> visits = visitRepository.findAllByPatient_LabsAndVisitDateBetweenAndVisitStatusIn(lab, startDate, endDate, visitStatus);
-        List<VisitSampleDto> visitSamples = visits.stream().map(visit -> new VisitSampleDto(visit.getVisitId(), visit.getPatient().getFirstName() + " " + visit.getPatient().getLastName(), visit.getPatient().getGender(), visit.getPatient().getDateOfBirth().toString(), visit.getPatient().getPhone(), visit.getPatient().getEmail(), visit.getVisitDate(), visit.getVisitStatus(),
-                // gender again (possibly redundant)
-                visit.getPatient().getGender(), visit.getSamples().stream().map(SampleEntity::getName).collect(Collectors.toSet()), visit.getTests().stream().map(test -> test.getId()).collect(Collectors.toList()), visit.getPackages().stream().map(pkg -> pkg.getId()).collect(Collectors.toList()), visit.getTestResults().stream().map(VisitTestResultResponseDTO::new).collect(Collectors.toList()))).collect(Collectors.toList());
+        List<VisitEntity> visits = visitRepository.findAllByPatient_LabsAndVisitDateBetweenAndVisitStatusIn(
+                lab, startDate, endDate, visitStatus);
+
+        List<VisitSampleDto> visitSamples = visits.stream()
+                .map(visit -> new VisitSampleDto(
+                        visit.getVisitId(),
+                        visit.getPatient().getFirstName() + " " + visit.getPatient().getLastName(),
+                        visit.getPatient().getGender(),
+                        visit.getPatient().getDateOfBirth().toString(),
+                        visit.getPatient().getPhone(),
+                        visit.getPatient().getEmail(),
+                        visit.getVisitDate(),
+                        visit.getVisitStatus(),
+                        visit.getVisitType(),
+                        visit.getDoctor() != null ? visit.getDoctor().getName() : null, // Handle potential null doctor
+                        visit.getSamples().stream()
+                                .map(SampleEntity::getName)
+                                .collect(Collectors.toSet()),
+                        visit.getTests().stream()
+                                .map(test -> test.getId())
+                                .collect(Collectors.toList()),
+                        visit.getPackages().stream()
+                                .map(pkg -> pkg.getId())
+                                .collect(Collectors.toList()),
+                        visit.getTestResults().stream()
+                                .map(VisitTestResultResponseDTO::new)
+                                .collect(Collectors.toList())
+                ))
+                .collect(Collectors.toList());
+
         return ApiResponseHelper.successResponse("Visits filtered by date and status", visitSamples);
     }
-
 
 }
