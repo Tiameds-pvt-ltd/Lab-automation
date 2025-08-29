@@ -21,6 +21,7 @@ public class TransactionDTO {
 
     @JsonProperty("billing_id")
     private Long billingId;
+//    private String billingId;
 
     @JsonProperty("payment_method")
     private String paymentMethod;

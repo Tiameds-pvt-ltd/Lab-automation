@@ -369,7 +369,7 @@ public class VisitService {
                     BillingEntity billing = visit.getBilling();
                     if (billing != null) {
                         BellingDetailsDto billingDto = new BellingDetailsDto();
-                        billingDto.setBillingId(billing.getId());
+                        billingDto.setBillingId(Long.valueOf(billing.getId()));
                         billingDto.setTotalAmount(billing.getTotalAmount());
                         billingDto.setPaymentStatus(billing.getPaymentStatus());
                         billingDto.setPaymentMethod(billing.getPaymentMethod());

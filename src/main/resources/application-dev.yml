@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/tiameds
+    url: jdbc:postgresql://localhost:5432/tiameds?charSet=UTF8
     username: postgres
     password: root
     driver-class-name: org.postgresql.Driver

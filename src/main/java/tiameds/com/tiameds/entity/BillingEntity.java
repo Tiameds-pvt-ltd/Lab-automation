@@ -106,3 +106,124 @@ public class BillingEntity {
     @JsonManagedReference
     private Set<TransactionEntity> transactions = new HashSet<>();
 }
+
+
+
+
+//
+//
+//package tiameds.com.tiameds.entity;
+//
+//import com.fasterxml.jackson.annotation.JsonManagedReference;
+//import jakarta.persistence.*;
+//import lombok.AllArgsConstructor;
+//import lombok.Getter;
+//import lombok.NoArgsConstructor;
+//import lombok.Setter;
+//import org.hibernate.annotations.CreationTimestamp;
+//import org.hibernate.annotations.UpdateTimestamp;
+//
+//import java.math.BigDecimal;
+//import java.time.LocalDateTime;
+//import java.time.LocalTime;
+//import java.util.HashSet;
+//import java.util.Set;
+//import java.util.UUID;
+//
+//@Getter
+//@Setter
+//@AllArgsConstructor
+//@NoArgsConstructor
+//@Entity
+//@Table(name = "billing")
+//public class BillingEntity {
+//
+//    // 🔹 Store BILL-XXXX format directly in DB
+//    @Id
+//    @Column(name = "billing_id", nullable = false, updatable = false, unique = true, length = 20)
+//    private String id;
+//
+//    // 🔹 Generate ID before insert
+//    @PrePersist
+//    public void generateId() {
+//        if (this.id == null) {
+//            this.id = "BILL-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+//        }
+//    }
+//
+//    // ---------- Existing Fields ----------
+//    @Column(name = "total_amount", nullable = false)
+//    private BigDecimal totalAmount;
+//
+//    @Column(name = "payment_status", nullable = false)
+//    private String paymentStatus;
+//
+//    @Column(name = "payment_method", nullable = false)
+//    private String paymentMethod;
+//
+//    @Column(name = "payment_date", nullable = false)
+//    private String paymentDate;
+//
+//    @Column(name = "discount", nullable = false)
+//    private BigDecimal discount;
+//
+//    @Column(name = "gst_rate", nullable = false)
+//    private BigDecimal gstRate;
+//
+//    @Column(name = "gst_amount", nullable = false)
+//    private BigDecimal gstAmount;
+//
+//    @Column(name = "cgst_amount", nullable = false)
+//    private BigDecimal cgstAmount;
+//
+//    @Column(name = "sgst_amount", nullable = false)
+//    private BigDecimal sgstAmount;
+//
+//    @Column(name = "igst_amount", nullable = false)
+//    private BigDecimal igstAmount;
+//
+//    @Column(name = "net_amount", nullable = false)
+//    private BigDecimal netAmount;
+//
+//    @ManyToMany(fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+//    @JoinTable(name = "lab_billing",
+//            joinColumns = @JoinColumn(name = "billing_id"),
+//            inverseJoinColumns = @JoinColumn(name = "lab_id"))
+//    private Set<Lab> labs = new HashSet<>();
+//
+//    @OneToMany(mappedBy = "billing", cascade = CascadeType.ALL, orphanRemoval = true)
+//    @JsonManagedReference
+//    private Set<TestDiscountEntity> testDiscounts = new HashSet<>();
+//
+//    @Column(name = "discount_reason")
+//    private String discountReason;
+//
+//    @Column(name = "received_amount")
+//    private BigDecimal receivedAmount;
+//
+//    @Column(name = "due_amount")
+//    private BigDecimal dueAmount;
+//
+//    @Column(name = "created_by")
+//    private String createdBy;
+//
+//    @Column(name = "billing_time", nullable = false)
+//    private LocalTime billingTime;
+//
+//    @Column(name = "billing_date")
+//    private String billingDate;
+//
+//    @Column(name = "updated_by")
+//    private String updatedBy;
+//
+//    @CreationTimestamp
+//    @Column(updatable = false)
+//    private LocalDateTime createdAt;
+//
+//    @UpdateTimestamp
+//    private LocalDateTime updatedAt;
+//
+//    @OneToMany(mappedBy = "billing", cascade = CascadeType.ALL, orphanRemoval = true)
+//    @JsonManagedReference
+//    private Set<TransactionEntity> transactions = new HashSet<>();
+//}

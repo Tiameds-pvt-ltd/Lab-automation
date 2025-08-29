@@ -209,5 +209,23 @@ public class UserController {
         return ApiResponseHelper.successResponseWithDataAndMessage("User registered successfully", HttpStatus.CREATED, null);
     }
 
+    //forgot password for temp password generation
+//    @PutMapping("/forgot-password")
+//    public ResponseEntity<Map<String, Object>> forgotPassword(@RequestParam String email) {
+//        Optional<User> user = userService.findByEmail(email);
+//
+//        if (!user.isPresent()) {
+//            return ApiResponseHelper.successResponseWithDataAndMessage("User with the given email not found", HttpStatus.NOT_FOUND, null);
+//        }
+//        // Generate a temporary password
+//        String tempPassword = UUID.randomUUID().toString().substring(0, 8);
+//        user.get().setPassword(passwordEncoder.encode(tempPassword));
+//        userService.saveUser(user.get());
+//
+//
+//        // In a real application, you would send this temp password via email
+//        return ApiResponseHelper.successResponseWithDataAndMessage("Temporary password generated: " + tempPassword, HttpStatus.OK, null);
+//    }
+
 }
 

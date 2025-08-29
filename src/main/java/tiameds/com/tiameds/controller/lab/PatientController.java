@@ -45,31 +45,22 @@ public class PatientController {
     @GetMapping("/{labId}/patients")
     public ResponseEntity<?> getAllPatients(@PathVariable Long labId, @RequestHeader("Authorization") String token) {
         try {
-            // Validate token format
             Optional<User> currentUser = userAuthService.authenticateUser(token);
             if (currentUser.isEmpty()) {
                 return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
             }
-
-            // Check if the lab exists
             Optional<Lab> labOptional = labRepository.findById(labId);
             if (labOptional.isEmpty()) {
                 return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
             }
-
             boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
             if (isAccessible == false) {
                 return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
             }
-
-            // Check if the user is a member of the lab
             if (!currentUser.get().getLabs().contains(labOptional.get())) {
                 return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
             }
-
-//            return ResponseEntity.ok(patientService.getAllPatientsByLabId(labId));
             return ApiResponseHelper.successResponseWithDataAndMessage("Patients retrieved successfully", HttpStatus.OK, patientService.getAllPatientsByLabId(labId));
-
         } catch (Exception e) {
             return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
         }
@@ -78,12 +69,11 @@ public class PatientController {
     @GetMapping("/{labId}/patient/{patientId}")
     public ResponseEntity<?> getPatientById(@PathVariable Long labId, @PathVariable Long patientId, @RequestHeader("Authorization") String token) {
         try {
-            // Validate token format
+            
             Optional<User> currentUser = userAuthService.authenticateUser(token);
             if (currentUser.isEmpty()) {
                 return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
             }
-
             // Check if the lab exists
             Optional<Lab> labOptional = labRepository.findById(labId);
             if (labOptional.isEmpty()) {
@@ -117,7 +107,7 @@ public class PatientController {
             String token, @RequestBody
             PatientDTO patientDTO) {
         try {
-            // Validate token format
+            
             Optional<User> currentUser = userAuthService.authenticateUser(token);
             if (currentUser.isEmpty()) {
                 return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
@@ -153,7 +143,7 @@ public class PatientController {
     @DeleteMapping("/{labId}/delete-patient/{patientId}")
     public ResponseEntity<?> deletePatient(@PathVariable Long labId, @PathVariable Long patientId, @RequestHeader("Authorization") String token) {
         try {
-            // Validate token format
+            
             Optional<User> currentUser = userAuthService.authenticateUser(token);
             if (currentUser.isEmpty()) {
                 return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
@@ -176,52 +166,52 @@ public class PatientController {
         }
     }
 
-
-    @PutMapping("/{labId}/update-patient-details/{patientId}")
-    public ResponseEntity<?> updatePatientDetails(
-            @PathVariable Long labId,
-            @PathVariable Long patientId,
-            @RequestHeader("Authorization") String token,
-            @RequestBody PatientDTO patientDTO) {
-        try {
-            // Authentication and authorization checks
-            Optional<User> currentUser = userAuthService.authenticateUser(token);
-            if (currentUser.isEmpty()) {
-                return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
-            }
-
-            Optional<Lab> labOptional = labRepository.findById(labId);
-            if (labOptional.isEmpty()) {
-                return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
-            }
-
-            boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
-            if (!isAccessible) {
-                return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
-            }
-
-            if (!currentUser.get().getLabs().contains(labOptional.get())) {
-                return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
-            }
-
-            // Check if patient exists and belongs to the lab
-            Optional<PatientEntity> patientOptional = patientRepository.findById(patientId);
-            if (patientOptional.isEmpty() || !patientOptional.get().getLabs().contains(labOptional.get())) {
-                return ApiResponseHelper.errorResponse("Patient not found for the specified lab", HttpStatus.NOT_FOUND);
-            }
-
-            // Update patient
-            PatientDTO updatedPatient = patientService.updatePatientDetails(patientOptional.get(), labOptional.get(), patientDTO , currentUser.get().getUsername());
-
-            return ApiResponseHelper.successResponseWithDataAndMessage(
-                    "Patient updated successfully",
-                    HttpStatus.OK,
-                    updatedPatient
-            );
-        } catch (Exception e) {
-            return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
-        }
-    }
+//
+//    @PutMapping("/{labId}/update-patient-details/{patientId}")
+//    public ResponseEntity<?> updatePatientDetails(
+//            @PathVariable Long labId,
+//            @PathVariable Long patientId,
+//            @RequestHeader("Authorization") String token,
+//            @RequestBody PatientDTO patientDTO) {
+//        try {
+//            // Authentication and authorization checks
+//            Optional<User> currentUser = userAuthService.authenticateUser(token);
+//            if (currentUser.isEmpty()) {
+//                return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+//            }
+//
+//            Optional<Lab> labOptional = labRepository.findById(labId);
+//            if (labOptional.isEmpty()) {
+//                return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
+//            }
+//
+//            boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+//            if (!isAccessible) {
+//                return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+//            }
+//
+//            if (!currentUser.get().getLabs().contains(labOptional.get())) {
+//                return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
+//            }
+//
+//            // Check if patient exists and belongs to the lab
+//            Optional<PatientEntity> patientOptional = patientRepository.findById(patientId);
+//            if (patientOptional.isEmpty() || !patientOptional.get().getLabs().contains(labOptional.get())) {
+//                return ApiResponseHelper.errorResponse("Patient not found for the specified lab", HttpStatus.NOT_FOUND);
+//            }
+//
+//            // Update patient
+//            PatientDTO updatedPatient = patientService.updatePatientDetails(patientOptional.get(), labOptional.get(), patientDTO , currentUser.get().getUsername());
+//
+//            return ApiResponseHelper.successResponseWithDataAndMessage(
+//                    "Patient updated successfully",
+//                    HttpStatus.OK,
+//                    updatedPatient
+//            );
+//        } catch (Exception e) {
+//            return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
+//        }
+//    }
 
     @Transactional
     @GetMapping("/{labId}/search-patient")
@@ -336,7 +326,6 @@ public class PatientController {
         }
     }
 
-
     @PutMapping("/{labId}/visit/{visitId}/cancel")
     public ResponseEntity<?> cancelVisit(
             @PathVariable Long labId,
@@ -367,8 +356,54 @@ public class PatientController {
     }
 
 
+    @PutMapping("/{labId}/update-patient-details/{patientId}")
+    public ResponseEntity<?> updatePatientDetails(
+            @PathVariable Long labId,
+            @PathVariable Long patientId,
+            @RequestHeader("Authorization") String token,
+            @RequestBody PatientDTO patientDTO) {
+        try {
+            // Authentication and authorization checks
+            Optional<User> currentUser = userAuthService.authenticateUser(token);
+            if (currentUser.isEmpty()) {
+                return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+            }
 
+            Optional<Lab> labOptional = labRepository.findById(labId);
+            if (labOptional.isEmpty()) {
+                return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
+            }
 
+            boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+            if (!isAccessible) {
+                return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+            }
 
+            if (!currentUser.get().getLabs().contains(labOptional.get())) {
+                return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
+            }
 
+            // Check if patient exists and belongs to the lab
+            Optional<PatientEntity> patientOptional = patientRepository.findById(patientId);
+            if (patientOptional.isEmpty() || !patientOptional.get().getLabs().contains(labOptional.get())) {
+                return ApiResponseHelper.errorResponse("Patient not found for the specified lab", HttpStatus.NOT_FOUND);
+            }
+
+            // Update patient - pass the lab object directly
+            PatientDTO updatedPatient = patientService.updatePatientDetails(
+                    patientOptional.get(),
+                    labOptional.get(),
+                    patientDTO,
+                    currentUser.get().getUsername()
+            );
+
+            return ApiResponseHelper.successResponseWithDataAndMessage(
+                    "Patient updated successfully",
+                    HttpStatus.OK,
+                    updatedPatient
+            );
+        } catch (Exception e) {
+            return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
+        }
+    }
 }

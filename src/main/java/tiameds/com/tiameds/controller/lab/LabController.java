@@ -1,4 +1,5 @@
 package tiameds.com.tiameds.controller.lab;
+
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.transaction.Transactional;
 import org.springframework.core.io.ClassPathResource;
@@ -17,6 +18,7 @@ import tiameds.com.tiameds.services.lab.TestReferenceServices;
 import tiameds.com.tiameds.services.lab.TestServices;
 import tiameds.com.tiameds.services.lab.UserLabService;
 import tiameds.com.tiameds.utils.*;
+
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.List;
@@ -253,8 +255,28 @@ public class LabController {
                 testServices.uploadCSV(priceListFile, savedLab);
             }
 
+//            Lab_Modified.xlsx-Sheet1.csv
+
             // Process reference point file
-            ClassPathResource referencePointResource = new ClassPathResource("tiamed_test_referance_point.csv");
+//            ClassPathResource referencePointResource = new ClassPathResource("tiamed_test_referance_point.csv");
+//            try (BufferedReader referencePointReader = new BufferedReader(new InputStreamReader(referencePointResource.getInputStream()))) {
+//                // Convert BufferedReader content to MultipartFile for the service
+//                StringBuilder contentBuilder = new StringBuilder();
+//                String line;
+//                while ((line = referencePointReader.readLine()) != null) {
+//                    contentBuilder.append(line).append("\n");
+//                }
+//                byte[] contentBytes = contentBuilder.toString().getBytes();
+//                MultipartFile referencePointFile = new CustomMockMultipartFile(
+//                        "tiamed_test_referance_point.csv",
+//                        "tiamed_test_referance_point.csv",
+//                        "text/csv",
+//                        contentBytes
+//                );
+//                testReferenceServices.uploadCsv(savedLab, referencePointFile, currentUser);
+//            }
+
+            ClassPathResource referencePointResource = new ClassPathResource("Lab_Modified.xlsx-Sheet1.csv");
             try (BufferedReader referencePointReader = new BufferedReader(new InputStreamReader(referencePointResource.getInputStream()))) {
                 // Convert BufferedReader content to MultipartFile for the service
                 StringBuilder contentBuilder = new StringBuilder();
@@ -264,8 +286,8 @@ public class LabController {
                 }
                 byte[] contentBytes = contentBuilder.toString().getBytes();
                 MultipartFile referencePointFile = new CustomMockMultipartFile(
-                        "tiamed_test_referance_point.csv",
-                        "tiamed_test_referance_point.csv",
+                        "Lab_Modified.xlsx-Sheet1.csv",
+                        "Lab_Modified.xlsx-Sheet1.csv",
                         "text/csv",
                         contentBytes
                 );

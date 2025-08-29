@@ -5,8 +5,10 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import tiameds.com.tiameds.repository.GenderConverter;
 
 import java.time.LocalDateTime;
+
 
 @Getter
 @Setter
@@ -33,8 +35,8 @@ public class SuperAdminReferanceEntity {
     @Column(nullable = true)
     private String units;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = true)
+    @Convert(converter = GenderConverter.class)
+    @Column(name = "gender")
     private Gender gender;
 
     @Column(nullable = true)
@@ -71,11 +73,3 @@ public class SuperAdminReferanceEntity {
     private LocalDateTime updatedAt;
 }
 
-
-
-//enum AgeUnit {
-//    YEARS,
-//    MONTHS,
-//    WEEKS,
-//    DAYS
-//}

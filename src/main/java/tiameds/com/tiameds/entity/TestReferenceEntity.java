@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import tiameds.com.tiameds.repository.GenderConverter;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -32,14 +33,15 @@ public class TestReferenceEntity {
     @Column
     private String units;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = true)
+    @Convert(converter = GenderConverter.class)
+    @Column(name = "gender")
     private Gender gender;
 
-    @Column(nullable = false)
+
+    @Column(nullable = true)
     private Double minReferenceRange;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private Double maxReferenceRange;
 
     @Column(nullable = false)
