@@ -307,7 +307,7 @@ public class TestReferenceServices {
     }
 
 
-    public List<TestReferenceDTO> getTestReferenceByTestName(Lab lab, String testName) {
+    public List<TestReferenceDTO>getTestReferenceByTestName(Lab lab, String testName) {
         List<TestReferenceDTO> testReferenceDTOS = lab.getTestReferences().stream()
                 .filter(testReferenceEntity -> testReferenceEntity.getTestName().equalsIgnoreCase(testName))
                 .sorted(Comparator.comparingLong(TestReferenceEntity::getId))
