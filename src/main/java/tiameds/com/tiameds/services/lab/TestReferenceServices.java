@@ -37,121 +37,6 @@ public class TestReferenceServices {
         this.testReferenceRepository = testReferenceRepository;
     }
 
-//    @Transactional
-//    public List<TestReferenceEntity> uploadCsv(Lab lab, MultipartFile file, User currentUser) {
-//        List<TestReferenceEntity> testReferenceEntities = new ArrayList<>();
-//
-//        if (currentUser == null) {
-//            throw new RuntimeException("User authentication failed.");
-//        }
-//        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()));
-//             CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.withFirstRecordAsHeader().withIgnoreHeaderCase())) {
-//            for (CSVRecord record : csvParser) {
-//                try {
-//                    String category = getStringOrBlank(record, "Category");
-//                    String testName = getStringOrBlank(record, "Test Name");
-//
-//                    if (category.isEmpty() || testName.isEmpty()) {
-//                        throw new IllegalArgumentException("Category and Test Name are required fields");
-//                    }
-//
-//                    TestReferenceEntity entity = new TestReferenceEntity();
-//                    entity.setCategory(category);
-//                    entity.setTestName(testName);
-//                    entity.setTestDescription(getStringOrBlank(record, "Test Description"));
-//                    entity.setUnits(getStringOrBlank(record, "Units"));
-//
-//                    String genderStr = getStringOrBlank(record, "Gender");
-//                    if (!genderStr.isEmpty()) {
-//                        try {
-//                            entity.setGender(Gender.valueOf(genderStr.trim().toUpperCase()));
-//                        } catch (IllegalArgumentException e) {
-//                            LOGGER.warning("Skipping record due to invalid ");
-//                        }
-//                    }
-//                    // Numeric values
-//                    entity.setMinReferenceRange(parseDoubleOrBlank(record, "Min Reference Range"));
-//                    entity.setMaxReferenceRange(parseDoubleOrBlank(record, "Max Reference Range"));
-//
-//                    // Age
-//                    entity.setAgeMin(parseIntWithDefault(record, "Age Min", 0));
-//                    entity.setMinAgeUnit(parseAgeUnitWithDefault(record, "Min Age Unit"));
-//                    entity.setAgeMax(parseIntWithDefault(record, "Age Max", 100));
-//                    entity.setMaxAgeUnit(parseAgeUnitWithDefault(record, "Max Age Unit"));
-//                    // Audit info
-//                    entity.setCreatedBy(currentUser.getUsername());
-//                    entity.setUpdatedBy(currentUser.getUsername());
-//                    entity.setCreatedAt(LocalDateTime.now());
-//                    entity.setUpdatedAt(LocalDateTime.now());
-//
-//                    testReferenceEntities.add(entity);
-//                } catch (Exception ex) {
-//                    LOGGER.warning("Skipping row " + record.getRecordNumber() + " due to error: " + ex.getMessage());
-//                    throw new RuntimeException("Error in record " + record.getRecordNumber() + ": " + ex.getMessage(), ex);
-//                }
-//            }
-//            return testReferenceEntities;
-//
-//        } catch (Exception ex) {
-//            LOGGER.warning("Failed to process CSV file: " + ex.getMessage());
-//            throw new RuntimeException("Failed to process CSV file: " + ex.getMessage(), ex);
-//        } finally {
-//            if (!testReferenceEntities.isEmpty()) {
-//                testReferenceRepository.saveAll(testReferenceEntities);
-//                for (TestReferenceEntity entity : testReferenceEntities) {
-//                    lab.addTestReference(entity);
-//                }
-//            }
-//        }
-//    }
-//
-//
-//    private String getStringOrBlank(CSVRecord record, String column) {
-//        try {
-//            String value = record.get(column);
-//            return value == null ? "" : value.trim();
-//        } catch (IllegalArgumentException e) {
-//            return "";
-//        }
-//    }
-//
-//    private Double parseDoubleOrBlank(CSVRecord record, String column) {
-//        try {
-//            String value = getStringOrBlank(record, column);
-//            return value.isEmpty() ? 0 : Double.parseDouble(value);
-//        } catch (NumberFormatException e) {
-//            LOGGER.warning("Skipping record due to error: " + e.getMessage());
-//            return null;
-//        }
-//    }
-//
-//    private Integer parseIntWithDefault(CSVRecord record, String column, Integer defaultValue) {
-//        try {
-//            String value = getStringOrBlank(record, column);
-//            return value.isEmpty() ? defaultValue : Integer.parseInt(value);
-//        } catch (NumberFormatException e) {
-//            LOGGER.warning("Skipping record due to error: " + e.getMessage());
-//            return defaultValue;
-//        }
-//    }
-//
-//    private AgeUnit parseAgeUnitWithDefault(CSVRecord record, String column) {
-//        String value = getStringOrBlank(record, column);
-//        if (value.isEmpty()) return AgeUnit.YEARS;
-//        try {
-//            return AgeUnit.valueOf(value.trim().toUpperCase());
-//        } catch (IllegalArgumentException e) {
-//            LOGGER.warning("Invalid age unit '" + value + "' in column '" + column + "'. Defaulting to YEARS.");
-//            return AgeUnit.YEARS;
-//        }
-//    }
-
-
-
-
-
-
-
     public List<TestReferenceDTO> getAllTestReferences(Lab lab) {
         List<TestReferenceDTO> testReferenceDTOS = lab.getTestReferences().stream()
                 .sorted(Comparator.comparingLong(TestReferenceEntity::getId))
@@ -361,8 +246,12 @@ public class TestReferenceServices {
 
             for (CSVRecord record : csvParser) {
                 try {
-                    TestReferenceEntity entity = processRecord(record, currentUser, lab); // ✅ pass lab
-                    testReferenceEntities.add(entity);
+//                    TestReferenceEntity entity = processRecord(record, currentUser, lab); // ✅ pass lab
+//                    testReferenceEntities.add(entity);
+                    TestReferenceEntity entity = processRecord(record, currentUser, lab);
+                    // ✅ save one by one in order
+                    TestReferenceEntity saved = testReferenceRepository.save(entity);
+                    testReferenceEntities.add(saved);
                 } catch (Exception ex) {
                     LOGGER.warning("Skipping row " + record.getRecordNumber() + " due to error: " + ex.getMessage());
                     // Continue processing other rows instead of failing completely
