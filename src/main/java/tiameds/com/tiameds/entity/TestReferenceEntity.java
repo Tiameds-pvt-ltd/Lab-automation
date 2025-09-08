@@ -75,4 +75,8 @@ public class TestReferenceEntity {
     @JsonBackReference
     private Set<Lab> labs = new HashSet<>();
 
+    public void setLab(Lab lab) {
+        this.labs.add(lab);
+        lab.getTestReferences().add(this);
+    }
 }
