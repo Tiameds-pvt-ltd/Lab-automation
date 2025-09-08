@@ -383,7 +383,6 @@ public class TestReferenceServices {
 //            return AgeUnit.YEARS;
 //        }
 //    }
-//
 
 
 @Transactional
@@ -393,7 +392,7 @@ public List<TestReferenceEntity> uploadCsv(Lab lab, MultipartFile file, User cur
         throw new RuntimeException("User authentication failed.");
     }
 
-    List<TestReferenceEntity> testReferenceEntities = new ArrayList<>();
+    List<TestReferenceEntity> savedEntities = new ArrayList<>();
 
     try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8));
          CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT
@@ -403,20 +402,15 @@ public List<TestReferenceEntity> uploadCsv(Lab lab, MultipartFile file, User cur
 
         for (CSVRecord record : csvParser) {
             try {
-                // process record without attaching to lab directly
-                TestReferenceEntity entity = processRecord(record, currentUser);
+                TestReferenceEntity entity = processRecord(record, currentUser, lab);
 
-                // explicitly set the lab (foreign key)
-                entity.setLab(lab);
-
-                // save row by row → ensures order in DB
+                // ✅ save one by one in order
                 TestReferenceEntity saved = testReferenceRepository.save(entity);
-
-                testReferenceEntities.add(saved);
+                savedEntities.add(saved);
 
             } catch (Exception ex) {
-                LOGGER.warning("Skipping row " + record.getRecordNumber() + " due to error: " + ex.getMessage());
-                // Continue processing other rows instead of failing completely
+                LOGGER.warning("Skipping row " + record.getRecordNumber() +
+                        " due to error: " + ex.getMessage());
             }
         }
 
@@ -425,15 +419,16 @@ public List<TestReferenceEntity> uploadCsv(Lab lab, MultipartFile file, User cur
         throw new RuntimeException("Failed to process CSV file: " + ex.getMessage(), ex);
     }
 
-    return testReferenceEntities;
+    return savedEntities;
 }
 
-    private TestReferenceEntity processRecord(CSVRecord record, User currentUser) {
+    private TestReferenceEntity processRecord(CSVRecord record, User currentUser, Lab lab) {
         // Required fields validation
         String category = getStringOrBlank(record, "Category");
         String testName = getStringOrBlank(record, "Test Name");
         if (category.isEmpty() || testName.isEmpty()) {
-            throw new IllegalArgumentException("Record #" + record.getRecordNumber() + ": Category and Test Name are required");
+            throw new IllegalArgumentException("Record #" + record.getRecordNumber()
+                    + ": Category and Test Name are required");
         }
 
         TestReferenceEntity entity = new TestReferenceEntity();
@@ -461,7 +456,8 @@ public List<TestReferenceEntity> uploadCsv(Lab lab, MultipartFile file, User cur
         entity.setCreatedAt(LocalDateTime.now());
         entity.setUpdatedAt(LocalDateTime.now());
 
-        // ❌ removed lab.addTestReference(entity) to avoid detached issues
+        // ✅ Set relationship properly
+        lab.addTestReference(entity);
 
         return entity;
     }
@@ -488,7 +484,8 @@ public List<TestReferenceEntity> uploadCsv(Lab lab, MultipartFile file, User cur
                 entity.setGender(Gender.MF);
                 break;
             default:
-                LOGGER.warning("Unknown gender '" + genderStr + "' (record " + record.getRecordNumber() + "). Defaulting to MF.");
+                LOGGER.warning("Unknown gender '" + genderStr + "' (record "
+                        + record.getRecordNumber() + "). Defaulting to MF.");
                 entity.setGender(Gender.MF);
         }
     }
@@ -508,7 +505,8 @@ public List<TestReferenceEntity> uploadCsv(Lab lab, MultipartFile file, User cur
         try {
             return Double.parseDouble(value);
         } catch (NumberFormatException e) {
-            LOGGER.warning("Invalid number in column '" + column + "' (record " + record.getRecordNumber() + "): " + e.getMessage());
+            LOGGER.warning("Invalid number in column '" + column + "' (record "
+                    + record.getRecordNumber() + "): " + e.getMessage());
             return null;
         }
     }
@@ -519,7 +517,8 @@ public List<TestReferenceEntity> uploadCsv(Lab lab, MultipartFile file, User cur
         try {
             return Integer.parseInt(value);
         } catch (NumberFormatException e) {
-            LOGGER.warning("Invalid integer in column '" + column + "' (record " + record.getRecordNumber() + "). Using default: " + defaultValue);
+            LOGGER.warning("Invalid integer in column '" + column + "' (record "
+                    + record.getRecordNumber() + "). Using default: " + defaultValue);
             return defaultValue;
         }
     }
@@ -530,10 +529,15 @@ public List<TestReferenceEntity> uploadCsv(Lab lab, MultipartFile file, User cur
         try {
             return AgeUnit.valueOf(value.trim().toUpperCase());
         } catch (IllegalArgumentException e) {
-            LOGGER.warning("Invalid age unit '" + value + "' (record " + record.getRecordNumber() + "). Defaulting to YEARS.");
+            LOGGER.warning("Invalid age unit '" + value + "' (record "
+                    + record.getRecordNumber() + "). Defaulting to YEARS.");
             return AgeUnit.YEARS;
         }
     }
+
+
+
+
 
 
 }
