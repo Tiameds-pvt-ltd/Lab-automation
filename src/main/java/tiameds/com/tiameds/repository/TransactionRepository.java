@@ -12,11 +12,17 @@ import java.util.List;
 @Repository
 public interface TransactionRepository extends JpaRepository<TransactionEntity, Long> {
 
-    @Query("SELECT t FROM TransactionEntity t " +
+    @Query("SELECT DISTINCT t FROM TransactionEntity t " +
             "JOIN FETCH t.billing b " +
             "JOIN FETCH b.labs l " +
             "JOIN FETCH b.visit v " +
             "JOIN FETCH v.patient p " +
+            "LEFT JOIN FETCH v.tests vt " +
+            "LEFT JOIN FETCH v.packages vp " +
+            "LEFT JOIN FETCH v.doctor d " +
+            "LEFT JOIN FETCH v.testResults vtr " +
+            "LEFT JOIN FETCH vtr.test vtrt " +
+            "LEFT JOIN FETCH b.testDiscounts td " +
             "WHERE l.id = :labId " +
             "AND t.createdAt BETWEEN :startDate AND :endDate")
     List<TransactionEntity> findTransactionsByLabAndDateRange(

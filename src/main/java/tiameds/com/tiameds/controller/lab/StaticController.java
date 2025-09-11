@@ -88,4 +88,9 @@ public class StaticController {
         }
     }
 
+
+//    @GetMapping("/{labId}/testwise-transactionsdetails"
+
+
+
 }

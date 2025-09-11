@@ -110,7 +110,6 @@ public class StaticServices {
         BillingEntity billing = transaction.getBilling();
         VisitEntity visit = billing.getVisit();
 
-//        System.out.println("visit: " +
 
 
         PatientEntity patient = visit.getPatient();
@@ -138,9 +137,68 @@ public class StaticServices {
         visitDTO.setVisitCancellationReason(visit.getVisitCancellationReason());
         visitDTO.setVisitCancellationBy(visit.getVisitCancellationBy());
         visitDTO.setVisitCancellationDate(String.valueOf(visit.getVisitCancellationDate()));
-//        "visitCancellationDate"
         visitDTO.setVisitCancellationDate(String.valueOf(visit.getVisitCancellationDate()));
 
+        //find test name and package name and doctor name
+        if (visit.getTests() != null && !visit.getTests().isEmpty()) {
+            List<String> testNames = visit.getTests().stream()
+                    .map(Test::getName)
+                    .toList();
+            visitDTO.setTestNames(testNames);
+
+            List<Long> testIds = visit.getTests().stream()
+                    .map(Test::getId)
+                    .map(Long::valueOf)
+                    .toList();
+            visitDTO.setTestIds(testIds);
+        } else {
+            visitDTO.setTestNames(List.of());
+            visitDTO.setTestIds(List.of());
+        }
+
+        if (visit.getPackages() != null && !visit.getPackages().isEmpty()) {
+            List<Long> packageIds = visit.getPackages().stream()
+                    .map(HealthPackage::getId)
+                    .map(Long::valueOf)
+                    .toList();
+            visitDTO.setPackageIds(packageIds);
+
+            List<Object> packageNames = visit.getPackages().stream()
+                    .map(HealthPackage::getPackageName)
+                    .map(name -> (Object) name)
+                    .toList();
+            visitDTO.setPackageNames(packageNames);
+        } else {
+            visitDTO.setPackageIds(List.of());
+            visitDTO.setPackageNames(List.of());
+        }
+
+        if (visit.getDoctor() != null) {
+            visitDTO.setDoctorId((int) visit.getDoctor().getId());
+            visitDTO.setDoctorName(visit.getDoctor().getName());
+        }
+
+        // Map test results
+        if (visit.getTestResults() != null && !visit.getTestResults().isEmpty()) {
+            List<LabStatisticsDTO.TestResultDTO> testResultDTOs = visit.getTestResults().stream().map(vtr -> {
+                LabStatisticsDTO.TestResultDTO tr = new LabStatisticsDTO.TestResultDTO();
+                tr.setId(vtr.getId().intValue());
+                tr.setTestId(vtr.getTest() != null ? (int) vtr.getTest().getId() : 0);
+                tr.setFilled(Boolean.TRUE.equals(vtr.getIsFilled()));
+                tr.setReportStatus(vtr.getReportStatus());
+                tr.setCreatedBy(vtr.getCreatedBy());
+                tr.setUpdatedBy(vtr.getUpdatedBy());
+                tr.setCreatedAt(vtr.getCreatedAt() != null ? vtr.getCreatedAt().toString() : null);
+                tr.setUpdatedAt(vtr.getUpdatedAt() != null ? vtr.getUpdatedAt().toString() : null);
+                return tr;
+            }).toList();
+            visitDTO.setTestResult(testResultDTOs);
+        } else {
+            visitDTO.setTestResult(List.of());
+        }
+
+
+        //listofeachtestdiscount
 
 
         // Billing
@@ -185,6 +243,23 @@ public class StaticServices {
 
 
         billingDTO.setTransactions(List.of(trDTO));
+
+        // Map test discounts
+        if (billing.getTestDiscounts() != null && !billing.getTestDiscounts().isEmpty()) {
+            List<LabStatisticsDTO.TestDiscountDTO> discountDTOs = billing.getTestDiscounts().stream().map(td -> {
+                LabStatisticsDTO.TestDiscountDTO dd = new LabStatisticsDTO.TestDiscountDTO();
+                dd.setId(td.getId().intValue());
+                dd.setDiscountAmount(td.getDiscountAmount() != null ? td.getDiscountAmount().doubleValue() : 0.0);
+                dd.setDiscountPercent(td.getDiscountPercent() != null ? td.getDiscountPercent().doubleValue() : 0.0);
+                dd.setFinalPrice(td.getFinalPrice() != null ? td.getFinalPrice().doubleValue() : 0.0);
+                dd.setCreatedBy(td.getCreatedBy());
+                dd.setUpdatedBy(td.getUpdatedBy());
+                return dd;
+            }).toList();
+            visitDTO.setListofeachtestdiscount(discountDTOs);
+        } else {
+            visitDTO.setListofeachtestdiscount(List.of());
+        }
 
         visitDTO.setBilling(billingDTO);
         dto.setVisit(visitDTO);
