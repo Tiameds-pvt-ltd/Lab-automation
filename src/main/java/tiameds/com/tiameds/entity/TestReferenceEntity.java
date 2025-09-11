@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.GenericGenerator;
 import org.hibernate.annotations.UpdateTimestamp;
 import tiameds.com.tiameds.repository.GenderConverter;
 
@@ -17,9 +18,14 @@ import java.util.Set;
 public class TestReferenceEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "test_reference_id")
+    @GeneratedValue(generator = "snowflake-id")
+    @GenericGenerator(
+            name = "snowflake-id",
+            strategy = "tiameds.com.tiameds.utils.SnowflakeIdentifierGenerator"  // <-- fix package name
+    )
+    @Column(name = "test_reference_id", updatable = false, nullable = false)
     private Long id;
+
 
     @Column(nullable = false)
     private String category;

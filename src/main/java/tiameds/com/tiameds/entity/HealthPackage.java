@@ -67,4 +67,8 @@ public class   HealthPackage {
     public Object getPackageId() {
         return id;
     }
+
+    public Object getName() {
+        return packageName;
+    }
 }

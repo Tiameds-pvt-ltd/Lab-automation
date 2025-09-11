@@ -39,10 +39,10 @@ public class BillingController {
             if (currentUser.isEmpty()) {
                 return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
             }
-            boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
-            if (!isAccessible) {
-                return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
-            }
+//            boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+//            if (!isAccessible) {
+//                return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+//            }
             List<BillingDTO> billingList = billingService.getBillingList(labId, currentUser, billingDTO);
             return ApiResponseHelper.successResponse("Billing list fetched successfully", billingList);
         } catch (Exception e) {
