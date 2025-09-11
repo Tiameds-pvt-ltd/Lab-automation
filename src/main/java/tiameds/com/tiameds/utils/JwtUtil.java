@@ -26,6 +26,18 @@ public class JwtUtil {
         return claims.getSubject();
     }
 
+    public Integer extractTokenVersion(String token) {
+        Claims claims = extractAllClaims(token);
+        Object value = claims.get("tokenVersion");
+        if (value instanceof Integer) {
+            return (Integer) value;
+        }
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
+        }
+        return null;
+    }
+
     public Date extractExpiration(String token) {
         return extractAllClaims(token).getExpiration();
     }
@@ -38,8 +50,11 @@ public class JwtUtil {
         return extractExpiration(token).before(new Date());
     }
 
-    public String generateToken(String username) {
+    public String generateToken(String username, Integer tokenVersion) {
         Map<String, Object> claims = new HashMap<>();
+        if (tokenVersion != null) {
+            claims.put("tokenVersion", tokenVersion);
+        }
         return createToken(claims, username);
     }
 

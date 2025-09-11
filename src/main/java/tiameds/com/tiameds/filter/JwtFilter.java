@@ -12,6 +12,8 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import tiameds.com.tiameds.entity.User;
+import tiameds.com.tiameds.repository.UserRepository;
 import tiameds.com.tiameds.utils.JwtUtil;
 
 
@@ -26,6 +28,9 @@ public class JwtFilter extends OncePerRequestFilter {
     @Autowired
     private JwtUtil jwtUtil;
 
+    @Autowired
+    private UserRepository userRepository;
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
         String authorizationHeader = request.getHeader("Authorization");
@@ -37,7 +42,17 @@ public class JwtFilter extends OncePerRequestFilter {
         }
         if (username != null) {
             UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+            // validate expiry first
             if (jwtUtil.validateToken(jwt)) {
+                // token versioning check
+                Integer tokenVersionClaim = jwtUtil.extractTokenVersion(jwt);
+                if (tokenVersionClaim != null) {
+                    User user = userRepository.findByUsername(username).orElse(null);
+                    if (user == null || !tokenVersionClaim.equals(user.getTokenVersion())) {
+                        chain.doFilter(request, response);
+                        return;
+                    }
+                }
                 UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                 auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(auth);

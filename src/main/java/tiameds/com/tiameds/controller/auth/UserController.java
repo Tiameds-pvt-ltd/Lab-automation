@@ -75,9 +75,6 @@ public class UserController {
         // Load user details
         final UserDetails userDetails = userDetailsService.loadUserByUsername(loginRequest.getUsername());
 
-        // Generate JWT token
-        token = jwtUtils.generateToken(userDetails.getUsername());
-
         // Fetch user details
         Optional<User> userOptional = userService.findByUsername(loginRequest.getUsername());
         if (!userOptional.isPresent()) {
@@ -85,6 +82,9 @@ public class UserController {
                     .body(new AuthResponse(HttpStatus.BAD_REQUEST, "User not found", null, null));
         }
         User user = userOptional.get();
+
+        // Generate JWT token with tokenVersion
+        token = jwtUtils.generateToken(userDetails.getUsername(), user.getTokenVersion());
 
         // Convert roles to list of strings
         List<String> roles = user.getRoles().stream()

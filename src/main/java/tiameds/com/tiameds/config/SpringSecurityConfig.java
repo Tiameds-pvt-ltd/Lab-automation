@@ -127,6 +127,9 @@ public class SpringSecurityConfig {
 //                                .requestMatchers("/lab/**").hasRole("ADMIN")
                                 .requestMatchers("/lab-super-admin/**").hasRole("SUPERADMIN")
                                 .requestMatchers("/error").permitAll()
+                                .requestMatchers("/auth/login", "/auth/register").permitAll()
+                                .requestMatchers("/public/login", "/public/register").permitAll()
+                                .requestMatchers("/auth/logout").authenticated()
                                 .requestMatchers("/login/**", "/register/**").permitAll()
                                 .requestMatchers("/api/v1/public/health-check").permitAll()
                                 .requestMatchers(

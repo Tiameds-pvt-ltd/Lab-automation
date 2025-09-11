@@ -101,4 +101,11 @@ public class User {
     public String getFullName() {
         return firstName + " " + lastName;
     }
+
+
+    @Column(name = "token_version", nullable = false)
+    private Integer tokenVersion = 0;
+
+
+
 }
