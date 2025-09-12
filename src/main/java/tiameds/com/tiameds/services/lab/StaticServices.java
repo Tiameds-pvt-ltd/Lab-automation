@@ -184,6 +184,10 @@ public class StaticServices {
                 LabStatisticsDTO.TestResultDTO tr = new LabStatisticsDTO.TestResultDTO();
                 tr.setId(vtr.getId().intValue());
                 tr.setTestId(vtr.getTest() != null ? (int) vtr.getTest().getId() : 0);
+                if (vtr.getTest() != null) {
+                    tr.setTestName(vtr.getTest().getName());
+                    tr.setCategory(vtr.getTest().getCategory());
+                }
                 tr.setFilled(Boolean.TRUE.equals(vtr.getIsFilled()));
                 tr.setReportStatus(vtr.getReportStatus());
                 tr.setCreatedBy(vtr.getCreatedBy());
@@ -252,6 +256,12 @@ public class StaticServices {
                 dd.setDiscountAmount(td.getDiscountAmount() != null ? td.getDiscountAmount().doubleValue() : 0.0);
                 dd.setDiscountPercent(td.getDiscountPercent() != null ? td.getDiscountPercent().doubleValue() : 0.0);
                 dd.setFinalPrice(td.getFinalPrice() != null ? td.getFinalPrice().doubleValue() : 0.0);
+                if (td.getTestId() != null) {
+                    testRepository.findById(td.getTestId()).ifPresent(test -> {
+                        dd.setTestName(test.getName());
+                        dd.setCategory(test.getCategory());
+                    });
+                }
                 dd.setCreatedBy(td.getCreatedBy());
                 dd.setUpdatedBy(td.getUpdatedBy());
                 return dd;

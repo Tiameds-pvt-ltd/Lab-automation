@@ -25,9 +25,9 @@ public class LabStatisticsDTO {
         private String visitStatus;
         private String visitDescription;
         private Integer doctorId;
+        private List<String> testNames;
         private List<Long> testIds;
         private List<Long> packageIds;
-        private List<String> testNames;
         private List<Object> packageNames;
         private String DoctorName;
         private String createdBy;
@@ -85,6 +85,8 @@ public class LabStatisticsDTO {
         private int id;
         private int testId;
         private boolean isFilled;
+        private String testName;
+        private String category;
         private String reportStatus;
         private String createdBy;
         private String updatedBy;
@@ -97,6 +99,8 @@ public class LabStatisticsDTO {
         private double discountAmount;
         private double discountPercent;
         private double finalPrice;
+        private String testName;
+        private String category;
         private String createdBy;
         private String updatedBy;
         private int id;
