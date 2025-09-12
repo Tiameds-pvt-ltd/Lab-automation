@@ -16,23 +16,19 @@ import tiameds.com.tiameds.utils.ApiResponseHelper;
 public class LogoutController {
 
     private final UserRepository userRepository;
-
     public LogoutController(UserRepository userRepository) {
         this.userRepository = userRepository;
     }
-
     @PostMapping("/logout")
     public ResponseEntity<?> logout(Authentication authentication) {
         if (authentication == null || !(authentication.getPrincipal() instanceof UserDetails)) {
             return ApiResponseHelper.errorResponse("Unauthorized", HttpStatus.UNAUTHORIZED);
         }
-
         String username = ((UserDetails) authentication.getPrincipal()).getUsername();
         User user = userRepository.findByUsername(username).orElse(null);
         if (user == null) {
             return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
         }
-
         user.setTokenVersion(user.getTokenVersion() + 1);
         userRepository.save(user);
 
