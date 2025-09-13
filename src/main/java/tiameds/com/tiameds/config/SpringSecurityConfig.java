@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -12,6 +13,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfigurationSource;
 import tiameds.com.tiameds.filter.JwtFilter;
 import tiameds.com.tiameds.filter.IpWhitelistFilter;
 import tiameds.com.tiameds.filter.RateLimitFilter;
@@ -24,14 +26,17 @@ public class SpringSecurityConfig {
     private final UserDetailsServiceImpl userDetailsService;
     private final IpWhitelistFilter ipWhitelistFilter;
     private final RateLimitFilter rateLimitFilter;
+    private final CorsConfigurationSource corsConfigurationSource;
 
     @Autowired
     public SpringSecurityConfig(JwtFilter jwtFilter, UserDetailsServiceImpl userDetailsService, 
-                               IpWhitelistFilter ipWhitelistFilter, RateLimitFilter rateLimitFilter) {
+                               IpWhitelistFilter ipWhitelistFilter, RateLimitFilter rateLimitFilter,
+                               CorsConfigurationSource corsConfigurationSource) {
         this.jwtFilter = jwtFilter;
         this.userDetailsService = userDetailsService;
         this.ipWhitelistFilter = ipWhitelistFilter;
         this.rateLimitFilter = rateLimitFilter;
+        this.corsConfigurationSource = corsConfigurationSource;
     }
 
     @Bean
@@ -46,10 +51,9 @@ public class SpringSecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())  // Disable CSRF for stateless JWT authentication
-                .cors(cors -> cors.configurationSource(new CorsConfig().corsConfigurationSource()))
+                .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .authorizeHttpRequests(auth -> auth
-//                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()  // Permit CORS preflight requests
-
+                                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()  // Permit CORS preflight requests
 
                                 // ---------------list of all endpoints with roles as DESKROLE and admin---------------------
                                 .requestMatchers(

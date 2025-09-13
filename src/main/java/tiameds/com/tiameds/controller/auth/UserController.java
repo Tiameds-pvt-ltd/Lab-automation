@@ -61,6 +61,15 @@ public class UserController {
         return "Service is up  and running";
     }
 
+    @GetMapping("/cors-test")
+    public ResponseEntity<Map<String, Object>> corsTest(HttpServletRequest request) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "CORS test successful");
+        response.put("origin", request.getHeader("Origin"));
+        response.put("timestamp", System.currentTimeMillis());
+        return ResponseEntity.ok(response);
+    }
+
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest loginRequest, HttpServletRequest request) {

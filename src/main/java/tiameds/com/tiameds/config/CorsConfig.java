@@ -15,16 +15,32 @@ public class CorsConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // Allow ONLY this domain
-        configuration.setAllowedOrigins(List.of("https://lab-test-env.tiameds.ai"));
-        configuration.setAllowedOrigins(List.of("http://localhost:3000"));
+        // Allow these domains
+        configuration.setAllowedOrigins(List.of(
+            "https://lab-test-env.tiameds.ai",
+            "http://localhost:3000"
+        ));
 
         // Allowed methods
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
 
         // Allowed + exposed headers
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With"));
-        configuration.setExposedHeaders(List.of("Content-Disposition"));
+        configuration.setAllowedHeaders(List.of(
+            "Authorization", 
+            "Content-Type", 
+            "Accept", 
+            "X-Requested-With",
+            "X-Forwarded-For",
+            "X-Real-IP",
+            "Origin",
+            "Access-Control-Request-Method",
+            "Access-Control-Request-Headers"
+        ));
+        configuration.setExposedHeaders(List.of(
+            "Content-Disposition",
+            "Access-Control-Allow-Origin",
+            "Access-Control-Allow-Credentials"
+        ));
 
         // Credentials support
         configuration.setAllowCredentials(true);
