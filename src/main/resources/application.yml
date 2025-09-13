@@ -70,3 +70,21 @@ springdoc:
     path: /v3/api-docs
   swagger-ui:
     path: /doc  # Consider restricting Swagger UI in production
+
+# Rate limiting configuration
+rate:
+  limit:
+    login:
+      attempts: 5  # Max login attempts per user
+      window: 10   # Time window in minutes
+    ip:
+      attempts: 10  # Max login attempts per IP
+      window: 10    # Time window in minutes
+
+# Security configuration
+security:
+  ip:
+    whitelist:
+      enabled: false  # Set to true to enable IP whitelisting
+      ips: ""  # Comma-separated list of allowed IPs (e.g., "192.168.1.1,10.0.0.1")
+

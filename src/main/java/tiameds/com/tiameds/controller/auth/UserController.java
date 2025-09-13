@@ -25,6 +25,8 @@ import tiameds.com.tiameds.services.auth.UserService;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.JwtUtil;
 import tiameds.com.tiameds.entity.Role;
+import tiameds.com.tiameds.config.RateLimitConfig;
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -41,15 +43,17 @@ public class UserController {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtils;
     private final ModuleRepository moduleRepository;
+    private final RateLimitConfig.RateLimitService rateLimitService;
 
     @Autowired
-    public UserController(UserService userService, AuthenticationManager authenticationManager, UserDetailsServiceImpl userDetailsService, PasswordEncoder passwordEncoder, JwtUtil jwtUtils, ModuleRepository moduleRepository) {
+    public UserController(UserService userService, AuthenticationManager authenticationManager, UserDetailsServiceImpl userDetailsService, PasswordEncoder passwordEncoder, JwtUtil jwtUtils, ModuleRepository moduleRepository, RateLimitConfig.RateLimitService rateLimitService) {
         this.userService = userService;
         this.authenticationManager = authenticationManager;
         this.userDetailsService = userDetailsService;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtils = jwtUtils;
         this.moduleRepository = moduleRepository;
+        this.rateLimitService = rateLimitService;
     }
 
     @GetMapping("/health-check")
@@ -59,8 +63,25 @@ public class UserController {
 
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest loginRequest) {
+    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest loginRequest, HttpServletRequest request) {
         String token = null;
+        String clientIp = getClientIpAddress(request);
+        String username = loginRequest.getUsername();
+        
+        // Check rate limiting for IP
+        if (!rateLimitService.isIpAllowed(clientIp)) {
+            log.warn("Rate limit exceeded for IP: {}", clientIp);
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(new AuthResponse(HttpStatus.TOO_MANY_REQUESTS, "Too many login attempts from this IP. Please try again later.", null, null));
+        }
+        
+        // Check rate limiting for user
+        if (!rateLimitService.isUserAllowed(username)) {
+            log.warn("Rate limit exceeded for user: {} from IP: {}", username, clientIp);
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(new AuthResponse(HttpStatus.TOO_MANY_REQUESTS, "Too many login attempts for this user. Please try again later.", null, null));
+        }
+        
         try {
             // Authenticate the user
             authenticationManager.authenticate(
@@ -207,6 +228,54 @@ public class UserController {
 //        user.setModules(modules);
         userService.saveUser(user);
         return ApiResponseHelper.successResponseWithDataAndMessage("User registered successfully", HttpStatus.CREATED, null);
+    }
+
+    private String getClientIpAddress(HttpServletRequest request) {
+        String xForwardedFor = request.getHeader("X-Forwarded-For");
+        if (xForwardedFor != null && !xForwardedFor.isEmpty() && !"unknown".equalsIgnoreCase(xForwardedFor)) {
+            return xForwardedFor.split(",")[0].trim();
+        }
+
+        String xRealIp = request.getHeader("X-Real-IP");
+        if (xRealIp != null && !xRealIp.isEmpty() && !"unknown".equalsIgnoreCase(xRealIp)) {
+            return xRealIp;
+        }
+
+        return request.getRemoteAddr();
+    }
+
+    @PostMapping("/reset-rate-limit")
+    public ResponseEntity<Map<String, Object>> resetRateLimit(@RequestParam(required = false) String ipAddress, 
+                                                             @RequestParam(required = false) String username) {
+        if (ipAddress != null) {
+            rateLimitService.resetIpLimit(ipAddress);
+            return ApiResponseHelper.successResponseWithDataAndMessage("Rate limit reset for IP: " + ipAddress, HttpStatus.OK, null);
+        }
+        if (username != null) {
+            rateLimitService.resetUserLimit(username);
+            return ApiResponseHelper.successResponseWithDataAndMessage("Rate limit reset for user: " + username, HttpStatus.OK, null);
+        }
+        return ApiResponseHelper.successResponseWithDataAndMessage("Please provide either IP address or username", HttpStatus.BAD_REQUEST, null);
+    }
+
+    @GetMapping("/rate-limit-status")
+    public ResponseEntity<Map<String, Object>> getRateLimitStatus(@RequestParam(required = false) String ipAddress, 
+                                                                 @RequestParam(required = false) String username) {
+        Map<String, Object> status = new HashMap<>();
+        
+        if (ipAddress != null) {
+            int remainingIpAttempts = rateLimitService.getRemainingIpAttempts(ipAddress);
+            status.put("ipAddress", ipAddress);
+            status.put("remainingIpAttempts", remainingIpAttempts);
+        }
+        
+        if (username != null) {
+            int remainingUserAttempts = rateLimitService.getRemainingUserAttempts(username);
+            status.put("username", username);
+            status.put("remainingUserAttempts", remainingUserAttempts);
+        }
+        
+        return ApiResponseHelper.successResponseWithDataAndMessage("Rate limit status retrieved", HttpStatus.OK, status);
     }
 
     //forgot password for temp password generation

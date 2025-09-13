@@ -13,6 +13,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import tiameds.com.tiameds.filter.JwtFilter;
+import tiameds.com.tiameds.filter.IpWhitelistFilter;
+import tiameds.com.tiameds.filter.RateLimitFilter;
 import tiameds.com.tiameds.services.auth.UserDetailsServiceImpl;
 
 @Configuration
@@ -20,11 +22,16 @@ import tiameds.com.tiameds.services.auth.UserDetailsServiceImpl;
 public class SpringSecurityConfig {
     private final JwtFilter jwtFilter;
     private final UserDetailsServiceImpl userDetailsService;
+    private final IpWhitelistFilter ipWhitelistFilter;
+    private final RateLimitFilter rateLimitFilter;
 
     @Autowired
-    public SpringSecurityConfig(JwtFilter jwtFilter, UserDetailsServiceImpl userDetailsService) {
+    public SpringSecurityConfig(JwtFilter jwtFilter, UserDetailsServiceImpl userDetailsService, 
+                               IpWhitelistFilter ipWhitelistFilter, RateLimitFilter rateLimitFilter) {
         this.jwtFilter = jwtFilter;
         this.userDetailsService = userDetailsService;
+        this.ipWhitelistFilter = ipWhitelistFilter;
+        this.rateLimitFilter = rateLimitFilter;
     }
 
     @Bean
@@ -143,6 +150,8 @@ public class SpringSecurityConfig {
                 )
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))  // Stateless (JWT) sessions
+                .addFilterBefore(ipWhitelistFilter, UsernamePasswordAuthenticationFilter.class)  // Add IP whitelist filter first
+                .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)  // Add rate limit filter
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)  // Add JWT filter
                 .build();
     }

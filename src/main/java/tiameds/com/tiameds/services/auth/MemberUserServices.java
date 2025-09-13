@@ -43,6 +43,39 @@ public class MemberUserServices {
                         ))).collect(Collectors.toList());
     }
 
+    public void updateUserInLab(MemberDetailsUpdate registerRequest, User userToUpdate, Lab lab, User currentUser) {
+        userToUpdate.setUsername(registerRequest.getUsername());
+        userToUpdate.setEmail(registerRequest.getEmail());
+        userToUpdate.setFirstName(registerRequest.getFirstName());
+        userToUpdate.setLastName(registerRequest.getLastName());
+        userToUpdate.setPhone(registerRequest.getPhone());
+        userToUpdate.setAddress(registerRequest.getAddress());
+        userToUpdate.setCity(registerRequest.getCity());
+        userToUpdate.setState(registerRequest.getState());
+        userToUpdate.setZip(registerRequest.getZip());
+        userToUpdate.setCountry(registerRequest.getCountry());
+        userToUpdate.setVerified(registerRequest.isVerified());
+        userToUpdate.setEnabled(registerRequest.getEnabled());
+        userToUpdate.setCreatedBy(currentUser);
+        Set<Role> roles = registerRequest.getRoles()
+                .stream()
+                .map(roleName -> roleRepository.findByName(String.valueOf(roleName))
+                        .orElseGet(() -> {
+                            Role newRole = new Role();
+                            newRole.setName(String.valueOf(roleName));
+                            return roleRepository.save(newRole);
+                        }))
+                .collect(Collectors.toSet());
+        userToUpdate.setRoles(roles);
+        try {
+            userRepository.save(userToUpdate);
+            lab.getMembers().add(userToUpdate);
+        } catch (Exception e) {
+            throw new RuntimeException("Error updating user: " + e.getMessage(), e);
+        }
+    }
+
+
     public void createUserAndAddToLab(MemberRegisterDto registerRequest, Lab lab, User currentUser) {
         User user = new User();
         user.setUsername(registerRequest.getUsername());
@@ -76,39 +109,6 @@ public class MemberUserServices {
             lab.getMembers().add(user);
         } catch (Exception e) {
             throw new RuntimeException("Error saving user: " + e.getMessage(), e);
-        }
-    }
-
-
-    public void updateUserInLab(MemberDetailsUpdate registerRequest, User userToUpdate, Lab lab, User currentUser) {
-        userToUpdate.setUsername(registerRequest.getUsername());
-        userToUpdate.setEmail(registerRequest.getEmail());
-        userToUpdate.setFirstName(registerRequest.getFirstName());
-        userToUpdate.setLastName(registerRequest.getLastName());
-        userToUpdate.setPhone(registerRequest.getPhone());
-        userToUpdate.setAddress(registerRequest.getAddress());
-        userToUpdate.setCity(registerRequest.getCity());
-        userToUpdate.setState(registerRequest.getState());
-        userToUpdate.setZip(registerRequest.getZip());
-        userToUpdate.setCountry(registerRequest.getCountry());
-        userToUpdate.setVerified(registerRequest.isVerified());
-        userToUpdate.setEnabled(registerRequest.getEnabled());
-        userToUpdate.setCreatedBy(currentUser);
-        Set<Role> roles = registerRequest.getRoles()
-                .stream()
-                .map(roleName -> roleRepository.findByName(String.valueOf(roleName))
-                        .orElseGet(() -> {
-                            Role newRole = new Role();
-                            newRole.setName(String.valueOf(roleName));
-                            return roleRepository.save(newRole);
-                        }))
-                .collect(Collectors.toSet());
-        userToUpdate.setRoles(roles);
-        try {
-            userRepository.save(userToUpdate);
-            lab.getMembers().add(userToUpdate);
-        } catch (Exception e) {
-            throw new RuntimeException("Error updating user: " + e.getMessage(), e);
         }
     }
 }

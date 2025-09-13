@@ -23,6 +23,8 @@ import tiameds.com.tiameds.utils.UserAuthService;
 import java.util.List;
 import java.util.Map;
 
+///create-user/
+
 
 @RestController
 @RequestMapping("/user-management")
@@ -127,6 +129,44 @@ public class LabAdminController {
         }
         if (userRepository.existsByEmail(registerRequest.getEmail())) {
             return ApiResponseHelper.errorResponse("Email already exists", HttpStatus.CONFLICT);
+        }
+
+        // role-based creation rules (hierarchical)
+        // Determine creator's roles
+        java.util.Set<String> creatorRoles = currentUser.getRoles().stream()
+                .map(role -> role.getName())
+                .filter(java.util.Objects::nonNull)
+                .map(String::toUpperCase)
+                .collect(java.util.stream.Collectors.toSet());
+
+        boolean isSuperAdminCreator = creatorRoles.contains("SUPERADMIN");
+        boolean isAdminCreator = creatorRoles.contains("ADMIN");
+        boolean isTechOrDeskCreator = creatorRoles.contains("TECHNICIAN") || creatorRoles.contains("DESKROLE");
+
+        // TECHNICIAN and DESKROLE cannot create any user
+        if (isTechOrDeskCreator && !isSuperAdminCreator && !isAdminCreator) {
+            return ApiResponseHelper.errorResponse("You are not permitted to create users", HttpStatus.FORBIDDEN);
+        }
+
+        // Determine allowed roles based on creator's highest privilege
+        java.util.Set<String> allowedRoles = isSuperAdminCreator
+                ? java.util.Set.of("SUPERADMIN", "ADMIN", "TECHNICIAN", "DESKROLE")
+                : (isAdminCreator ? java.util.Set.of("ADMIN", "TECHNICIAN", "DESKROLE") : java.util.Set.of());
+
+        if (allowedRoles.isEmpty()) {
+            return ApiResponseHelper.errorResponse("Only ADMIN or SUPERADMIN can create users", HttpStatus.FORBIDDEN);
+        }
+
+        boolean invalidRequestedRole = registerRequest.getRoles() != null && registerRequest.getRoles().stream()
+                .filter(java.util.Objects::nonNull)
+                .map(String::toUpperCase)
+                .anyMatch(r -> !allowedRoles.contains(r));
+        if (invalidRequestedRole) {
+            return ApiResponseHelper.errorResponse(
+                    isSuperAdminCreator
+                            ? "Invalid role selection. Allowed: SUPERADMIN, ADMIN, TECHNICIAN, DESKROLE"
+                            : "Invalid role selection. Allowed: ADMIN, TECHNICIAN, DESKROLE",
+                    HttpStatus.FORBIDDEN);
         }
 
         // Create a new user and add to the lab
