@@ -26,6 +26,7 @@ public class VisitService {
     private final BillingRepository billingRepository;
     private final VisitRepository visitRepository;
     private final TestDiscountRepository testDiscountRepository;
+    private final VisitTestResultRepository visitTestResultRepository;
 
     public VisitService(PatientRepository patientRepository,
                         LabRepository labRepository,
@@ -34,7 +35,9 @@ public class VisitService {
                         DoctorRepository doctorRepository,
                         InsuranceRepository insuranceRepository,
                         BillingRepository billingRepository,
-                        VisitRepository visitRepository, TestDiscountRepository testDiscountRepository) {
+                        VisitRepository visitRepository, 
+                        TestDiscountRepository testDiscountRepository,
+                        VisitTestResultRepository visitTestResultRepository) {
         this.patientRepository = patientRepository;
         this.labRepository = labRepository;
         this.testRepository = testRepository;
@@ -44,6 +47,7 @@ public class VisitService {
         this.billingRepository = billingRepository;
         this.visitRepository = visitRepository;
         this.testDiscountRepository = testDiscountRepository;
+        this.visitTestResultRepository = visitTestResultRepository;
     }
 
     @Transactional
@@ -260,22 +264,136 @@ public class VisitService {
 
     }
 
+    @Transactional
     public void deleteVisit(Long labId, Long visitId, Optional<User> currentUser) {
+        // Validate lab exists
         Optional<Lab> labOptional = labRepository.findById(labId);
         if (labOptional.isEmpty()) {
-            ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
+            throw new IllegalArgumentException("Lab not found");
         }
+        
+        // Validate user access to lab
         if (currentUser.isEmpty() || !currentUser.get().getLabs().contains(labOptional.get())) {
-            ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
+            throw new IllegalArgumentException("User is not a member of this lab");
         }
+        
+        // Find and validate visit exists and belongs to the lab
         Optional<VisitEntity> visitOptional = visitRepository.findById(visitId);
         if (visitOptional.isEmpty()) {
-            ApiResponseHelper.errorResponse("Visit not found", HttpStatus.NOT_FOUND);
+            throw new IllegalArgumentException("Visit not found");
         }
-        VisitEntity visit = visitRepository.findById(visitId)
-                .filter(visitEntity -> visitEntity.getPatient().getLabs().contains(labOptional.get()))
-                .orElseThrow(() -> new IllegalArgumentException("Visit not found or does not belong to the lab"));
+        
+        VisitEntity visit = visitOptional.get();
+        
+        // Verify visit belongs to the lab
+        if (!visit.getPatient().getLabs().contains(labOptional.get())) {
+            throw new IllegalArgumentException("Visit does not belong to the specified lab");
+        }
+        
+        // Delete all related entities in the correct order
+        
+        // 1. Delete VisitTestResults (cascade should handle this, but being explicit)
+        if (visit.getTestResults() != null && !visit.getTestResults().isEmpty()) {
+            visitTestResultRepository.deleteAll(visit.getTestResults());
+        }
+        
+        // 2. Clear many-to-many relationships
+        visit.getTests().clear();
+        visit.getPackages().clear();
+        visit.getInsurance().clear();
+        visit.getSamples().clear();
+        visit.getLabs().clear();
+        
+        // 3. Delete billing and related entities
+        if (visit.getBilling() != null) {
+            BillingEntity billing = visit.getBilling();
+            
+            // Delete test discounts related to billing
+            if (billing.getTestDiscounts() != null && !billing.getTestDiscounts().isEmpty()) {
+                testDiscountRepository.deleteAll(billing.getTestDiscounts());
+            }
+            
+            // Delete transactions related to billing
+            if (billing.getTransactions() != null && !billing.getTransactions().isEmpty()) {
+                // Note: TransactionRepository would be needed if transactions need explicit deletion
+                // For now, relying on cascade delete
+            }
+            
+            // Delete the billing entity
+            billingRepository.delete(billing);
+        }
+        
+        // 4. Finally delete the visit entity
         visitRepository.delete(visit);
+    }
+
+    @Transactional
+    public int deleteAllVisitsForLab(Long labId, Optional<User> currentUser) {
+        // Validate lab exists
+        Optional<Lab> labOptional = labRepository.findById(labId);
+        if (labOptional.isEmpty()) {
+            throw new IllegalArgumentException("Lab not found");
+        }
+        
+        // Validate user access to lab
+        if (currentUser.isEmpty() || !currentUser.get().getLabs().contains(labOptional.get())) {
+            throw new IllegalArgumentException("User is not a member of this lab");
+        }
+        
+        Lab lab = labOptional.get();
+        
+        // Find all visits for this lab
+        List<VisitEntity> visits = visitRepository.findAllByPatient_Labs(lab);
+        
+        if (visits.isEmpty()) {
+            return 0; // No visits to delete
+        }
+        
+        int deletedCount = 0;
+        
+        // Delete each visit and all its related data
+        for (VisitEntity visit : visits) {
+            try {
+                // 1. Delete VisitTestResults
+                if (visit.getTestResults() != null && !visit.getTestResults().isEmpty()) {
+                    visitTestResultRepository.deleteAll(visit.getTestResults());
+                }
+                
+                // 2. Clear many-to-many relationships
+                visit.getTests().clear();
+                visit.getPackages().clear();
+                visit.getInsurance().clear();
+                visit.getSamples().clear();
+                visit.getLabs().clear();
+                
+                // 3. Delete billing and related entities
+                if (visit.getBilling() != null) {
+                    BillingEntity billing = visit.getBilling();
+                    
+                    // Delete test discounts related to billing
+                    if (billing.getTestDiscounts() != null && !billing.getTestDiscounts().isEmpty()) {
+                        testDiscountRepository.deleteAll(billing.getTestDiscounts());
+                    }
+                    
+                    // Delete transactions related to billing (cascade should handle this)
+                    // Note: If explicit deletion is needed, TransactionRepository would be required
+                    
+                    // Delete the billing entity
+                    billingRepository.delete(billing);
+                }
+                
+                // 4. Delete the visit entity
+                visitRepository.delete(visit);
+                deletedCount++;
+                
+            } catch (Exception e) {
+                // Log the error but continue with other visits
+                System.err.println("Error deleting visit " + visit.getVisitId() + ": " + e.getMessage());
+                // You might want to use a proper logger instead of System.err
+            }
+        }
+        
+        return deletedCount;
     }
 
     public Object getVisit(Long labId, Long visitId, Optional<User> currentUser) {

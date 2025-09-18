@@ -1,4 +1,3 @@
-
 package tiameds.com.tiameds.services.lab;
 
 import jakarta.persistence.EntityNotFoundException;
@@ -58,9 +57,6 @@ public class PatientService {
         this.visitRepository = visitRepository;
     }
 
-    public boolean existsByPhone(String phone) {
-        return patientRepository.existsByPhone(phone);
-    }
 
     public List<PatientDTO> getAllPatientsByLabId(Long labId) {
         return patientRepository.findAllByLabsId(labId).stream()
@@ -80,9 +76,6 @@ public class PatientService {
         return convertToPatientDTO(patient.get());
     }
 
-    public boolean existsById(Long patientId) {
-        return patientRepository.existsById(patientId);
-    }
 
     @Transactional
     public void updatePatient(Long patientId, Long labId, PatientDTO patientDTO, String currentUser) {
@@ -291,6 +284,7 @@ public class PatientService {
                         // Set audit fields
                         testResult.setCreatedBy(currentUser);
                         testResult.setUpdatedBy(currentUser);
+                        testResult.setTestStatus("ACTIVE");
 
                         return testResult;
                     })
@@ -298,152 +292,6 @@ public class PatientService {
             visit.setTestResults(testResults);
         }
         return visit;
-    }
-
-    @Transactional(rollbackOn = Exception.class)
-    public PatientDTO updatePatientDetails(PatientEntity existingPatient, Lab lab, PatientDTO patientDTO, String username) {
-        try {
-//            // Update basic patient information
-//            if (patientDTO.getFirstName() != null) {
-//                existingPatient.setFirstName(patientDTO.getFirstName());
-//            }
-            // Update basic patient information
-
-            if (patientDTO.getLastName() != null) {
-                existingPatient.setLastName(patientDTO.getLastName());
-            }
-            if (patientDTO.getEmail() != null) {
-                existingPatient.setEmail(patientDTO.getEmail());
-            }
-            if (patientDTO.getPhone() != null) {
-                existingPatient.setPhone(patientDTO.getPhone());
-            }
-            if (patientDTO.getAddress() != null) {
-                existingPatient.setAddress(patientDTO.getAddress());
-            }
-            if (patientDTO.getCity() != null) {
-                existingPatient.setCity(patientDTO.getCity());
-            }
-            if (patientDTO.getState() != null) {
-                existingPatient.setState(patientDTO.getState());
-            }
-            if (patientDTO.getZip() != null) {
-                existingPatient.setZip(patientDTO.getZip());
-            }
-            if (patientDTO.getBloodGroup() != null) {
-                existingPatient.setBloodGroup(patientDTO.getBloodGroup());
-            }
-            if (patientDTO.getDateOfBirth() != null) {
-                existingPatient.setDateOfBirth(patientDTO.getDateOfBirth());
-            }
-            if (patientDTO.getGender() != null) {
-                existingPatient.setGender(patientDTO.getGender());
-            }
-
-            if (patientDTO.getAge() != null) {
-                existingPatient.setAge(patientDTO.getAge());
-            }
-
-            // upddate by
-            if (patientDTO.getUpdatedBy() != null) {
-                existingPatient.setUpdatedBy(username);
-            }
-
-            // Handle visit update if provided
-            if (patientDTO.getVisit() != null) {
-                handleVisitUpdate(existingPatient, lab, patientDTO.getVisit(), username);
-            }
-
-            // Save the updated patient
-            PatientEntity savedPatient = patientRepository.save(existingPatient);
-            return new PatientDTO(savedPatient);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to update patient: " + e.getMessage(), e);
-        }
-    }
-
-    private void handleVisitUpdate(PatientEntity patient, Lab lab, VisitDTO visitDTO, String username) {
-        // Check if we're updating an existing visit or creating a new one
-        if (visitDTO.getVisitId() != null) {
-            // Update existing visit
-            Optional<VisitEntity> existingVisitOpt = patient.getVisits().stream()
-                    .filter(v -> v.getVisitId().equals(visitDTO.getVisitId()))
-                    .findFirst();
-
-            if (existingVisitOpt.isPresent()) {
-                VisitEntity existingVisit = existingVisitOpt.get();
-                updateVisitDetails(existingVisit, lab, visitDTO, username);
-            } else {
-                // Visit ID provided but not found - create new visit
-                VisitEntity newVisit = mapVisitDTOToEntity(visitDTO, lab, username);
-                newVisit.setPatient(patient);
-                patient.getVisits().add(newVisit);
-            }
-        } else {
-            // Create new visit
-            VisitEntity newVisit = mapVisitDTOToEntity(visitDTO, lab, username);
-            newVisit.setPatient(patient);
-            patient.getVisits().add(newVisit);
-        }
-    }
-
-    private void updateVisitDetails(VisitEntity visit, Lab lab, VisitDTO visitDTO, String username) {
-        if (visitDTO.getVisitDate() != null) {
-            visit.setVisitDate(visitDTO.getVisitDate());
-        }
-        if (visitDTO.getVisitType() != null) {
-            visit.setVisitType(visitDTO.getVisitType());
-        }
-        if (visitDTO.getVisitStatus() != null) {
-            visit.setVisitStatus(visitDTO.getVisitStatus());
-        }
-        if (visitDTO.getVisitDescription() != null) {
-            visit.setVisitDescription(visitDTO.getVisitDescription());
-        }
-
-        // Handle doctor update
-        if (visitDTO.getDoctorId() != null) {
-            Optional<Doctors> doctorOpt = doctorRepository.findById(visitDTO.getDoctorId());
-            if (doctorOpt.isPresent()) {
-                Doctors doctor = doctorOpt.get();
-                if (!lab.getDoctors().contains(doctor)) {
-                    throw new RuntimeException("Doctor does not belong to the lab");
-                }
-                visit.setDoctor(doctor);
-            }
-        }
-
-        // Handle tests update
-        if (visitDTO.getTestIds() != null) {
-            List<Test> tests = testRepository.findAllById(visitDTO.getTestIds());
-            if (tests.stream().anyMatch(test -> !lab.getTests().contains(test))) {
-                throw new RuntimeException("Test does not belong to the lab");
-            }
-            visit.setTests(new HashSet<>(tests));
-        }
-
-        // Handle packages update
-        if (visitDTO.getPackageIds() != null) {
-            List<HealthPackage> healthPackages = healthPackageRepository.findAllById(visitDTO.getPackageIds());
-            if (healthPackages.stream().anyMatch(pkg -> !lab.getHealthPackages().contains(pkg))) {
-                throw new RuntimeException("Health package does not belong to the lab");
-            }
-            visit.setPackages(new HashSet<>(healthPackages));
-        }
-
-        // Handle insurance update
-        if (visitDTO.getInsuranceIds() != null) {
-            List<InsuranceEntity> insurance = insuranceRepository.findAllById(visitDTO.getInsuranceIds());
-            if (insurance.stream().anyMatch(ins -> !lab.getInsurance().contains(ins))) {
-                throw new RuntimeException("Insurance does not belong to the lab");
-            }
-            visit.setInsurance(new HashSet<>(insurance));
-        }
-
-        // Handle billing update
-        if (visitDTO.getBilling() != null) {
-            updateBillingDetails(visit, lab, visitDTO.getBilling(), visitDTO.getListOfEachTestDiscount(), username);
-        }
     }
 
     public List<PatientList> getPatientbytheirPhoneAndLabId(String phone, Long labId) {
@@ -517,31 +365,34 @@ public class PatientService {
         billing.setCreatedBy(currentUser);
         billing.setUpdatedBy(currentUser);
 
-        // Clear old transactions if any (if updating)
-        if (billing.getId() != null && billing.getTransactions() != null) {
-            billing.getTransactions().clear();
-        }
+        // Keep existing transactions - do not clear them
 
-        // Handle transactions
+        // Handle transactions - only create if there's actual money movement
         if (billingDTO.getTransactions() != null && !billingDTO.getTransactions().isEmpty()) {
             for (TransactionDTO transactionDTO : billingDTO.getTransactions()) {
-                TransactionEntity transaction = new TransactionEntity();
+                // Only create transaction if there's actual money movement
+                BigDecimal receivedAmount = transactionDTO.getReceivedAmount() != null ? transactionDTO.getReceivedAmount() : BigDecimal.ZERO;
+                BigDecimal refundAmount = transactionDTO.getRefundAmount() != null ? transactionDTO.getRefundAmount() : BigDecimal.ZERO;
+                
+                if (receivedAmount.compareTo(BigDecimal.ZERO) > 0 || refundAmount.compareTo(BigDecimal.ZERO) > 0) {
+                    TransactionEntity transaction = new TransactionEntity();
 
-                transaction.setPaymentMethod(transactionDTO.getPaymentMethod() != null ? transactionDTO.getPaymentMethod() : "CASH");
-                transaction.setUpiId(transactionDTO.getUpiId());
-                transaction.setUpiAmount(transactionDTO.getUpiAmount() != null ? transactionDTO.getUpiAmount() : BigDecimal.ZERO);
-                transaction.setCardAmount(transactionDTO.getCardAmount() != null ? transactionDTO.getCardAmount() : BigDecimal.ZERO);
-                transaction.setCashAmount(transactionDTO.getCashAmount() != null ? transactionDTO.getCashAmount() : BigDecimal.ZERO);
-                transaction.setReceivedAmount(transactionDTO.getReceivedAmount() != null ? transactionDTO.getReceivedAmount() : BigDecimal.ZERO);
-                transaction.setRefundAmount(transactionDTO.getRefundAmount() != null ? transactionDTO.getRefundAmount() : BigDecimal.ZERO);
-                transaction.setDueAmount(transactionDTO.getDueAmount() != null ? transactionDTO.getDueAmount() : BigDecimal.ZERO);
-                transaction.setPaymentDate(transactionDTO.getPaymentDate() != null ? transactionDTO.getPaymentDate() : LocalDate.now().toString());
-                transaction.setRemarks(transactionDTO.getRemarks());
-                transaction.setCreatedBy(currentUser);
+                    transaction.setPaymentMethod(transactionDTO.getPaymentMethod() != null ? transactionDTO.getPaymentMethod() : "CASH");
+                    transaction.setUpiId(transactionDTO.getUpiId());
+                    transaction.setUpiAmount(transactionDTO.getUpiAmount() != null ? transactionDTO.getUpiAmount() : BigDecimal.ZERO);
+                    transaction.setCardAmount(transactionDTO.getCardAmount() != null ? transactionDTO.getCardAmount() : BigDecimal.ZERO);
+                    transaction.setCashAmount(transactionDTO.getCashAmount() != null ? transactionDTO.getCashAmount() : BigDecimal.ZERO);
+                    transaction.setReceivedAmount(transactionDTO.getReceivedAmount() != null ? transactionDTO.getReceivedAmount() : BigDecimal.ZERO);
+                    transaction.setRefundAmount(transactionDTO.getRefundAmount() != null ? transactionDTO.getRefundAmount() : BigDecimal.ZERO);
+                    transaction.setDueAmount(transactionDTO.getDueAmount() != null ? transactionDTO.getDueAmount() : BigDecimal.ZERO);
+                    transaction.setPaymentDate(transactionDTO.getPaymentDate() != null ? transactionDTO.getPaymentDate() : LocalDate.now().toString());
+                    transaction.setRemarks(transactionDTO.getRemarks());
+                    transaction.setCreatedBy(currentUser);
 
-                // Set bidirectional relationship
-                transaction.setBilling(billing);
-                billing.getTransactions().add(transaction);
+                    // Set bidirectional relationship
+                    transaction.setBilling(billing);
+                    billing.getTransactions().add(transaction);
+                }
             }
         }
         // Add lab association (avoid duplicates)
@@ -550,99 +401,6 @@ public class PatientService {
         return billing;
     }
 
-    private void updateBillingDetails(VisitEntity visit, Lab lab, BillingDTO billingDTO, List<TestDiscountDTO> testDiscounts, String username) {
-        BillingEntity billing = visit.getBilling();
-        if (billing == null) {
-            billing = new BillingEntity();
-            visit.setBilling(billing);
-        }
-
-        // Update basic billing fields
-        if (billingDTO.getTotalAmount() != null) {
-            billing.setTotalAmount(billingDTO.getTotalAmount());
-        }
-        if (billingDTO.getPaymentStatus() != null) {
-            billing.setPaymentStatus(billingDTO.getPaymentStatus());
-        }
-        if (billingDTO.getPaymentMethod() != null) {
-            billing.setPaymentMethod(billingDTO.getPaymentMethod());
-        }
-        if (billingDTO.getPaymentDate() != null) {
-            billing.setPaymentDate(billingDTO.getPaymentDate());
-        }
-        if (billingDTO.getDiscount() != null) {
-            billing.setDiscount(billingDTO.getDiscount());
-        }
-        if (billingDTO.getNetAmount() != null) {
-            billing.setNetAmount(billingDTO.getNetAmount());
-        }
-        if (billingDTO.getDiscountReason() != null) {
-            billing.setDiscountReason(billingDTO.getDiscountReason());
-        }
-        if (billingDTO.getReceivedAmount() != null) {
-            billing.setReceivedAmount(billingDTO.getReceivedAmount());
-        }
-        if (billingDTO.getDueAmount() != null) {
-            billing.setDueAmount(billingDTO.getDueAmount());
-        }
-
-        // Update audit fields
-        billing.setBillingTime(LocalTime.now(ZoneId.of("Asia/Kolkata")));
-        billing.setBillingDate(LocalDate.now().toString());
-        billing.setUpdatedBy(username);
-
-        // Handle transactions update
-        if (billingDTO.getTransactions() != null) {
-            // Clear existing transactions
-            billing.getTransactions().clear();
-
-            // Add new transactions
-            BillingEntity finalBilling = billing;
-            billingDTO.getTransactions().forEach(transactionDTO -> {
-                TransactionEntity transaction = new TransactionEntity();
-                transaction.setPaymentMethod(transactionDTO.getPaymentMethod());
-                transaction.setUpiId(transactionDTO.getUpiId());
-                transaction.setUpiAmount(transactionDTO.getUpiAmount());
-                transaction.setCardAmount(transactionDTO.getCardAmount());
-                transaction.setCashAmount(transactionDTO.getCashAmount());
-                transaction.setReceivedAmount(transactionDTO.getReceivedAmount());
-                transaction.setRefundAmount(transactionDTO.getRefundAmount());
-                transaction.setDueAmount(transactionDTO.getDueAmount());
-                transaction.setPaymentDate(transactionDTO.getPaymentDate() != null ?
-                        transactionDTO.getPaymentDate() : LocalDate.now().toString());
-                transaction.setRemarks(transactionDTO.getRemarks());
-                transaction.setCreatedBy(username);
-                transaction.setBilling(finalBilling);
-                finalBilling.getTransactions().add(transaction);
-            });
-        }
-
-        billing.getLabs().add(lab);
-        billing = billingRepository.save(billing);
-
-        // Handle test discounts
-        if (testDiscounts != null && !testDiscounts.isEmpty()) {
-            // First, remove existing discounts for this billing
-            testDiscountRepository.deleteByBilling(billing);
-
-            // Then add the new discounts
-            BillingEntity finalBilling1 = billing;
-            Set<TestDiscountEntity> discountEntities = testDiscounts.stream()
-                    .map(discountDTO -> {
-                        TestDiscountEntity discountEntity = new TestDiscountEntity();
-                        discountEntity.setTestId(discountDTO.getTestId());
-                        discountEntity.setDiscountAmount(discountDTO.getDiscountAmount());
-                        discountEntity.setDiscountPercent(discountDTO.getDiscountPercent());
-                        discountEntity.setFinalPrice(discountDTO.getFinalPrice());
-                        discountEntity.setCreatedBy(username);
-                        discountEntity.setUpdatedBy(username);
-                        discountEntity.setBilling(finalBilling1);
-                        return discountEntity;
-                    })
-                    .collect(Collectors.toSet());
-            testDiscountRepository.saveAll(discountEntities);
-        }
-    }
 
 
 
@@ -651,18 +409,13 @@ public class PatientService {
     }
 
     public BillDTO addPartialPayment(BillingEntity billing, BillDtoDue billDTO, String username) {
-        // Validate input
         if (billing == null || billDTO == null) {
             throw new IllegalArgumentException("Billing and billDTO cannot be null");
         }
-
-        // Get the transaction from DTO
         TransactionDTO transactionDTO = billDTO.getTransaction();
         if (transactionDTO == null) {
             throw new IllegalArgumentException("Transaction data is required");
         }
-
-        // Create new transaction entity
         TransactionEntity transaction = new TransactionEntity();
 
         // Set payment method (default to CASH if null)
@@ -733,21 +486,19 @@ public class PatientService {
         } else {
             billing.setPaymentStatus("DUE");
         }
-
         // Update payment method if provided in DTO
         if (billDTO.getPaymentMethod() != null) {
             billing.setPaymentMethod(billDTO.getPaymentMethod());
         }
-
         // Update payment date if provided in DTO
         if (billDTO.getPaymentDate() != null) {
             billing.setPaymentDate(billDTO.getPaymentDate());
         }
-
         // Save and return
         billing = billingRepository.save(billing);
         return new BillDTO(billing);
     }
 
-
 }
+
+

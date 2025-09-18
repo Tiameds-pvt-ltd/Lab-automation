@@ -15,6 +15,7 @@ import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.repository.LabRepository;
 import tiameds.com.tiameds.repository.PatientRepository;
 import tiameds.com.tiameds.services.lab.PatientService;
+import tiameds.com.tiameds.services.lab.UpdatePatientService;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
 import tiameds.com.tiameds.utils.UserAuthService;
@@ -33,13 +34,15 @@ public class PatientController {
     private final LabRepository labRepository;
     private final LabAccessableFilter labAccessableFilter;
     private final PatientRepository patientRepository;
+    private final UpdatePatientService updatePatientService;
 
-    public PatientController(PatientService patientService, UserAuthService userAuthService, LabRepository labRepository, LabAccessableFilter labAccessableFilter, PatientRepository patientRepository) {
+    public PatientController(PatientService patientService, UserAuthService userAuthService, LabRepository labRepository, LabAccessableFilter labAccessableFilter, PatientRepository patientRepository, UpdatePatientService updatePatientService) {
         this.patientService = patientService;
         this.userAuthService = userAuthService;
         this.labRepository = labRepository;
         this.labAccessableFilter = labAccessableFilter;
         this.patientRepository = patientRepository;
+        this.updatePatientService = updatePatientService;
     }
 
     @GetMapping("/{labId}/patients")
@@ -389,8 +392,8 @@ public class PatientController {
                 return ApiResponseHelper.errorResponse("Patient not found for the specified lab", HttpStatus.NOT_FOUND);
             }
 
-            // Update patient - pass the lab object directly
-            PatientDTO updatedPatient = patientService.updatePatientDetails(
+
+            PatientDTO updatedPatient = updatePatientService.updatePatientDetails(
                     patientOptional.get(),
                     labOptional.get(),
                     patientDTO,
@@ -406,4 +409,7 @@ public class PatientController {
             return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
         }
     }
+
+
+    
 }

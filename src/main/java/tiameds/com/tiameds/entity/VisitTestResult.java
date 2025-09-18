@@ -53,4 +53,10 @@ public class VisitTestResult {
     private LocalDateTime updatedAt;
 
 
+    //new fields
+    @Column(name = "test_status")
+    private String testStatus;
+    // e.g. ACTIVE, CANCELLED, COMPLETED
+
+
 }

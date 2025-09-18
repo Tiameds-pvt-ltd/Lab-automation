@@ -250,4 +250,60 @@ public class VisitController {
 
         }
     }
+
+
+    @DeleteMapping("/{labId}/delete-patient-visit/{visitId}")
+    public ResponseEntity<?> deletePatientVisit(
+            @PathVariable Long labId,
+            @PathVariable Long visitId,
+            @RequestHeader("Authorization") String token
+    ) {
+        try {
+            // Authenticate user
+            Optional<User> currentUser = userAuthService.authenticateUser(token);
+            if (currentUser.isEmpty()) {
+                return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+            }
+            
+            // Check lab accessibility
+            boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+            if (!isAccessible) {
+                return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+            }
+            
+            // Delete the visit and all related data
+            visitService.deleteVisit(labId, visitId, currentUser);
+            return ApiResponseHelper.successResponse("Patient visit and all related data deleted successfully", HttpStatus.OK);
+        } catch (Exception e) {
+            return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+
+    //delete all visits of lab 
+    @DeleteMapping("/{labId}/delete-all-patient-visits")
+    public ResponseEntity<?> deleteAllPatientVisits(
+            @PathVariable Long labId,
+            @RequestHeader("Authorization") String token
+    ) {
+        try {
+            // Authenticate user
+            Optional<User> currentUser = userAuthService.authenticateUser(token);
+            if (currentUser.isEmpty()) {
+                return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+            }
+            
+            // Check lab accessibility
+            boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+            if (!isAccessible) {
+                return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+            }
+            
+            // Delete all visits and their related data for the lab
+            int deletedCount = visitService.deleteAllVisitsForLab(labId, currentUser);
+            return ApiResponseHelper.successResponse("Successfully deleted " + deletedCount + " visits and all related data", HttpStatus.OK);
+        } catch (Exception e) {
+            return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
 }

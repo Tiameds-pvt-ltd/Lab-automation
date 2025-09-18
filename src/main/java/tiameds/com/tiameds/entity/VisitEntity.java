@@ -120,12 +120,14 @@ public class VisitEntity {
 
     @Column(name ="updated_by")
     private String updatedBy;
+//
+//    @OneToMany(mappedBy = "visit", cascade = CascadeType.ALL, orphanRemoval = true)
+//    private Set<VisitTestResult> testResults = new HashSet<>();
 
     @OneToMany(mappedBy = "visit", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<VisitTestResult> testResults = new HashSet<>();
 
 
-    //------------------------------------------------
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDateTime createdAt;
