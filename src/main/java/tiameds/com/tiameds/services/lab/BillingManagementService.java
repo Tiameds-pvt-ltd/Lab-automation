@@ -102,6 +102,9 @@ public class BillingManagementService {
             createRefundTransaction(billing, result.getRefundAmount(), username);
         }
         
+        // Update due amounts in existing transactions to maintain data consistency
+        updateDueAmountsInTransactions(billing, result.getNewDueAmount(), username);
+        
         logger.info("Billing update completed successfully for BillingId: {}", billingId);
         return billing;
     }
@@ -117,6 +120,26 @@ public class BillingManagementService {
      */
     @Transactional
     public BillingEntity addPayment(Long billingId, BigDecimal paymentAmount, String paymentMethod, String username) {
+        return addPayment(billingId, paymentAmount, paymentMethod, null, null, null, null, username);
+    }
+
+    /**
+     * Adds a payment to existing billing with detailed payment method amounts
+     * 
+     * @param billingId The ID of the billing entity
+     * @param paymentAmount The total payment amount
+     * @param paymentMethod The primary payment method (CASH, CARD, UPI)
+     * @param upiId The UPI ID (if applicable)
+     * @param upiAmount The UPI amount (if applicable)
+     * @param cardAmount The card amount (if applicable)
+     * @param cashAmount The cash amount (if applicable)
+     * @param username The username performing the operation
+     * @return Updated BillingEntity
+     */
+    @Transactional
+    public BillingEntity addPayment(Long billingId, BigDecimal paymentAmount, String paymentMethod, 
+                                   String upiId, BigDecimal upiAmount, BigDecimal cardAmount, 
+                                   BigDecimal cashAmount, String username) {
         logger.info("Adding payment - BillingId: {}, Amount: {}, Method: {}, User: {}", 
                    billingId, paymentAmount, paymentMethod, username);
         
@@ -146,8 +169,11 @@ public class BillingManagementService {
         // Save billing
         billing = billingRepository.save(billing);
         
-        // Create payment transaction
-        createPaymentTransaction(billing, paymentAmount, paymentMethod, username);
+        // Create payment transaction with detailed amounts
+        createPaymentTransactionWithDetails(billing, paymentAmount, paymentMethod, upiId, upiAmount, cardAmount, cashAmount, username);
+        
+        // Update due amounts in existing transactions to maintain data consistency
+        updateDueAmountsInTransactions(billing, result.getNewDueAmount(), username);
         
         logger.info("Payment added successfully - NewReceivedAmount: {}, NewDueAmount: {}, NewStatus: {}", 
                    newReceivedAmount, result.getNewDueAmount(), result.getNewPaymentStatus());
@@ -205,6 +231,42 @@ public class BillingManagementService {
         
         logger.info("Refund transaction created successfully - TransactionId: {}, RefundAmount: {}", 
                    refundTransaction.getId(), refundAmount);
+    }
+
+    /**
+     * Creates a payment transaction with detailed payment method amounts
+     */
+    private void createPaymentTransactionWithDetails(BillingEntity billing, BigDecimal paymentAmount, String paymentMethod, 
+                                                   String upiId, BigDecimal upiAmount, BigDecimal cardAmount, 
+                                                   BigDecimal cashAmount, String username) {
+        logger.info("Creating payment transaction with details - BillingId: {}, Amount: {}, Method: {}, User: {}", 
+                   billing.getId(), paymentAmount, paymentMethod, username);
+        
+        TransactionEntity paymentTransaction = new TransactionEntity();
+        paymentTransaction.setBilling(billing);
+        paymentTransaction.setPaymentMethod(paymentMethod);
+        paymentTransaction.setReceivedAmount(paymentAmount);
+        paymentTransaction.setRefundAmount(BigDecimal.ZERO);
+        paymentTransaction.setDueAmount(safeGetAmount(billing.getDueAmount()));
+        paymentTransaction.setPaymentDate(LocalDate.now().toString());
+        paymentTransaction.setRemarks("Payment via " + paymentMethod);
+        paymentTransaction.setCreatedBy(username);
+        paymentTransaction.setCreatedAt(LocalDateTime.now());
+        
+        // Set detailed payment method amounts
+        paymentTransaction.setUpiId(upiId);
+        paymentTransaction.setUpiAmount(safeGetAmount(upiAmount));
+        paymentTransaction.setCardAmount(safeGetAmount(cardAmount));
+        paymentTransaction.setCashAmount(safeGetAmount(cashAmount));
+        
+        // Add to billing's transaction list (immutability - append only)
+        billing.getTransactions().add(paymentTransaction);
+        
+        // Save transaction
+        transactionRepository.save(paymentTransaction);
+        
+        logger.info("Payment transaction created successfully - TransactionId: {}, Amount: {}", 
+                   paymentTransaction.getId(), paymentAmount);
     }
 
     /**
@@ -277,6 +339,54 @@ public class BillingManagementService {
         if (!upperMethod.equals(CASH) && !upperMethod.equals(CARD) && !upperMethod.equals(UPI)) {
             throw new IllegalArgumentException("Payment method must be CASH, CARD, or UPI");
         }
+    }
+
+    /**
+     * Updates due amounts in existing transactions to maintain data consistency
+     * This ensures that all transaction records reflect the current due amount
+     * after billing changes (like test cancellations)
+     */
+    private void updateDueAmountsInTransactions(BillingEntity billing, BigDecimal newDueAmount, String username) {
+        logger.info("Updating due amounts in transactions - BillingId: {}, NewDueAmount: {}, User: {}", 
+                   billing.getId(), newDueAmount, username);
+        
+        // Update due amounts in all existing transactions for this billing
+        boolean hasUpdates = false;
+        for (TransactionEntity transaction : billing.getTransactions()) {
+            // Only update if the due amount has actually changed
+            BigDecimal currentDueAmount = safeGetAmount(transaction.getDueAmount());
+            if (currentDueAmount.compareTo(newDueAmount) != 0) {
+                transaction.setDueAmount(newDueAmount);
+                hasUpdates = true;
+                logger.debug("Updated transaction {} due amount from {} to {}", 
+                           transaction.getId(), currentDueAmount, newDueAmount);
+            }
+        }
+        
+        // Save updated transactions if any changes were made
+        if (hasUpdates) {
+            transactionRepository.saveAll(billing.getTransactions());
+            logger.info("Successfully updated due amounts in {} transactions for BillingId: {}", 
+                       billing.getTransactions().size(), billing.getId());
+        } else {
+            logger.debug("No transaction due amounts needed updating for BillingId: {}", billing.getId());
+        }
+    }
+
+    /**
+     * Updates due amounts in all transactions for a specific billing
+     * This is a public method that can be called from other services
+     * when billing amounts change outside of the standard flow
+     */
+    @Transactional
+    public void updateDueAmountsInAllTransactions(Long billingId, String username) {
+        logger.info("Updating due amounts in all transactions - BillingId: {}, User: {}", billingId, username);
+        
+        BillingEntity billing = billingRepository.findById(billingId)
+                .orElseThrow(() -> new IllegalArgumentException("Billing not found with ID: " + billingId));
+        
+        BigDecimal currentDueAmount = safeGetAmount(billing.getDueAmount());
+        updateDueAmountsInTransactions(billing, currentDueAmount, username);
     }
 
     /**

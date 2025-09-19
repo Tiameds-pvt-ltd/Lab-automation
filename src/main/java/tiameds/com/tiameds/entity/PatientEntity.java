@@ -28,6 +28,7 @@ public class PatientEntity {
     @Column(name = "patient_id")
     private Long patientId;
 
+
     @Column(name = "first_name")
     private String firstName;
 
@@ -112,3 +113,5 @@ public class PatientEntity {
         this.guardianId = (guardian != null) ? guardian.getPatientId() : null;
     }
 }
+
+

@@ -284,16 +284,18 @@ public class UpdatePatientService {
         billing.setBillingDate(LocalDate.now().toString());
         billing.setUpdatedBy(username);
 
-        // Handle transactions update - ADD new transactions only if there's actual money movement
+        // Handle transactions update - ONLY for payments, NOT for refunds
+        // Refunds are handled by BillingManagementService to avoid duplication
         if (billingDTO.getTransactions() != null && !billingDTO.getTransactions().isEmpty()) {
             // Add new transactions without clearing existing ones
             BillingEntity finalBilling = billing;
             billingDTO.getTransactions().forEach(transactionDTO -> {
                 // Only create transaction if there's actual money movement
                 BigDecimal receivedAmount = transactionDTO.getReceivedAmount() != null ? transactionDTO.getReceivedAmount() : BigDecimal.ZERO;
-                BigDecimal refundAmount = transactionDTO.getRefundAmount() != null ? transactionDTO.getRefundAmount() : BigDecimal.ZERO;
                 
-                if (receivedAmount.compareTo(BigDecimal.ZERO) > 0 || refundAmount.compareTo(BigDecimal.ZERO) > 0) {
+                // ONLY create transactions for payments (receivedAmount > 0), NOT for refunds
+                // Refunds are handled by BillingManagementService.updateBillingAfterCancellation()
+                if (receivedAmount.compareTo(BigDecimal.ZERO) > 0) {
                     TransactionEntity transaction = new TransactionEntity();
                     transaction.setPaymentMethod(transactionDTO.getPaymentMethod());
                     transaction.setUpiId(transactionDTO.getUpiId());
@@ -301,7 +303,7 @@ public class UpdatePatientService {
                     transaction.setCardAmount(transactionDTO.getCardAmount());
                     transaction.setCashAmount(transactionDTO.getCashAmount());
                     transaction.setReceivedAmount(transactionDTO.getReceivedAmount());
-                    transaction.setRefundAmount(transactionDTO.getRefundAmount());
+                    transaction.setRefundAmount(BigDecimal.ZERO); // Never set refund amount here
                     transaction.setDueAmount(transactionDTO.getDueAmount());
                     transaction.setPaymentDate(transactionDTO.getPaymentDate() != null ?
                             transactionDTO.getPaymentDate() : LocalDate.now().toString());
@@ -315,6 +317,11 @@ public class UpdatePatientService {
 
         billing.getLabs().add(lab);
         billing = billingRepository.save(billing);
+
+        // Update due amounts in existing transactions to maintain data consistency
+        if (billing.getId() != null) {
+            billingManagementService.updateDueAmountsInAllTransactions(billing.getId(), username);
+        }
 
         // Handle test discounts - ALWAYS clear existing and set new ones
         if (testDiscounts != null) {
@@ -574,14 +581,16 @@ public class UpdatePatientService {
 
         // Keep existing transactions - do not clear them
 
-        // Handle transactions - only create if there's actual money movement
+        // Handle transactions - ONLY for payments, NOT for refunds
+        // Refunds are handled by BillingManagementService to avoid duplication
         if (billingDTO.getTransactions() != null && !billingDTO.getTransactions().isEmpty()) {
             for (TransactionDTO transactionDTO : billingDTO.getTransactions()) {
                 // Only create transaction if there's actual money movement
                 BigDecimal receivedAmount = transactionDTO.getReceivedAmount() != null ? transactionDTO.getReceivedAmount() : BigDecimal.ZERO;
-                BigDecimal refundAmount = transactionDTO.getRefundAmount() != null ? transactionDTO.getRefundAmount() : BigDecimal.ZERO;
                 
-                if (receivedAmount.compareTo(BigDecimal.ZERO) > 0 || refundAmount.compareTo(BigDecimal.ZERO) > 0) {
+                // ONLY create transactions for payments (receivedAmount > 0), NOT for refunds
+                // Refunds are handled by BillingManagementService.updateBillingAfterCancellation()
+                if (receivedAmount.compareTo(BigDecimal.ZERO) > 0) {
                     TransactionEntity transaction = new TransactionEntity();
 
                     transaction.setPaymentMethod(transactionDTO.getPaymentMethod() != null ? transactionDTO.getPaymentMethod() : "CASH");
@@ -590,7 +599,7 @@ public class UpdatePatientService {
                     transaction.setCardAmount(transactionDTO.getCardAmount() != null ? transactionDTO.getCardAmount() : BigDecimal.ZERO);
                     transaction.setCashAmount(transactionDTO.getCashAmount() != null ? transactionDTO.getCashAmount() : BigDecimal.ZERO);
                     transaction.setReceivedAmount(transactionDTO.getReceivedAmount() != null ? transactionDTO.getReceivedAmount() : BigDecimal.ZERO);
-                    transaction.setRefundAmount(transactionDTO.getRefundAmount() != null ? transactionDTO.getRefundAmount() : BigDecimal.ZERO);
+                    transaction.setRefundAmount(BigDecimal.ZERO); // Never set refund amount here
                     transaction.setDueAmount(transactionDTO.getDueAmount() != null ? transactionDTO.getDueAmount() : BigDecimal.ZERO);
                     transaction.setPaymentDate(transactionDTO.getPaymentDate() != null ? transactionDTO.getPaymentDate() : LocalDate.now().toString());
                     transaction.setRemarks(transactionDTO.getRemarks());

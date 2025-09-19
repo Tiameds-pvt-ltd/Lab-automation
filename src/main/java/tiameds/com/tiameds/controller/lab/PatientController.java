@@ -300,34 +300,34 @@ public class PatientController {
         }
     }
 
-    @PostMapping("/{labId}/billing/{billingId}/partial-payment")
-    public ResponseEntity<?> addPartialPayment(
-            @PathVariable Long billingId,
-            @RequestHeader("Authorization") String token,
-            @RequestBody BillDtoDue billDTO
-    ) {
-        try {
-            Optional<User> currentUser = userAuthService.authenticateUser(token);
-            if (currentUser.isEmpty()) {
-                return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
-            }
-            Optional<BillingEntity> billingOptional = patientService.getBillingById(billingId);
-            if (billingOptional.isEmpty()) {
-                return ApiResponseHelper.errorResponse("Billing not found", HttpStatus.NOT_FOUND);
-            }
-
-            BillingEntity billing = billingOptional.get();
-            Optional<Lab> labOptional = labRepository.findById(billing.getLabs().iterator().next().getId());
-            if (labOptional.isEmpty()) {
-                return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
-            }
-
-            BillDTO updatedBill = patientService.addPartialPayment(billing, billDTO, currentUser.get().getUsername());
-            return ApiResponseHelper.successResponseWithDataAndMessage("Partial payment added successfully", HttpStatus.OK, updatedBill);
-        } catch (Exception e) {
-            return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
-        }
-    }
+//    @PostMapping("/{labId}/billing/{billingId}/partial-payment")
+//    public ResponseEntity<?> addPartialPayment(
+//            @PathVariable Long billingId,
+//            @RequestHeader("Authorization") String token,
+//            @RequestBody BillDtoDue billDTO
+//    ) {
+//        try {
+//            Optional<User> currentUser = userAuthService.authenticateUser(token);
+//            if (currentUser.isEmpty()) {
+//                return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+//            }
+//            Optional<BillingEntity> billingOptional = patientService.getBillingById(billingId);
+//            if (billingOptional.isEmpty()) {
+//                return ApiResponseHelper.errorResponse("Billing not found", HttpStatus.NOT_FOUND);
+//            }
+//
+//            BillingEntity billing = billingOptional.get();
+//            Optional<Lab> labOptional = labRepository.findById(billing.getLabs().iterator().next().getId());
+//            if (labOptional.isEmpty()) {
+//                return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
+//            }
+//
+//            BillDTO updatedBill = patientService.addPartialPayment(billing, billDTO, currentUser.get().getUsername());
+//            return ApiResponseHelper.successResponseWithDataAndMessage("Partial payment added successfully", HttpStatus.OK, updatedBill);
+//        } catch (Exception e) {
+//            return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
+//        }
+//    }
 
     @PutMapping("/{labId}/visit/{visitId}/cancel")
     public ResponseEntity<?> cancelVisit(
@@ -405,6 +405,37 @@ public class PatientController {
                     HttpStatus.OK,
                     updatedPatient
             );
+        } catch (Exception e) {
+            return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
+        }
+    }
+
+
+
+    @PostMapping("/{labId}/billing/{billingId}/partial-payment")
+    public ResponseEntity<?> addPartialPayment(
+            @PathVariable Long billingId,
+            @RequestHeader("Authorization") String token,
+            @RequestBody BillDtoDue billDTO
+    ) {
+        try {
+            Optional<User> currentUser = userAuthService.authenticateUser(token);
+            if (currentUser.isEmpty()) {
+                return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+            }
+            Optional<BillingEntity> billingOptional = patientService.getBillingById(billingId);
+            if (billingOptional.isEmpty()) {
+                return ApiResponseHelper.errorResponse("Billing not found", HttpStatus.NOT_FOUND);
+            }
+
+            BillingEntity billing = billingOptional.get();
+            Optional<Lab> labOptional = labRepository.findById(billing.getLabs().iterator().next().getId());
+            if (labOptional.isEmpty()) {
+                return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
+            }
+
+            BillDTO updatedBill = patientService.addPartialPayment(billing, billDTO, currentUser.get().getUsername());
+            return ApiResponseHelper.successResponseWithDataAndMessage("Partial payment added successfully", HttpStatus.OK, updatedBill);
         } catch (Exception e) {
             return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
         }

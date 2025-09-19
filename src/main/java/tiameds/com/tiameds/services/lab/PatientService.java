@@ -11,6 +11,7 @@ import tiameds.com.tiameds.dto.visits.BillDTO;
 import tiameds.com.tiameds.dto.visits.BillDtoDue;
 import tiameds.com.tiameds.entity.*;
 import tiameds.com.tiameds.repository.*;
+import tiameds.com.tiameds.services.lab.BillingManagementService;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 
 import java.math.BigDecimal;
@@ -34,6 +35,7 @@ public class PatientService {
     private final BillingRepository billingRepository;
     private final TestDiscountRepository testDiscountRepository;
     private final VisitRepository visitRepository;
+    private final BillingManagementService billingManagementService;
 
     public PatientService(LabRepository labRepository,
                           TestRepository testRepository,
@@ -43,7 +45,9 @@ public class PatientService {
                           HealthPackageRepository packageRepository,
                           InsuranceRepository insuranceRepository,
                           BillingRepository billingRepository,
-                          TestDiscountRepository testDiscountRepository, VisitRepository visitRepository
+                          TestDiscountRepository testDiscountRepository, 
+                          VisitRepository visitRepository,
+                          BillingManagementService billingManagementService
     ) {
         this.labRepository = labRepository;
         this.testRepository = testRepository;
@@ -55,6 +59,7 @@ public class PatientService {
         this.billingRepository = billingRepository;
         this.testDiscountRepository = testDiscountRepository;
         this.visitRepository = visitRepository;
+        this.billingManagementService = billingManagementService;
     }
 
 
@@ -416,87 +421,42 @@ public class PatientService {
         if (transactionDTO == null) {
             throw new IllegalArgumentException("Transaction data is required");
         }
-        TransactionEntity transaction = new TransactionEntity();
-
-        // Set payment method (default to CASH if null)
-        transaction.setPaymentMethod(
-                transactionDTO.getPaymentMethod() != null ?
-                        transactionDTO.getPaymentMethod() : "CASH"
-        );
-
-        // Set payment amounts (default to 0 if null)
-        transaction.setUpiId(transactionDTO.getUpiId());
-        transaction.setUpiAmount(
-                transactionDTO.getUpiAmount() != null ?
-                        transactionDTO.getUpiAmount() : BigDecimal.ZERO
-        );
-        transaction.setCardAmount(
-                transactionDTO.getCardAmount() != null ?
-                        transactionDTO.getCardAmount() : BigDecimal.ZERO
-        );
-        transaction.setCashAmount(
-                transactionDTO.getCashAmount() != null ?
-                        transactionDTO.getCashAmount() : BigDecimal.ZERO
-        );
 
         // Validate received amount
         if (transactionDTO.getReceivedAmount() == null ||
                 transactionDTO.getReceivedAmount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Received amount must be positive");
         }
-        transaction.setReceivedAmount(transactionDTO.getReceivedAmount());
 
-        // Set other transaction fields
-        transaction.setRefundAmount(
-                transactionDTO.getRefundAmount() != null ?
-                        transactionDTO.getRefundAmount() : BigDecimal.ZERO
+        // Use BillingManagementService for proper calculation and consistency
+        BillingEntity updatedBilling = billingManagementService.addPayment(
+                billing.getId(),
+                transactionDTO.getReceivedAmount(),
+                transactionDTO.getPaymentMethod() != null ? transactionDTO.getPaymentMethod() : "CASH",
+                transactionDTO.getUpiId(),
+                transactionDTO.getUpiAmount(),
+                transactionDTO.getCardAmount(),
+                transactionDTO.getCashAmount(),
+                username
         );
-        transaction.setDueAmount(
-                transactionDTO.getDueAmount() != null ?
-                        transactionDTO.getDueAmount() : BigDecimal.ZERO
-        );
-        transaction.setPaymentDate(
-                transactionDTO.getPaymentDate() != null ?
-                        transactionDTO.getPaymentDate() : LocalDate.now().toString()
-        );
-        transaction.setRemarks(
-                transactionDTO.getRemarks() != null ?
-                        transactionDTO.getRemarks() : "Payment via " + transaction.getPaymentMethod()
-        );
-        transaction.setCreatedAt(LocalDateTime.now());
-        transaction.setCreatedBy(username);
 
-        // Link transaction to billing
-        transaction.setBilling(billing);
-        billing.getTransactions().add(transaction);
-
-        // Calculate new amounts
-        BigDecimal newReceivedAmount = billing.getReceivedAmount().add(transaction.getReceivedAmount());
-        BigDecimal newDueAmount = billing.getTotalAmount().subtract(newReceivedAmount);
-
-        // Update billing
-        billing.setReceivedAmount(newReceivedAmount);
-        billing.setDueAmount(newDueAmount);
-
-        // Update payment status
-        if (newDueAmount.compareTo(BigDecimal.ZERO) == 0) {
-            billing.setPaymentStatus("PAID");
-        } else if (newReceivedAmount.compareTo(BigDecimal.ZERO) > 0) {
-            billing.setPaymentStatus("DUE");
-        } else {
-            billing.setPaymentStatus("DUE");
+        // Update additional billing fields if provided in DTO
+        boolean needsUpdate = false;
+        if (billDTO.getPaymentMethod() != null && !billDTO.getPaymentMethod().equals(updatedBilling.getPaymentMethod())) {
+            updatedBilling.setPaymentMethod(billDTO.getPaymentMethod());
+            needsUpdate = true;
         }
-        // Update payment method if provided in DTO
-        if (billDTO.getPaymentMethod() != null) {
-            billing.setPaymentMethod(billDTO.getPaymentMethod());
+        if (billDTO.getPaymentDate() != null && !billDTO.getPaymentDate().equals(updatedBilling.getPaymentDate())) {
+            updatedBilling.setPaymentDate(billDTO.getPaymentDate());
+            needsUpdate = true;
         }
-        // Update payment date if provided in DTO
-        if (billDTO.getPaymentDate() != null) {
-            billing.setPaymentDate(billDTO.getPaymentDate());
+
+        // Save if any additional updates were made
+        if (needsUpdate) {
+            updatedBilling = billingRepository.save(updatedBilling);
         }
-        // Save and return
-        billing = billingRepository.save(billing);
-        return new BillDTO(billing);
+
+        return new BillDTO(updatedBilling);
     }
 
 }

@@ -88,3 +88,4 @@ security:
       enabled: false  # Set to true to enable IP whitelisting
       ips: ""  # Comma-separated list of allowed IPs (e.g., "192.168.1.1,10.0.0.1")
 
+
