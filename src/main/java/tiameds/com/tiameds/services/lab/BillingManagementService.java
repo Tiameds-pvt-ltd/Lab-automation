@@ -12,6 +12,8 @@ import tiameds.com.tiameds.repository.TransactionRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
 
 /**
  * Production-ready billing management service that handles all billing operations
@@ -84,13 +86,21 @@ public class BillingManagementService {
         // Update net amount
         billing.setNetAmount(newNetAmount);
         
-        // Recalculate billing based on business rules
-        BillingRecalculationResult result = recalculateBilling(currentReceivedAmount, newNetAmount);
+        // Recalculate billing based on business rules, considering existing refunds
+        BillingRecalculationResult result = recalculateBillingWithExistingRefunds(billing, currentReceivedAmount, newNetAmount);
         
-        // Update billing fields
-        billing.setDueAmount(result.getNewDueAmount());
-        billing.setPaymentStatus(result.getNewPaymentStatus());
-        billing.setUpdatedBy(username);
+        // Update billing fields with null safety
+        billing.setDueAmount(safeGetAmount(result.getNewDueAmount()));
+        billing.setPaymentStatus(result.getNewPaymentStatus() != null ? result.getNewPaymentStatus() : "UNPAID");
+        billing.setUpdatedBy(username != null ? username : "SYSTEM");
+        
+        // Ensure billing time and date are set
+        if (billing.getBillingTime() == null) {
+            billing.setBillingTime(LocalTime.now(ZoneId.of("Asia/Kolkata")));
+        }
+        if (billing.getBillingDate() == null) {
+            billing.setBillingDate(LocalDate.now().toString());
+        }
         
         // Save billing entity
         billing = billingRepository.save(billing);
@@ -157,14 +167,22 @@ public class BillingManagementService {
         // Calculate new received amount
         BigDecimal newReceivedAmount = currentReceivedAmount.add(paymentAmount);
         
-        // Recalculate billing
-        BillingRecalculationResult result = recalculateBilling(newReceivedAmount, currentNetAmount);
+        // Recalculate billing considering existing refunds
+        BillingRecalculationResult result = recalculateBillingWithExistingRefunds(billing, newReceivedAmount, currentNetAmount);
         
-        // Update billing
-        billing.setReceivedAmount(newReceivedAmount);
-        billing.setDueAmount(result.getNewDueAmount());
-        billing.setPaymentStatus(result.getNewPaymentStatus());
-        billing.setUpdatedBy(username);
+        // Update billing with null safety
+        billing.setReceivedAmount(safeGetAmount(newReceivedAmount));
+        billing.setDueAmount(safeGetAmount(result.getNewDueAmount()));
+        billing.setPaymentStatus(result.getNewPaymentStatus() != null ? result.getNewPaymentStatus() : "UNPAID");
+        billing.setUpdatedBy(username != null ? username : "SYSTEM");
+        
+        // Ensure billing time and date are set
+        if (billing.getBillingTime() == null) {
+            billing.setBillingTime(LocalTime.now(ZoneId.of("Asia/Kolkata")));
+        }
+        if (billing.getBillingDate() == null) {
+            billing.setBillingDate(LocalDate.now().toString());
+        }
         
         // Save billing
         billing = billingRepository.save(billing);
@@ -172,13 +190,65 @@ public class BillingManagementService {
         // Create payment transaction with detailed amounts
         createPaymentTransactionWithDetails(billing, paymentAmount, paymentMethod, upiId, upiAmount, cardAmount, cashAmount, username);
         
+        // Create refund transaction if needed (overpayment scenario)
+        if (result.getRefundAmount().compareTo(BigDecimal.ZERO) > 0) {
+            createRefundTransaction(billing, result.getRefundAmount(), username);
+        }
+        
         // Update due amounts in existing transactions to maintain data consistency
         updateDueAmountsInTransactions(billing, result.getNewDueAmount(), username);
         
-        logger.info("Payment added successfully - NewReceivedAmount: {}, NewDueAmount: {}, NewStatus: {}", 
-                   newReceivedAmount, result.getNewDueAmount(), result.getNewPaymentStatus());
+        logger.info("Payment added successfully - NewReceivedAmount: {}, NewDueAmount: {}, NewStatus: {}, RefundAmount: {}", 
+                   newReceivedAmount, result.getNewDueAmount(), result.getNewPaymentStatus(), result.getRefundAmount());
         
         return billing;
+    }
+
+    /**
+     * Recalculates billing based on business rules, considering existing refunds
+     */
+    private BillingRecalculationResult recalculateBillingWithExistingRefunds(BillingEntity billing, BigDecimal receivedAmount, BigDecimal netAmount) {
+        BigDecimal newDueAmount = netAmount.subtract(receivedAmount);
+        BigDecimal refundAmount = BigDecimal.ZERO;
+        String newPaymentStatus;
+        
+        logger.debug("Recalculating billing with existing refunds - ReceivedAmount: {}, NetAmount: {}, CalculatedDueAmount: {}", 
+                   receivedAmount, netAmount, newDueAmount);
+        
+        if (newDueAmount.compareTo(BigDecimal.ZERO) > 0) {
+            // Still owe money
+            newPaymentStatus = receivedAmount.compareTo(BigDecimal.ZERO) > 0 ? PARTIALLY_PAID : UNPAID;
+            logger.debug("Still owe money - DueAmount: {}, Status: {}", newDueAmount, newPaymentStatus);
+        } else if (newDueAmount.compareTo(BigDecimal.ZERO) == 0) {
+            // Paid in full
+            newPaymentStatus = PAID;
+            logger.debug("Paid in full - Status: {}", newPaymentStatus);
+        } else {
+            // Overpaid - need refund
+            BigDecimal totalRefundNeeded = newDueAmount.abs(); // Convert negative to positive
+            
+            // Calculate existing refunds from transactions
+            BigDecimal existingRefunds = billing.getTransactions() != null ? 
+                billing.getTransactions().stream()
+                    .map(t -> safeGetAmount(t.getRefundAmount()))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add) : 
+                BigDecimal.ZERO;
+            
+            // Only create new refund if we need more than what's already been refunded
+            if (totalRefundNeeded.compareTo(existingRefunds) > 0) {
+                refundAmount = totalRefundNeeded.subtract(existingRefunds);
+                logger.debug("Creating additional refund - TotalNeeded: {}, ExistingRefunds: {}, NewRefund: {}", 
+                           totalRefundNeeded, existingRefunds, refundAmount);
+            } else {
+                logger.debug("No additional refund needed - TotalNeeded: {}, ExistingRefunds: {}", 
+                           totalRefundNeeded, existingRefunds);
+            }
+            
+            newDueAmount = BigDecimal.ZERO;
+            newPaymentStatus = PAID;
+        }
+        
+        return new BillingRecalculationResult(newDueAmount, newPaymentStatus, refundAmount);
     }
 
     /**
@@ -189,17 +259,24 @@ public class BillingManagementService {
         BigDecimal refundAmount = BigDecimal.ZERO;
         String newPaymentStatus;
         
+        logger.debug("Recalculating billing - ReceivedAmount: {}, NetAmount: {}, CalculatedDueAmount: {}", 
+                   receivedAmount, netAmount, newDueAmount);
+        
         if (newDueAmount.compareTo(BigDecimal.ZERO) > 0) {
             // Still owe money
             newPaymentStatus = receivedAmount.compareTo(BigDecimal.ZERO) > 0 ? PARTIALLY_PAID : UNPAID;
+            logger.debug("Still owe money - DueAmount: {}, Status: {}", newDueAmount, newPaymentStatus);
         } else if (newDueAmount.compareTo(BigDecimal.ZERO) == 0) {
             // Paid in full
             newPaymentStatus = PAID;
+            logger.debug("Paid in full - Status: {}", newPaymentStatus);
         } else {
             // Overpaid - need refund
             refundAmount = newDueAmount.abs(); // Convert negative to positive
             newDueAmount = BigDecimal.ZERO;
             newPaymentStatus = PAID;
+            logger.debug("Overpaid - RefundAmount: {}, DueAmount: {}, Status: {}", 
+                       refundAmount, newDueAmount, newPaymentStatus);
         }
         
         return new BillingRecalculationResult(newDueAmount, newPaymentStatus, refundAmount);
@@ -215,13 +292,19 @@ public class BillingManagementService {
         TransactionEntity refundTransaction = new TransactionEntity();
         refundTransaction.setBilling(billing);
         refundTransaction.setPaymentMethod("REFUND");
-        refundTransaction.setRefundAmount(refundAmount);
+        refundTransaction.setRefundAmount(safeGetAmount(refundAmount));
         refundTransaction.setReceivedAmount(BigDecimal.ZERO);
         refundTransaction.setDueAmount(BigDecimal.ZERO);
         refundTransaction.setPaymentDate(LocalDate.now().toString());
-        refundTransaction.setRemarks("Refund for test cancellation - overpayment");
-        refundTransaction.setCreatedBy(username);
+        refundTransaction.setRemarks("Refund for overpayment");
+        refundTransaction.setCreatedBy(username != null ? username : "SYSTEM");
         refundTransaction.setCreatedAt(LocalDateTime.now());
+        
+        // Set payment method amounts to zero for refund
+        refundTransaction.setUpiId("");
+        refundTransaction.setUpiAmount(BigDecimal.ZERO);
+        refundTransaction.setCardAmount(BigDecimal.ZERO);
+        refundTransaction.setCashAmount(BigDecimal.ZERO);
         
         // Add to billing's transaction list (immutability - append only)
         billing.getTransactions().add(refundTransaction);
@@ -244,17 +327,17 @@ public class BillingManagementService {
         
         TransactionEntity paymentTransaction = new TransactionEntity();
         paymentTransaction.setBilling(billing);
-        paymentTransaction.setPaymentMethod(paymentMethod);
-        paymentTransaction.setReceivedAmount(paymentAmount);
+        paymentTransaction.setPaymentMethod(paymentMethod != null ? paymentMethod : "CASH");
+        paymentTransaction.setReceivedAmount(safeGetAmount(paymentAmount));
         paymentTransaction.setRefundAmount(BigDecimal.ZERO);
         paymentTransaction.setDueAmount(safeGetAmount(billing.getDueAmount()));
         paymentTransaction.setPaymentDate(LocalDate.now().toString());
-        paymentTransaction.setRemarks("Payment via " + paymentMethod);
-        paymentTransaction.setCreatedBy(username);
+        paymentTransaction.setRemarks("Payment via " + (paymentMethod != null ? paymentMethod : "CASH"));
+        paymentTransaction.setCreatedBy(username != null ? username : "SYSTEM");
         paymentTransaction.setCreatedAt(LocalDateTime.now());
         
-        // Set detailed payment method amounts
-        paymentTransaction.setUpiId(upiId);
+        // Set detailed payment method amounts with null safety
+        paymentTransaction.setUpiId(upiId != null ? upiId : "");
         paymentTransaction.setUpiAmount(safeGetAmount(upiAmount));
         paymentTransaction.setCardAmount(safeGetAmount(cardAmount));
         paymentTransaction.setCashAmount(safeGetAmount(cashAmount));

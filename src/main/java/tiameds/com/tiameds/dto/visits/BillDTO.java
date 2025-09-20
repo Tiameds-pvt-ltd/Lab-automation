@@ -1,5 +1,4 @@
 package tiameds.com.tiameds.dto.visits;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -32,6 +31,10 @@ public class BillDTO {
     private BigDecimal receivedAmount;
     @JsonProperty("due_amount")
     private BigDecimal dueAmount;
+    
+    @JsonProperty("refund_amount")
+    private BigDecimal refundAmount;
+    
     private String createdBy;
     private LocalTime billingTime;
     private String billingDate;
@@ -53,6 +56,14 @@ public class BillDTO {
         this.discountReason = billing.getDiscountReason();
         this.receivedAmount = billing.getReceivedAmount();
         this.dueAmount = billing.getDueAmount();
+        
+        // Calculate total refund amount from existing transactions
+        this.refundAmount = billing.getTransactions() != null ? 
+            billing.getTransactions().stream()
+                .map(t -> t.getRefundAmount() != null ? t.getRefundAmount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add) : 
+            BigDecimal.ZERO;
+        
         this.createdBy = billing.getCreatedBy();
         this.billingTime = billing.getBillingTime();
         this.billingDate = billing.getBillingDate();

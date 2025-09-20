@@ -272,51 +272,39 @@ public class UpdatePatientService {
         if (billingDTO.getDiscountReason() != null) {
             billing.setDiscountReason(billingDTO.getDiscountReason());
         }
-        if (billingDTO.getReceivedAmount() != null) {
-            billing.setReceivedAmount(billingDTO.getReceivedAmount());
-        }
-        if (billingDTO.getDueAmount() != null) {
-            billing.setDueAmount(billingDTO.getDueAmount());
-        }
+        // Note: receivedAmount and dueAmount are calculated by BillingManagementService
+        // Do not override them from DTO to avoid calculation conflicts
 
         // Update audit fields
         billing.setBillingTime(LocalTime.now(ZoneId.of("Asia/Kolkata")));
         billing.setBillingDate(LocalDate.now().toString());
         billing.setUpdatedBy(username);
 
-        // Handle transactions update - ONLY for payments, NOT for refunds
-        // Refunds are handled by BillingManagementService to avoid duplication
-        if (billingDTO.getTransactions() != null && !billingDTO.getTransactions().isEmpty()) {
-            // Add new transactions without clearing existing ones
-            BillingEntity finalBilling = billing;
-            billingDTO.getTransactions().forEach(transactionDTO -> {
-                // Only create transaction if there's actual money movement
-                BigDecimal receivedAmount = transactionDTO.getReceivedAmount() != null ? transactionDTO.getReceivedAmount() : BigDecimal.ZERO;
-                
-                // ONLY create transactions for payments (receivedAmount > 0), NOT for refunds
-                // Refunds are handled by BillingManagementService.updateBillingAfterCancellation()
-                if (receivedAmount.compareTo(BigDecimal.ZERO) > 0) {
-                    TransactionEntity transaction = new TransactionEntity();
-                    transaction.setPaymentMethod(transactionDTO.getPaymentMethod());
-                    transaction.setUpiId(transactionDTO.getUpiId());
-                    transaction.setUpiAmount(transactionDTO.getUpiAmount());
-                    transaction.setCardAmount(transactionDTO.getCardAmount());
-                    transaction.setCashAmount(transactionDTO.getCashAmount());
-                    transaction.setReceivedAmount(transactionDTO.getReceivedAmount());
-                    transaction.setRefundAmount(BigDecimal.ZERO); // Never set refund amount here
-                    transaction.setDueAmount(transactionDTO.getDueAmount());
-                    transaction.setPaymentDate(transactionDTO.getPaymentDate() != null ?
-                            transactionDTO.getPaymentDate() : LocalDate.now().toString());
-                    transaction.setRemarks(transactionDTO.getRemarks());
-                    transaction.setCreatedBy(username);
-                    transaction.setBilling(finalBilling);
-                    finalBilling.getTransactions().add(transaction);
-                }
-            });
-        }
-
         billing.getLabs().add(lab);
         billing = billingRepository.save(billing);
+
+        // Handle transactions update - Use BillingManagementService for proper payment and refund handling
+        if (billingDTO.getTransactions() != null && !billingDTO.getTransactions().isEmpty()) {
+            // Process each transaction through BillingManagementService to ensure proper refund calculation
+            for (TransactionDTO transactionDTO : billingDTO.getTransactions()) {
+                BigDecimal receivedAmount = transactionDTO.getReceivedAmount() != null ? transactionDTO.getReceivedAmount() : BigDecimal.ZERO;
+                
+                // Only process payments (receivedAmount > 0)
+                if (receivedAmount.compareTo(BigDecimal.ZERO) > 0) {
+                    // Use BillingManagementService to handle payment and potential refunds
+                    billing = billingManagementService.addPayment(
+                            billing.getId(),
+                            receivedAmount,
+                            transactionDTO.getPaymentMethod() != null ? transactionDTO.getPaymentMethod() : "CASH",
+                            transactionDTO.getUpiId(),
+                            transactionDTO.getUpiAmount(),
+                            transactionDTO.getCardAmount(),
+                            transactionDTO.getCashAmount(),
+                            username
+                    );
+                }
+            }
+        }
 
         // Update due amounts in existing transactions to maintain data consistency
         if (billing.getId() != null) {
@@ -570,8 +558,10 @@ public class UpdatePatientService {
         billing.setIgstAmount(billingDTO.getIgstAmount() != null ? billingDTO.getIgstAmount() : BigDecimal.ZERO);
         billing.setNetAmount(billingDTO.getNetAmount() != null ? billingDTO.getNetAmount() : BigDecimal.ZERO);
         billing.setDiscountReason(billingDTO.getDiscountReason());
-        billing.setReceivedAmount(billingDTO.getReceivedAmount() != null ? billingDTO.getReceivedAmount() : BigDecimal.ZERO);
-        billing.setDueAmount(billingDTO.getDueAmount() != null ? billingDTO.getDueAmount() : BigDecimal.ZERO);
+        // Note: receivedAmount and dueAmount are calculated by BillingManagementService
+        // Initialize with zero values, will be updated by BillingManagementService
+        billing.setReceivedAmount(BigDecimal.ZERO);
+        billing.setDueAmount(billingDTO.getNetAmount() != null ? billingDTO.getNetAmount() : BigDecimal.ZERO);
 
         // Audit fields
         billing.setBillingTime(LocalTime.now(ZoneId.of("Asia/Kolkata")));
@@ -581,38 +571,32 @@ public class UpdatePatientService {
 
         // Keep existing transactions - do not clear them
 
-        // Handle transactions - ONLY for payments, NOT for refunds
-        // Refunds are handled by BillingManagementService to avoid duplication
+        // Add lab association (avoid duplicates)
+        billing.getLabs().add(lab);
+        billing = billingRepository.save(billing);
+
+        // Handle transactions - Use BillingManagementService for proper payment and refund handling
         if (billingDTO.getTransactions() != null && !billingDTO.getTransactions().isEmpty()) {
+            // Process each transaction through BillingManagementService to ensure proper refund calculation
             for (TransactionDTO transactionDTO : billingDTO.getTransactions()) {
-                // Only create transaction if there's actual money movement
                 BigDecimal receivedAmount = transactionDTO.getReceivedAmount() != null ? transactionDTO.getReceivedAmount() : BigDecimal.ZERO;
                 
-                // ONLY create transactions for payments (receivedAmount > 0), NOT for refunds
-                // Refunds are handled by BillingManagementService.updateBillingAfterCancellation()
+                // Only process payments (receivedAmount > 0)
                 if (receivedAmount.compareTo(BigDecimal.ZERO) > 0) {
-                    TransactionEntity transaction = new TransactionEntity();
-
-                    transaction.setPaymentMethod(transactionDTO.getPaymentMethod() != null ? transactionDTO.getPaymentMethod() : "CASH");
-                    transaction.setUpiId(transactionDTO.getUpiId());
-                    transaction.setUpiAmount(transactionDTO.getUpiAmount() != null ? transactionDTO.getUpiAmount() : BigDecimal.ZERO);
-                    transaction.setCardAmount(transactionDTO.getCardAmount() != null ? transactionDTO.getCardAmount() : BigDecimal.ZERO);
-                    transaction.setCashAmount(transactionDTO.getCashAmount() != null ? transactionDTO.getCashAmount() : BigDecimal.ZERO);
-                    transaction.setReceivedAmount(transactionDTO.getReceivedAmount() != null ? transactionDTO.getReceivedAmount() : BigDecimal.ZERO);
-                    transaction.setRefundAmount(BigDecimal.ZERO); // Never set refund amount here
-                    transaction.setDueAmount(transactionDTO.getDueAmount() != null ? transactionDTO.getDueAmount() : BigDecimal.ZERO);
-                    transaction.setPaymentDate(transactionDTO.getPaymentDate() != null ? transactionDTO.getPaymentDate() : LocalDate.now().toString());
-                    transaction.setRemarks(transactionDTO.getRemarks());
-                    transaction.setCreatedBy(currentUser);
-
-                    // Set bidirectional relationship
-                    transaction.setBilling(billing);
-                    billing.getTransactions().add(transaction);
+                    // Use BillingManagementService to handle payment and potential refunds
+                    billing = billingManagementService.addPayment(
+                            billing.getId(),
+                            receivedAmount,
+                            transactionDTO.getPaymentMethod() != null ? transactionDTO.getPaymentMethod() : "CASH",
+                            transactionDTO.getUpiId(),
+                            transactionDTO.getUpiAmount(),
+                            transactionDTO.getCardAmount(),
+                            transactionDTO.getCashAmount(),
+                            currentUser
+                    );
                 }
             }
         }
-        // Add lab association (avoid duplicates)
-        billing.getLabs().add(lab);
 
         return billing;
     }
