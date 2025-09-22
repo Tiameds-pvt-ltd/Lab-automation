@@ -31,9 +31,10 @@ public class UpdatePatientService {
     private final TestDiscountRepository testDiscountRepository;
     private final VisitRepository visitRepository;
     private final LabRepository labRepository;
+    private final TransactionRepository transactionRepository;
     private final BillingManagementService billingManagementService;
 
-    public UpdatePatientService(PatientRepository patientRepository, DoctorRepository doctorRepository, TestRepository testRepository, HealthPackageRepository healthPackageRepository, InsuranceRepository insuranceRepository, BillingRepository billingRepository, TestDiscountRepository testDiscountRepository, VisitRepository visitRepository, LabRepository labRepository, BillingManagementService billingManagementService) {
+    public UpdatePatientService(PatientRepository patientRepository, DoctorRepository doctorRepository, TestRepository testRepository, HealthPackageRepository healthPackageRepository, InsuranceRepository insuranceRepository, BillingRepository billingRepository, TestDiscountRepository testDiscountRepository, VisitRepository visitRepository, LabRepository labRepository, TransactionRepository transactionRepository, BillingManagementService billingManagementService) {
         this.patientRepository = patientRepository;
         this.doctorRepository = doctorRepository;
         this.testRepository = testRepository;
@@ -43,6 +44,7 @@ public class UpdatePatientService {
         this.testDiscountRepository = testDiscountRepository;
         this.visitRepository = visitRepository;
         this.labRepository = labRepository;
+        this.transactionRepository = transactionRepository;
         this.billingManagementService = billingManagementService;
     }
 
@@ -532,7 +534,62 @@ public class UpdatePatientService {
 
         // Use the comprehensive billing service for proper recalculation
         if (billing.getId() != null) {
-            billingManagementService.updateBillingAfterCancellation(billing.getId(), newNetAmount, username);
+            // For test additions/removals, we need to recalculate considering existing payments and refunds
+            recalculateBillingForTestModifications(billing, newNetAmount, username);
+        }
+    }
+
+    /**
+     * Recalculates billing when tests are added or removed, considering existing payments and refunds
+     * This handles the scenario where a refund was given and then new tests are added
+     */
+    private void recalculateBillingForTestModifications(BillingEntity billing, BigDecimal newNetAmount, String username) {
+        // Get current received amount (total payments made)
+        BigDecimal currentReceivedAmount = billing.getReceivedAmount() != null ? billing.getReceivedAmount() : BigDecimal.ZERO;
+        
+        // Get total refunded amount from existing transactions
+        BigDecimal totalRefunded = billing.getTransactions() != null ? 
+            billing.getTransactions().stream()
+                .map(t -> t.getRefundAmount() != null ? t.getRefundAmount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add) : 
+            BigDecimal.ZERO;
+        
+        // Calculate effective received amount (payments minus refunds)
+        BigDecimal effectiveReceivedAmount = currentReceivedAmount.subtract(totalRefunded);
+        
+        // Calculate new due amount
+        BigDecimal newDueAmount = newNetAmount.subtract(effectiveReceivedAmount);
+        
+        // Determine payment status
+        String newPaymentStatus;
+        if (newDueAmount.compareTo(BigDecimal.ZERO) > 0) {
+            // Still owe money
+            newPaymentStatus = effectiveReceivedAmount.compareTo(BigDecimal.ZERO) > 0 ? "PARTIALLY_PAID" : "UNPAID";
+        } else if (newDueAmount.compareTo(BigDecimal.ZERO) == 0) {
+            // Paid in full
+            newPaymentStatus = "PAID";
+        } else {
+            // Overpaid - need refund
+            newPaymentStatus = "PAID";
+            // Note: We don't create additional refunds here as the refund was already given
+            // The system should handle this through proper payment tracking
+        }
+        
+        // Update billing fields
+        billing.setNetAmount(newNetAmount);
+        billing.setDueAmount(newDueAmount);
+        billing.setPaymentStatus(newPaymentStatus);
+        billing.setUpdatedBy(username);
+        
+        // Save the updated billing
+        billingRepository.save(billing);
+        
+        // Update due amounts in existing transactions to maintain consistency
+        if (billing.getTransactions() != null) {
+            for (TransactionEntity transaction : billing.getTransactions()) {
+                transaction.setDueAmount(newDueAmount);
+            }
+            transactionRepository.saveAll(billing.getTransactions());
         }
     }
 
