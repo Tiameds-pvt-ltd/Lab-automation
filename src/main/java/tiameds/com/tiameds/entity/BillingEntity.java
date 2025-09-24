@@ -79,6 +79,9 @@ public class BillingEntity {
     @Column(name = "received_amount")
     private BigDecimal receivedAmount;
 
+    @Column(name = "actual_received_amount")
+    private BigDecimal actualReceivedAmount;
+
     @Column(name = "due_amount")
     private BigDecimal dueAmount;
 

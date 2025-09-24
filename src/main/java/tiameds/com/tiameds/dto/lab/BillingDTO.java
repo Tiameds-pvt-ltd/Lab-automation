@@ -127,6 +127,9 @@ public class BillingDTO {
     @JsonProperty("received_amount")
     private BigDecimal receivedAmount;
 
+    @JsonProperty("actual_received_amount")
+    private BigDecimal actualReceivedAmount;
+
     @JsonProperty("due_amount")
     private BigDecimal dueAmount;
     
@@ -156,6 +159,7 @@ public class BillingDTO {
         this.netAmount = billing.getNetAmount();
         this.discountReason = billing.getDiscountReason();
         this.receivedAmount = billing.getReceivedAmount();
+        this.actualReceivedAmount = billing.getActualReceivedAmount();
         this.dueAmount = billing.getDueAmount();
         
         // Calculate total refund amount from existing transactions

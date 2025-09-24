@@ -362,7 +362,23 @@ public class PatientService {
         billing.setNetAmount(billingDTO.getNetAmount() != null ? billingDTO.getNetAmount() : BigDecimal.ZERO);
         billing.setDiscountReason(billingDTO.getDiscountReason());
         billing.setReceivedAmount(billingDTO.getReceivedAmount() != null ? billingDTO.getReceivedAmount() : BigDecimal.ZERO);
-        billing.setDueAmount(billingDTO.getDueAmount() != null ? billingDTO.getDueAmount() : BigDecimal.ZERO);
+
+        //set the actual received amount - this should be the net amount received (after refunds)
+        BigDecimal actualReceived = (billingDTO.getReceivedAmount() != null ? billingDTO.getReceivedAmount() : BigDecimal.ZERO)
+                .subtract(billingDTO.getRefundAmount() != null ? billingDTO.getRefundAmount() : BigDecimal.ZERO);
+        billing.setActualReceivedAmount(actualReceived.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : actualReceived);
+        
+        // Calculate due amount based on actual received amount: netAmount - actualReceivedAmount
+        BigDecimal netAmount = billingDTO.getNetAmount() != null ? billingDTO.getNetAmount() : BigDecimal.ZERO;
+        BigDecimal actualReceivedAmount = billing.getActualReceivedAmount();
+        BigDecimal dueAmount = netAmount.subtract(actualReceivedAmount);
+        billing.setDueAmount(dueAmount.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : dueAmount);
+//        billing.setRefundAmount(billingDTO.getRefundAmount() != null ? billingDTO.getRefundAmount() : BigDecimal.ZERO)
+        
+
+
+
+
 
         // Audit fields
         billing.setBillingTime(LocalTime.now(ZoneId.of("Asia/Kolkata")));

@@ -68,40 +68,40 @@ public class UpdatePatientService {
     }
 
     private void updateBasicPatientInfo(PatientEntity existingPatient, PatientDTO patientDTO, String username) {
-            if (patientDTO.getLastName() != null) {
-                existingPatient.setLastName(patientDTO.getLastName());
-            }
-            if (patientDTO.getEmail() != null) {
-                existingPatient.setEmail(patientDTO.getEmail());
-            }
-            if (patientDTO.getPhone() != null) {
-                existingPatient.setPhone(patientDTO.getPhone());
-            }
-            if (patientDTO.getAddress() != null) {
-                existingPatient.setAddress(patientDTO.getAddress());
-            }
-            if (patientDTO.getCity() != null) {
-                existingPatient.setCity(patientDTO.getCity());
-            }
-            if (patientDTO.getState() != null) {
-                existingPatient.setState(patientDTO.getState());
-            }
-            if (patientDTO.getZip() != null) {
-                existingPatient.setZip(patientDTO.getZip());
-            }
-            if (patientDTO.getBloodGroup() != null) {
-                existingPatient.setBloodGroup(patientDTO.getBloodGroup());
-            }
-            if (patientDTO.getDateOfBirth() != null) {
-                existingPatient.setDateOfBirth(patientDTO.getDateOfBirth());
-            }
-            if (patientDTO.getGender() != null) {
-                existingPatient.setGender(patientDTO.getGender());
-            }
-            if (patientDTO.getAge() != null) {
-                existingPatient.setAge(patientDTO.getAge());
-            }
-                existingPatient.setUpdatedBy(username);
+        if (patientDTO.getLastName() != null) {
+            existingPatient.setLastName(patientDTO.getLastName());
+        }
+        if (patientDTO.getEmail() != null) {
+            existingPatient.setEmail(patientDTO.getEmail());
+        }
+        if (patientDTO.getPhone() != null) {
+            existingPatient.setPhone(patientDTO.getPhone());
+        }
+        if (patientDTO.getAddress() != null) {
+            existingPatient.setAddress(patientDTO.getAddress());
+        }
+        if (patientDTO.getCity() != null) {
+            existingPatient.setCity(patientDTO.getCity());
+        }
+        if (patientDTO.getState() != null) {
+            existingPatient.setState(patientDTO.getState());
+        }
+        if (patientDTO.getZip() != null) {
+            existingPatient.setZip(patientDTO.getZip());
+        }
+        if (patientDTO.getBloodGroup() != null) {
+            existingPatient.setBloodGroup(patientDTO.getBloodGroup());
+        }
+        if (patientDTO.getDateOfBirth() != null) {
+            existingPatient.setDateOfBirth(patientDTO.getDateOfBirth());
+        }
+        if (patientDTO.getGender() != null) {
+            existingPatient.setGender(patientDTO.getGender());
+        }
+        if (patientDTO.getAge() != null) {
+            existingPatient.setAge(patientDTO.getAge());
+        }
+        existingPatient.setUpdatedBy(username);
     }
 
     private void handleVisitUpdate(PatientEntity patient, Lab lab, VisitDTO visitDTO, String username) {
@@ -178,10 +178,10 @@ public class UpdatePatientService {
                 // If empty list provided, remove all tests
                 Set<Test> oldTests = visit.getTests();
                 visit.setTests(new HashSet<>());
-                
+
                 // Set all test results to CANCELLED
                 clearTestResultsForRemovedTests(visit, oldTests);
-                
+
                 // Recalculate billing for removed tests
                 if (!oldTests.isEmpty()) {
                     recalculateBillingForTestChanges(visit, lab, new HashSet<>(), oldTests, username);
@@ -190,30 +190,30 @@ public class UpdatePatientService {
                 // Update with new tests
                 List<Test> newTests = testRepository.findAllById(visitDTO.getTestIds());
                 if (newTests.stream().anyMatch(test -> !lab.getTests().contains(test))) {
-                throw new RuntimeException("Test does not belong to the lab");
-            }
-                
+                    throw new RuntimeException("Test does not belong to the lab");
+                }
+
                 // Calculate billing adjustments for test changes
                 Set<Test> oldTests = visit.getTests();
                 Set<Test> addedTests = new HashSet<>(newTests);
                 addedTests.removeAll(oldTests);
-                
+
                 Set<Test> removedTests = new HashSet<>(oldTests);
                 removedTests.removeAll(newTests);
-                
+
                 // Update tests
                 visit.setTests(new HashSet<>(newTests));
-                
+
                 // Clear test results for removed tests and set status to CANCELLED
                 if (!removedTests.isEmpty()) {
                     clearTestResultsForRemovedTests(visit, removedTests);
                 }
-                
+
                 // Create test results for added tests with ACTIVE status
                 if (!addedTests.isEmpty()) {
                     createTestResultsForAddedTests(visit, addedTests, username);
                 }
-                
+
                 // Recalculate billing if there are test changes
                 if (!addedTests.isEmpty() || !removedTests.isEmpty()) {
                     recalculateBillingForTestChanges(visit, lab, addedTests, removedTests, username);
@@ -290,7 +290,7 @@ public class UpdatePatientService {
             // Process each transaction through BillingManagementService to ensure proper refund calculation
             for (TransactionDTO transactionDTO : billingDTO.getTransactions()) {
                 BigDecimal receivedAmount = transactionDTO.getReceivedAmount() != null ? transactionDTO.getReceivedAmount() : BigDecimal.ZERO;
-                
+
                 // Only process payments (receivedAmount > 0)
                 if (receivedAmount.compareTo(BigDecimal.ZERO) > 0) {
                     // Use BillingManagementService to handle payment and potential refunds
@@ -323,23 +323,23 @@ public class UpdatePatientService {
 
             // Add new discounts if provided
             if (!testDiscounts.isEmpty()) {
-            BillingEntity finalBilling1 = billing;
-            Set<TestDiscountEntity> discountEntities = testDiscounts.stream()
-                    .map(discountDTO -> {
-                        TestDiscountEntity discountEntity = new TestDiscountEntity();
-                        discountEntity.setTestId(discountDTO.getTestId());
-                        discountEntity.setDiscountAmount(discountDTO.getDiscountAmount());
-                        discountEntity.setDiscountPercent(discountDTO.getDiscountPercent());
-                        discountEntity.setFinalPrice(discountDTO.getFinalPrice());
-                        discountEntity.setCreatedBy(username);
-                        discountEntity.setUpdatedBy(username);
-                        discountEntity.setBilling(finalBilling1);
-                        return discountEntity;
-                    })
-                    .collect(Collectors.toSet());
-            testDiscountRepository.saveAll(discountEntities);
+                BillingEntity finalBilling1 = billing;
+                Set<TestDiscountEntity> discountEntities = testDiscounts.stream()
+                        .map(discountDTO -> {
+                            TestDiscountEntity discountEntity = new TestDiscountEntity();
+                            discountEntity.setTestId(discountDTO.getTestId());
+                            discountEntity.setDiscountAmount(discountDTO.getDiscountAmount());
+                            discountEntity.setDiscountPercent(discountDTO.getDiscountPercent());
+                            discountEntity.setFinalPrice(discountDTO.getFinalPrice());
+                            discountEntity.setCreatedBy(username);
+                            discountEntity.setUpdatedBy(username);
+                            discountEntity.setBilling(finalBilling1);
+                            return discountEntity;
+                        })
+                        .collect(Collectors.toSet());
+                testDiscountRepository.saveAll(discountEntities);
+            }
         }
-    }
     }
 
     private VisitEntity mapVisitDTOToEntity(VisitDTO visitDTO, Lab lab, String currentUser) {
@@ -454,17 +454,17 @@ public class UpdatePatientService {
             Set<Long> removedTestIds = removedTests.stream()
                     .map(Test::getId)
                     .collect(Collectors.toSet());
-            
+
             // Set status to CANCELLED for removed tests instead of deleting
             visit.getTestResults().stream()
-                .filter(testResult -> testResult.getTest() != null && 
-                        removedTestIds.contains(testResult.getTest().getId()))
-                .forEach(testResult -> {
-                    testResult.setTestStatus("CANCELLED");
+                    .filter(testResult -> testResult.getTest() != null &&
+                            removedTestIds.contains(testResult.getTest().getId()))
+                    .forEach(testResult -> {
+                        testResult.setTestStatus("CANCELLED");
 //                    testResult.setReportStatus("CANCELLED");        //CANCELLED
-                    testResult.setReportStatus("Pending");        //CANCELLED
-                    testResult.setIsFilled(false);
-                });
+                        testResult.setReportStatus("Pending");        //CANCELLED
+                        testResult.setIsFilled(false);
+                    });
         }
     }
 
@@ -474,19 +474,19 @@ public class UpdatePatientService {
     private void createTestResultsForAddedTests(VisitEntity visit, Set<Test> addedTests, String username) {
         if (addedTests != null && !addedTests.isEmpty()) {
             Set<VisitTestResult> newTestResults = addedTests.stream()
-                .map(test -> {
-                    VisitTestResult testResult = new VisitTestResult();
-                    testResult.setVisit(visit);
-                    testResult.setTest(test);
-                    testResult.setTestStatus("ACTIVE");
-                    testResult.setReportStatus("Pending");
-                    testResult.setIsFilled(false);
-                    testResult.setCreatedBy(username);
-                    testResult.setUpdatedBy(username);
-                    return testResult;
-                })
-                .collect(Collectors.toSet());
-            
+                    .map(test -> {
+                        VisitTestResult testResult = new VisitTestResult();
+                        testResult.setVisit(visit);
+                        testResult.setTest(test);
+                        testResult.setTestStatus("ACTIVE");
+                        testResult.setReportStatus("Pending");
+                        testResult.setIsFilled(false);
+                        testResult.setCreatedBy(username);
+                        testResult.setUpdatedBy(username);
+                        return testResult;
+                    })
+                    .collect(Collectors.toSet());
+
             visit.getTestResults().addAll(newTestResults);
         }
     }
@@ -495,6 +495,58 @@ public class UpdatePatientService {
      * Recalculates billing when tests are added or removed
      * Uses the comprehensive BillingManagementService for proper business logic
      */
+//    private void recalculateBillingForTestChanges(VisitEntity visit, Lab lab, Set<Test> addedTests, Set<Test> removedTests, String username) {
+//        BillingEntity billing = visit.getBilling();
+//        if (billing == null) {
+//            billing = new BillingEntity();
+//            visit.setBilling(billing);
+//        }
+//
+//        // Calculate amounts for added tests
+//        BigDecimal addedAmount = addedTests.stream()
+//                .map(Test::getPrice)
+//                .reduce(BigDecimal.ZERO, BigDecimal::add);
+//
+//        // Calculate amounts for removed tests
+//        BigDecimal removedAmount = removedTests.stream()
+//                .map(Test::getPrice)
+//                .reduce(BigDecimal.ZERO, BigDecimal::add);
+//
+//        // Get current total amount
+//        BigDecimal currentTotal = billing.getTotalAmount() != null ? billing.getTotalAmount() : BigDecimal.ZERO;
+//
+//        // Calculate new total amount
+//        BigDecimal newTotalAmount = currentTotal.add(addedAmount).subtract(removedAmount);
+//        billing.setTotalAmount(newTotalAmount);
+//
+//        // Update net amount (assuming no discount changes for now)
+//        BigDecimal currentDiscount = billing.getDiscount() != null ? billing.getDiscount() : BigDecimal.ZERO;
+//        BigDecimal newNetAmount = newTotalAmount.subtract(currentDiscount);
+//
+//        //update the actual received amount before recalculation
+//
+//        // Update audit fields
+//        billing.setBillingTime(LocalTime.now(ZoneId.of("Asia/Kolkata")));
+//        billing.setBillingDate(LocalDate.now().toString());
+//        billing.setUpdatedBy(username);
+//        billing.getLabs().add(lab);
+//
+//        // Save billing first
+//        billing = billingRepository.save(billing);
+//
+//        // Use the comprehensive billing service for proper recalculation
+//        if (billing.getId() != null) {
+//            // For test additions/removals, we need to recalculate considering existing payments and refunds
+//            recalculateBillingForTestModifications(billing, newNetAmount, username);
+//        }
+//    }
+
+
+    // In UpdatePatientService class - replace the problematic methods:
+
+    /**
+     * FIXED: Recalculates billing when tests are added or removed
+     */
     private void recalculateBillingForTestChanges(VisitEntity visit, Lab lab, Set<Test> addedTests, Set<Test> removedTests, String username) {
         BillingEntity billing = visit.getBilling();
         if (billing == null) {
@@ -502,88 +554,134 @@ public class UpdatePatientService {
             visit.setBilling(billing);
         }
 
-        // Calculate amounts for added tests
+        // Calculate amounts for added/removed tests
         BigDecimal addedAmount = addedTests.stream()
                 .map(Test::getPrice)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // Calculate amounts for removed tests
         BigDecimal removedAmount = removedTests.stream()
                 .map(Test::getPrice)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // Get current total amount
-        BigDecimal currentTotal = billing.getTotalAmount() != null ? billing.getTotalAmount() : BigDecimal.ZERO;
-        
-        // Calculate new total amount
+        BigDecimal currentTotal = safeGetAmount(billing.getTotalAmount());
         BigDecimal newTotalAmount = currentTotal.add(addedAmount).subtract(removedAmount);
-        billing.setTotalAmount(newTotalAmount);
 
-        // Update net amount (assuming no discount changes for now)
-        BigDecimal currentDiscount = billing.getDiscount() != null ? billing.getDiscount() : BigDecimal.ZERO;
+        // FIXED: Use net amount for calculation (consider discounts)
+        BigDecimal currentDiscount = safeGetAmount(billing.getDiscount());
         BigDecimal newNetAmount = newTotalAmount.subtract(currentDiscount);
 
-        // Update audit fields
-        billing.setBillingTime(LocalTime.now(ZoneId.of("Asia/Kolkata")));
-        billing.setBillingDate(LocalDate.now().toString());
+        // Update basic billing fields
+        billing.setTotalAmount(newTotalAmount);
+        billing.setNetAmount(newNetAmount);
         billing.setUpdatedBy(username);
         billing.getLabs().add(lab);
 
         // Save billing first
         billing = billingRepository.save(billing);
 
-        // Use the comprehensive billing service for proper recalculation
+        // FIXED: Use the proper billing service for recalculation
         if (billing.getId() != null) {
-            // For test additions/removals, we need to recalculate considering existing payments and refunds
-            recalculateBillingForTestModifications(billing, newNetAmount, username);
+            billingManagementService.updateBillingAfterCancellation(billing.getId(), newNetAmount, username);
         }
     }
 
+/**
+ * FIXED: Remove the problematic recalculateBillingForTestModifications method
+ * and use the service instead
+ */
+
     /**
-     * Recalculates billing when tests are added or removed, considering existing payments and refunds
-     * This handles the scenario where a refund was given and then new tests are added
+     * FIXED: Safe amount helper
+     */
+    private BigDecimal safeGetAmount(BigDecimal amount) {
+        return amount != null ? amount : BigDecimal.ZERO;
+    }
+
+    /**
+     * Recalculates billing when tests are added or removed, following the specification:
+     * - ARA = sum of payments - sum of refunds
+     * - Due = Total Amount - ARA
+     * - Refund = sum of removed test amounts
      */
     private void recalculateBillingForTestModifications(BillingEntity billing, BigDecimal newNetAmount, String username) {
         // Get current received amount (total payments made)
         BigDecimal currentReceivedAmount = billing.getReceivedAmount() != null ? billing.getReceivedAmount() : BigDecimal.ZERO;
-        
-        // Get total refunded amount from existing transactions
-        BigDecimal totalRefunded = billing.getTransactions() != null ? 
-            billing.getTransactions().stream()
-                .map(t -> t.getRefundAmount() != null ? t.getRefundAmount() : BigDecimal.ZERO)
-                .reduce(BigDecimal.ZERO, BigDecimal::add) : 
-            BigDecimal.ZERO;
-        
-        // Calculate effective received amount (payments minus refunds)
-        BigDecimal effectiveReceivedAmount = currentReceivedAmount.subtract(totalRefunded);
-        
-        // Calculate new due amount
-        BigDecimal newDueAmount = newNetAmount.subtract(effectiveReceivedAmount);
-        
+
+        // Calculate total refunded amount from existing transactions
+        BigDecimal totalRefundedAmount = BigDecimal.ZERO;
+        if (billing.getTransactions() != null) {
+            totalRefundedAmount = billing.getTransactions().stream()
+                    .map(transaction -> transaction.getRefundAmount() != null ? transaction.getRefundAmount() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
+
+        // Calculate ARA = sum of payments - sum of refunds
+        BigDecimal actualReceivedAmount = currentReceivedAmount.subtract(totalRefundedAmount);
+
+        // Calculate the difference between new net amount and previous net amount
+        BigDecimal previousNetAmount = billing.getNetAmount() != null ? billing.getNetAmount() : BigDecimal.ZERO;
+        BigDecimal netAmountDifference = newNetAmount.subtract(previousNetAmount);
+
+        // Handle refunds for removed tests
+        BigDecimal refundAmount = BigDecimal.ZERO;
+        if (netAmountDifference.compareTo(BigDecimal.ZERO) < 0) {
+            // Tests were removed, create refund for the removed test amount
+            refundAmount = netAmountDifference.abs();
+
+            // Create refund transaction for the cancelled test
+            createRefundTransactionForCancellation(billing, refundAmount, username);
+
+            // Update ARA after refund: ARA = ARA - refund
+            actualReceivedAmount = actualReceivedAmount.subtract(refundAmount);
+        }
+
+        // Cap ARA to not exceed Total Amount
+        if (actualReceivedAmount.compareTo(newNetAmount) > 0) {
+            actualReceivedAmount = newNetAmount;
+        }
+
+        // Update actualReceivedAmount
+        billing.setActualReceivedAmount(actualReceivedAmount);
+
+        // Calculate due amount: Due = Total Amount - ARA
+        BigDecimal newDueAmount = newNetAmount.subtract(actualReceivedAmount);
+
+        // DEBUG: Log the calculation details
+        System.out.println("=== BILLING RECALCULATION DEBUG ===");
+        System.out.println("Billing ID: " + billing.getId());
+        System.out.println("New Net Amount: " + newNetAmount);
+        System.out.println("Previous Net Amount: " + previousNetAmount);
+        System.out.println("Net Amount Difference: " + netAmountDifference);
+        System.out.println("Current Received Amount: " + currentReceivedAmount);
+        System.out.println("Total Refunded Amount: " + totalRefundedAmount);
+        System.out.println("Actual Received Amount (ARA): " + actualReceivedAmount);
+        System.out.println("Refund Amount: " + refundAmount);
+        System.out.println("Calculated Due Amount: " + newDueAmount);
+        System.out.println("=====================================");
+
         // Determine payment status
         String newPaymentStatus;
         if (newDueAmount.compareTo(BigDecimal.ZERO) > 0) {
             // Still owe money
-            newPaymentStatus = effectiveReceivedAmount.compareTo(BigDecimal.ZERO) > 0 ? "PARTIALLY_PAID" : "UNPAID";
+            newPaymentStatus = actualReceivedAmount.compareTo(BigDecimal.ZERO) > 0 ? "PARTIALLY_PAID" : "UNPAID";
         } else if (newDueAmount.compareTo(BigDecimal.ZERO) == 0) {
             // Paid in full
             newPaymentStatus = "PAID";
         } else {
-            // Overpaid - need refund
+            // Overpaid - this shouldn't happen with proper ARA capping, but handle it
+            newDueAmount = BigDecimal.ZERO;
             newPaymentStatus = "PAID";
-            // Note: We don't create additional refunds here as the refund was already given
-            // The system should handle this through proper payment tracking
         }
-        
+
         // Update billing fields
         billing.setNetAmount(newNetAmount);
         billing.setDueAmount(newDueAmount);
         billing.setPaymentStatus(newPaymentStatus);
         billing.setUpdatedBy(username);
-        
+
         // Save the updated billing
         billingRepository.save(billing);
-        
+
         // Update due amounts in existing transactions to maintain consistency
         if (billing.getTransactions() != null) {
             for (TransactionEntity transaction : billing.getTransactions()) {
@@ -591,6 +689,41 @@ public class UpdatePatientService {
             }
             transactionRepository.saveAll(billing.getTransactions());
         }
+    }
+
+    /**
+     * Creates a refund transaction for test cancellation overpayment
+     */
+    private void createRefundTransactionForCancellation(BillingEntity billing, BigDecimal refundAmount, String username) {
+        System.out.println("=== CREATING REFUND TRANSACTION FOR CANCELLATION ===");
+        System.out.println("Billing ID: " + billing.getId());
+        System.out.println("Refund Amount: " + refundAmount);
+        System.out.println("==================================================");
+
+        TransactionEntity refundTransaction = new TransactionEntity();
+        refundTransaction.setBilling(billing);
+        refundTransaction.setPaymentMethod("REFUND");
+        refundTransaction.setRefundAmount(refundAmount);
+        refundTransaction.setReceivedAmount(BigDecimal.ZERO);
+        refundTransaction.setDueAmount(BigDecimal.ZERO);
+        refundTransaction.setPaymentDate(LocalDate.now().toString());
+        refundTransaction.setRemarks("Refund for test cancellation");
+        refundTransaction.setCreatedBy(username != null ? username : "SYSTEM");
+        refundTransaction.setCreatedAt(LocalDateTime.now());
+
+        // Set payment method amounts to zero for refund
+        refundTransaction.setUpiId("");
+        refundTransaction.setUpiAmount(BigDecimal.ZERO);
+        refundTransaction.setCardAmount(BigDecimal.ZERO);
+        refundTransaction.setCashAmount(BigDecimal.ZERO);
+
+        // Add to billing's transaction list
+        billing.getTransactions().add(refundTransaction);
+
+        // Save transaction
+        transactionRepository.save(refundTransaction);
+
+        System.out.println("Refund transaction created successfully - TransactionId: " + refundTransaction.getId());
     }
 
 
@@ -618,6 +751,7 @@ public class UpdatePatientService {
         // Note: receivedAmount and dueAmount are calculated by BillingManagementService
         // Initialize with zero values, will be updated by BillingManagementService
         billing.setReceivedAmount(BigDecimal.ZERO);
+        // Due amount will be calculated based on actualReceivedAmount by BillingManagementService
         billing.setDueAmount(billingDTO.getNetAmount() != null ? billingDTO.getNetAmount() : BigDecimal.ZERO);
 
         // Audit fields
@@ -637,7 +771,7 @@ public class UpdatePatientService {
             // Process each transaction through BillingManagementService to ensure proper refund calculation
             for (TransactionDTO transactionDTO : billingDTO.getTransactions()) {
                 BigDecimal receivedAmount = transactionDTO.getReceivedAmount() != null ? transactionDTO.getReceivedAmount() : BigDecimal.ZERO;
-                
+
                 // Only process payments (receivedAmount > 0)
                 if (receivedAmount.compareTo(BigDecimal.ZERO) > 0) {
                     // Use BillingManagementService to handle payment and potential refunds
