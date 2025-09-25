@@ -113,7 +113,11 @@ public class BillingEntity {
 
     @OneToOne(mappedBy = "billing", fetch = FetchType.LAZY)
     private VisitEntity visit;
-
+//
+//    public void setRefundAmount(BigDecimal bigDecimal) {
+//        // Method implementation can be added here if needed
+//        this.netAmount = bigDecimal;
+//    }
 }
 
 

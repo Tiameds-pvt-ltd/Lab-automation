@@ -28,7 +28,6 @@ public class PatientEntity {
     @Column(name = "patient_id")
     private Long patientId;
 
-
     @Column(name = "first_name")
     private String firstName;
 
@@ -91,6 +90,11 @@ public class PatientEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "guardian_id", referencedColumnName = "patient_id", insertable = false, updatable = false)
     private PatientEntity guardian;
+
+
+    //patient code for self reference
+    @Column(name = "patient_code", unique = true)
+    private String patientCode;
 
 
     // One patient can have multiple labs and one lab can have multiple patients

@@ -938,8 +938,466 @@
 
 
 
-//------------
+//------------    global-discout fix   -----------------
+//
+//package tiameds.com.tiameds.services.lab;
+//
+//import org.slf4j.Logger;
+//import org.slf4j.LoggerFactory;
+//import org.springframework.stereotype.Service;
+//import org.springframework.transaction.annotation.Transactional;
+//import tiameds.com.tiameds.entity.BillingEntity;
+//import tiameds.com.tiameds.entity.TransactionEntity;
+//import tiameds.com.tiameds.repository.BillingRepository;
+//import tiameds.com.tiameds.repository.TransactionRepository;
+//
+//import java.math.BigDecimal;
+//import java.time.LocalDate;
+//import java.time.LocalDateTime;
+//import java.time.LocalTime;
+//import java.time.ZoneId;
+//
+//@Service
+//public class BillingManagementService {
+//
+//    private static final Logger logger = LoggerFactory.getLogger(BillingManagementService.class);
+//
+//    // Payment status constants
+//    private static final String UNPAID = "UNPAID";
+//    private static final String PARTIALLY_PAID = "PARTIALLY_PAID";
+//    private static final String PAID = "PAID";
+//    private static final String REFUND = "REFUND";
+//
+//    private final BillingRepository billingRepository;
+//    private final TransactionRepository transactionRepository;
+//
+//    public BillingManagementService(BillingRepository billingRepository, TransactionRepository transactionRepository) {
+//        this.billingRepository = billingRepository;
+//        this.transactionRepository = transactionRepository;
+//
+//    }
+//
+//    /**
+//     * FIXED: Updates billing after test cancellation with proper refund logic
+//     */
+//    @Transactional
+//    public BillingEntity updateBillingAfterCancellation(Long billingId, BigDecimal newNetAmount, String username) {
+//        logger.info("FIXED: Starting billing update for cancellation - BillingId: {}, NewNetAmount: {}, User: {}",
+//                billingId, newNetAmount, username);
+//
+//        BillingEntity billing = billingRepository.findById(billingId)
+//                .orElseThrow(() -> new IllegalArgumentException("Billing not found with ID: " + billingId));
+//
+//        if (newNetAmount == null || newNetAmount.compareTo(BigDecimal.ZERO) < 0) {
+//            throw new IllegalArgumentException("New net amount must be non-negative");
+//        }
+//
+//        BigDecimal currentNetAmount = safeGetAmount(billing.getNetAmount());
+//        BigDecimal totalPayments = getTotalPayments(billing);
+//        BigDecimal totalRefunds = getTotalRefunds(billing);
+//        BigDecimal currentAra = totalPayments.subtract(totalRefunds);
+//
+//        logger.info("FIXED: Current state - NetAmount: {}, Payments: {}, Refunds: {}, ARA: {}",
+//                currentNetAmount, totalPayments, totalRefunds, currentAra);
+//
+//        // Calculate net change (negative when tests are cancelled)
+//        BigDecimal netChange = newNetAmount.subtract(currentNetAmount);
+//
+//        // FIXED: Proper refund calculation that handles your specific case
+//        BigDecimal refundAmount = calculateRefundAmountForCancellation(
+//                totalPayments, totalRefunds, currentNetAmount, newNetAmount, netChange);
+//
+//        // FIXED: Calculate new ARA properly (Total Payments - Total Refunds including new refund)
+//        BigDecimal newTotalRefunds = totalRefunds.add(refundAmount);
+//        BigDecimal newAra = totalPayments.subtract(newTotalRefunds);
+//
+//        // FIXED: Due amount calculation (should never be negative)
+//        BigDecimal newDueAmount = newNetAmount.subtract(newAra);
+//
+//        // FIXED: Safety check - prevent negative due amounts
+//        if (newDueAmount.compareTo(BigDecimal.ZERO) < 0) {
+//            logger.warn("FIXED: Correcting negative due amount from {} to 0", newDueAmount);
+//            // If due is negative, it means we need additional refund
+//            BigDecimal additionalRefund = newDueAmount.abs();
+//            refundAmount = refundAmount.add(additionalRefund);
+//            newTotalRefunds = totalRefunds.add(refundAmount);
+//            newAra = totalPayments.subtract(newTotalRefunds);
+//            newDueAmount = BigDecimal.ZERO;
+//        }
+//
+//        // FIXED: Payment status calculation
+//        String newPaymentStatus = calculatePaymentStatus(newAra, newNetAmount, newDueAmount);
+//
+//        // Update billing
+//        billing.setNetAmount(newNetAmount);
+//        billing.setActualReceivedAmount(newAra);
+//        billing.setDueAmount(newDueAmount);
+//        billing.setPaymentStatus(newPaymentStatus);
+//        billing.setUpdatedBy(username);
+//
+//        // Save billing first
+//        billing = billingRepository.save(billing);
+//
+//        // FIXED: Create refund only if needed
+//        if (refundAmount.compareTo(BigDecimal.ZERO) > 0) {
+//            createRefundTransaction(billing, refundAmount,
+//                    "Refund for test cancellation: " + netChange.abs() + " amount reduction", username);
+//        }
+//
+//        logger.info("FIXED: Billing updated - NewNet: {}, NewARA: {}, Due: {}, Status: {}, Refund: {}",
+//                newNetAmount, newAra, newDueAmount, newPaymentStatus, refundAmount);
+//
+//        return billing;
+//    }
+//
+//    /**
+//     * FIXED: Proper refund calculation that handles your specific case
+//     * Case: Paid 1000, Refunded 400, ARA=600, Cancel test worth 300
+//     * Expected: Refund 300 more, ARA=300, Due=0
+//     */
+//    private BigDecimal calculateRefundAmountForCancellation(BigDecimal totalPayments, BigDecimal existingRefunds,
+//                                                            BigDecimal currentNetAmount, BigDecimal newNetAmount,
+//                                                            BigDecimal netChange) {
+//
+//        // If tests were cancelled (net change is negative)
+//        if (netChange.compareTo(BigDecimal.ZERO) < 0) {
+//            BigDecimal cancelledAmount = netChange.abs();
+//
+//            // FIXED: Calculate how much patient has actually paid net of previous refunds
+//            BigDecimal netAmountPaid = totalPayments.subtract(existingRefunds);
+//
+//            // FIXED: Calculate how much they should pay for remaining tests
+//            BigDecimal expectedPayment = newNetAmount;
+//
+//            // FIXED: The refund needed is the difference between what they paid and what they should pay
+//            BigDecimal refundNeeded = netAmountPaid.subtract(expectedPayment);
+//
+//            // FIXED: Refund should be the minimum of refund needed and cancelled amount
+//            BigDecimal refund = refundNeeded.max(BigDecimal.ZERO).min(cancelledAmount);
+//
+//            logger.debug("FIXED: Refund calculation - TotalPaid: {}, ExistingRefunds: {}, NetPaid: {}, " +
+//                            "Expected: {}, RefundNeeded: {}, Cancelled: {}, FinalRefund: {}",
+//                    totalPayments, existingRefunds, netAmountPaid, expectedPayment,
+//                    refundNeeded, cancelledAmount, refund);
+//
+//            return refund;
+//        }
+//
+//        // If tests were added, no refund
+//        return BigDecimal.ZERO;
+//    }
+//
+//    /**
+//     * FIXED: Proper payment status calculation
+//     */
+//    private String calculatePaymentStatus(BigDecimal ara, BigDecimal netAmount, BigDecimal dueAmount) {
+//        if (dueAmount.compareTo(BigDecimal.ZERO) == 0) {
+//            return PAID;
+//        } else if (ara.compareTo(BigDecimal.ZERO) > 0) {
+//            return PARTIALLY_PAID;
+//        } else {
+//            return UNPAID;
+//        }
+//    }
+//
+//    /**
+//     * FIXED: Add payment with proper ARA calculation
+//     */
+//    @Transactional
+//    public BillingEntity addPayment(Long billingId, BigDecimal paymentAmount, String paymentMethod,
+//                                    String upiId, BigDecimal upiAmount, BigDecimal cardAmount,
+//                                    BigDecimal cashAmount, String username) {
+//
+//        logger.info("FIXED: Adding payment - BillingId: {}, Amount: {}, Method: {}, User: {}",
+//                billingId, paymentAmount, paymentMethod, username);
+//
+//        validatePaymentInput(paymentAmount, paymentMethod);
+//
+//        BillingEntity billing = billingRepository.findById(billingId)
+//                .orElseThrow(() -> new IllegalArgumentException("Billing not found with ID: " + billingId));
+//
+//        BigDecimal currentNetAmount = safeGetAmount(billing.getNetAmount());
+//        BigDecimal totalPayments = getTotalPayments(billing);
+//        BigDecimal totalRefunds = getTotalRefunds(billing);
+//        BigDecimal currentAra = totalPayments.subtract(totalRefunds);
+//
+//        // FIXED: Add new payment to total
+//        BigDecimal newTotalPayments = totalPayments.add(paymentAmount);
+//        BigDecimal newAra = newTotalPayments.subtract(totalRefunds);
+//
+//        // FIXED: Check if overpayment occurred
+//        BigDecimal overpayment = newAra.subtract(currentNetAmount).max(BigDecimal.ZERO);
+//        BigDecimal refundAmount = BigDecimal.ZERO;
+//
+//        if (overpayment.compareTo(BigDecimal.ZERO) > 0) {
+//            // Cap ARA to net amount and refund overpayment
+//            refundAmount = overpayment;
+//            newAra = currentNetAmount;
+//        }
+//
+//        // FIXED: Calculate due amount (never negative)
+//        BigDecimal newDueAmount = currentNetAmount.subtract(newAra).max(BigDecimal.ZERO);
+//
+//        String newPaymentStatus = calculatePaymentStatus(newAra, currentNetAmount, newDueAmount);
+//
+//        // Update billing
+//        billing.setActualReceivedAmount(newAra);
+//        billing.setDueAmount(newDueAmount);
+//        billing.setPaymentStatus(newPaymentStatus);
+//        billing.setUpdatedBy(username);
+//
+//        billing = billingRepository.save(billing);
+//
+//        // Create payment transaction
+//        createPaymentTransaction(billing, paymentAmount, paymentMethod, upiId, upiAmount, cardAmount, cashAmount, username);
+//
+//        // Create refund if overpayment occurred
+//        if (refundAmount.compareTo(BigDecimal.ZERO) > 0) {
+//            createRefundTransaction(billing, refundAmount, "Refund for overpayment", username);
+//        }
+//
+//        logger.info("FIXED: Payment added - NewARA: {}, Due: {}, Status: {}, Refund: {}",
+//                newAra, newDueAmount, newPaymentStatus, refundAmount);
+//
+//        return billing;
+//    }
+//
+//    /**
+//     * FIXED: Create refund transaction
+//     */
+//    private void createRefundTransaction(BillingEntity billing, BigDecimal refundAmount, String remarks, String username) {
+//        logger.info("FIXED: Creating refund - BillingId: {}, Amount: {}, Remarks: {}",
+//                billing.getId(), refundAmount, remarks);
+//
+//        TransactionEntity refundTransaction = new TransactionEntity();
+//        refundTransaction.setBilling(billing);
+//        refundTransaction.setPaymentMethod(REFUND);
+//        refundTransaction.setRefundAmount(refundAmount);
+//        refundTransaction.setReceivedAmount(BigDecimal.ZERO);
+//        refundTransaction.setDueAmount(safeGetAmount(billing.getDueAmount()));
+//        refundTransaction.setPaymentDate(LocalDate.now().toString());
+//        refundTransaction.setRemarks(remarks);
+//        refundTransaction.setCreatedBy(username);
+//        refundTransaction.setCreatedAt(LocalDateTime.now());
+//
+//        // Set zero amounts for payment methods
+//        refundTransaction.setUpiId("");
+//        refundTransaction.setUpiAmount(BigDecimal.ZERO);
+//        refundTransaction.setCardAmount(BigDecimal.ZERO);
+//        refundTransaction.setCashAmount(BigDecimal.ZERO);
+//
+//        transactionRepository.save(refundTransaction);
+//    }
+//
+//    /**
+//     * FIXED: Create payment transaction
+//     */
+//    private void createPaymentTransaction(BillingEntity billing, BigDecimal paymentAmount, String paymentMethod,
+//                                          String upiId, BigDecimal upiAmount, BigDecimal cardAmount,
+//                                          BigDecimal cashAmount, String username) {
+//
+//        TransactionEntity transaction = new TransactionEntity();
+//        transaction.setBilling(billing);
+//        transaction.setPaymentMethod(paymentMethod);
+//        transaction.setReceivedAmount(paymentAmount);
+//        transaction.setRefundAmount(BigDecimal.ZERO);
+//        transaction.setDueAmount(safeGetAmount(billing.getDueAmount()));
+//        transaction.setPaymentDate(LocalDate.now().toString());
+//        transaction.setRemarks("Payment via " + paymentMethod);
+//        transaction.setCreatedBy(username);
+//        transaction.setCreatedAt(LocalDateTime.now());
+//
+//        // Set payment method amounts
+//        transaction.setUpiId(upiId != null ? upiId : "");
+//        transaction.setUpiAmount(safeGetAmount(upiAmount));
+//        transaction.setCardAmount(safeGetAmount(cardAmount));
+//        transaction.setCashAmount(safeGetAmount(cashAmount));
+//
+//        transactionRepository.save(transaction);
+//    }
+//
+//    /**
+//     * FIXED: Get total payments (sum of receivedAmount from all transactions)
+//     */
+//    private BigDecimal getTotalPayments(BillingEntity billing) {
+//        return billing.getTransactions().stream()
+//                .map(t -> safeGetAmount(t.getReceivedAmount()))
+//                .reduce(BigDecimal.ZERO, BigDecimal::add);
+//    }
+//
+//    /**
+//     * FIXED: Get total refunds (sum of refundAmount from all transactions)
+//     */
+//    private BigDecimal getTotalRefunds(BillingEntity billing) {
+//        return billing.getTransactions().stream()
+//                .map(t -> safeGetAmount(t.getRefundAmount()))
+//                .reduce(BigDecimal.ZERO, BigDecimal::add);
+//    }
+//
+//    /**
+//     * FIXED: Safe amount getter
+//     */
+//    private BigDecimal safeGetAmount(BigDecimal amount) {
+//        return amount != null ? amount : BigDecimal.ZERO;
+//    }
+//
+//    /**
+//     * FIXED: Payment validation
+//     */
+//    private void validatePaymentInput(BigDecimal paymentAmount, String paymentMethod) {
+//        if (paymentAmount == null || paymentAmount.compareTo(BigDecimal.ZERO) <= 0) {
+//            throw new IllegalArgumentException("Payment amount must be positive");
+//        }
+//        if (paymentMethod == null || paymentMethod.trim().isEmpty()) {
+//            throw new IllegalArgumentException("Payment method is required");
+//        }
+//    }
+//
+//    /**
+//     * FIXED: Remove transaction due amount updates - keep historical data immutable
+//     */
+//    @Transactional
+//    public void updateDueAmountsInAllTransactions(Long billingId, String username) {
+//        logger.info("FIXED: Due amount updates are now immutable - only current billing due amount is maintained");
+//        // Intentional no-op to maintain backward compatibility
+//    }
+//
+//    /**
+//     * FIXED: Get billing summary
+//     */
+//    public BillingSummary getBillingSummary(Long billingId) {
+//        BillingEntity billing = billingRepository.findById(billingId)
+//                .orElseThrow(() -> new IllegalArgumentException("Billing not found with ID: " + billingId));
+//
+//        BigDecimal totalPayments = getTotalPayments(billing);
+//        BigDecimal totalRefunds = getTotalRefunds(billing);
+//        BigDecimal actualAra = totalPayments.subtract(totalRefunds);
+//
+//        return new BillingSummary(
+//                billing.getId(),
+//                safeGetAmount(billing.getNetAmount()),
+//                totalPayments,
+//                totalRefunds,
+//                actualAra,
+//                safeGetAmount(billing.getDueAmount()),
+//                billing.getPaymentStatus(),
+//                billing.getTransactions().size()
+//        );
+//    }
+//
+//    /**
+//     * NEW: Method specifically for your test case debugging
+//     */
+//    public String debugBillingState(Long billingId) {
+//        BillingEntity billing = billingRepository.findById(billingId)
+//                .orElseThrow(() -> new IllegalArgumentException("Billing not found with ID: " + billingId));
+//
+//        BigDecimal totalPayments = getTotalPayments(billing);
+//        BigDecimal totalRefunds = getTotalRefunds(billing);
+//        BigDecimal actualAra = totalPayments.subtract(totalRefunds);
+//
+//        return String.format(
+//                "DEBUG Billing State - ID: %s\n" +
+//                        "Net Amount: %s\n" +
+//                        "Total Payments: %s\n" +
+//                        "Total Refunds: %s\n" +
+//                        "Actual Received Amount (ARA): %s\n" +
+//                        "Due Amount: %s\n" +
+//                        "Payment Status: %s\n" +
+//                        "Transactions: %d",
+//                billing.getId(), billing.getNetAmount(), totalPayments, totalRefunds,
+//                actualAra, billing.getDueAmount(), billing.getPaymentStatus(),
+//                billing.getTransactions().size()
+//        );
+//    }
+//
+//    /**
+//     * NEW: Handle billing updates when discount changes
+//     */
+//    @Transactional
+//    public BillingEntity updateBillingAfterDiscountChange(Long billingId, BigDecimal newNetAmount, String username) {
+//        logger.info("FIXED: Handling discount change - BillingId: {}, NewNetAmount: {}, User: {}",
+//                billingId, newNetAmount, username);
+//
+//        BillingEntity billing = billingRepository.findById(billingId)
+//                .orElseThrow(() -> new IllegalArgumentException("Billing not found with ID: " + billingId));
+//
+//        if (newNetAmount == null || newNetAmount.compareTo(BigDecimal.ZERO) < 0) {
+//            throw new IllegalArgumentException("New net amount must be non-negative");
+//        }
+//
+//        BigDecimal totalPayments = getTotalPayments(billing);
+//        BigDecimal totalRefunds = getTotalRefunds(billing);
+//        BigDecimal currentAra = totalPayments.subtract(totalRefunds);
+//        String currentStatus = billing.getPaymentStatus();
+//
+//        logger.info("FIXED: Discount change - Payments: {}, Refunds: {}, ARA: {}, CurrentStatus: {}",
+//                totalPayments, totalRefunds, currentAra, currentStatus);
+//
+//        // FIXED: Calculate due amount based on new net amount
+//        BigDecimal newDueAmount = newNetAmount.subtract(currentAra);
+//
+//        // FIXED: Safety check - prevent negative due amounts
+//        if (newDueAmount.compareTo(BigDecimal.ZERO) < 0) {
+//            logger.warn("FIXED: Correcting negative due amount from {} to 0", newDueAmount);
+//            newDueAmount = BigDecimal.ZERO;
+//        }
+//
+//        // FIXED: Payment status calculation
+//        String newPaymentStatus = calculatePaymentStatus(currentAra, newNetAmount, newDueAmount);
+//
+//        // Update billing
+//        billing.setNetAmount(newNetAmount);
+//        billing.setDueAmount(newDueAmount);
+//        billing.setPaymentStatus(newPaymentStatus);
+//        billing.setUpdatedBy(username);
+//
+//        billing = billingRepository.save(billing);
+//
+//        logger.info("FIXED: Discount change completed - NewNet: {}, ARA: {}, Due: {}, Status: {}",
+//                newNetAmount, currentAra, newDueAmount, newPaymentStatus);
+//
+//        return billing;
+//    }
+//
+//    public static class BillingSummary {
+//        private final Long billingId;
+//        private final BigDecimal netAmount;
+//        private final BigDecimal totalPaid;
+//        private final BigDecimal totalRefunded;
+//        private final BigDecimal actualReceivedAmount;
+//        private final BigDecimal dueAmount;
+//        private final String paymentStatus;
+//        private final int transactionCount;
+//
+//        public BillingSummary(Long billingId, BigDecimal netAmount, BigDecimal totalPaid,
+//                              BigDecimal totalRefunded, BigDecimal actualReceivedAmount,
+//                              BigDecimal dueAmount, String paymentStatus, int transactionCount) {
+//            this.billingId = billingId;
+//            this.netAmount = netAmount;
+//            this.totalPaid = totalPaid;
+//            this.totalRefunded = totalRefunded;
+//            this.actualReceivedAmount = actualReceivedAmount;
+//            this.dueAmount = dueAmount;
+//            this.paymentStatus = paymentStatus;
+//            this.transactionCount = transactionCount;
+//        }
+//
+//        // Getters
+//        public Long getBillingId() { return billingId; }
+//        public BigDecimal getNetAmount() { return netAmount; }
+//        public BigDecimal getTotalPaid() { return totalPaid; }
+//        public BigDecimal getTotalRefunded() { return totalRefunded; }
+//        public BigDecimal getActualReceivedAmount() { return actualReceivedAmount; }
+//        public BigDecimal getDueAmount() { return dueAmount; }
+//        public String getPaymentStatus() { return paymentStatus; }
+//        public int getTransactionCount() { return transactionCount; }
+//    }
+//}
 
+
+
+//---------------------------globla and inline discount fix end-------------------
 package tiameds.com.tiameds.services.lab;
 
 import org.slf4j.Logger;
@@ -974,7 +1432,6 @@ public class BillingManagementService {
     public BillingManagementService(BillingRepository billingRepository, TransactionRepository transactionRepository) {
         this.billingRepository = billingRepository;
         this.transactionRepository = transactionRepository;
-
     }
 
     /**
@@ -996,9 +1453,10 @@ public class BillingManagementService {
         BigDecimal totalPayments = getTotalPayments(billing);
         BigDecimal totalRefunds = getTotalRefunds(billing);
         BigDecimal currentAra = totalPayments.subtract(totalRefunds);
+        String currentStatus = billing.getPaymentStatus();
 
-        logger.info("FIXED: Current state - NetAmount: {}, Payments: {}, Refunds: {}, ARA: {}",
-                currentNetAmount, totalPayments, totalRefunds, currentAra);
+        logger.info("FIXED: Current state - NetAmount: {}, Payments: {}, Refunds: {}, ARA: {}, CurrentStatus: {}",
+                currentNetAmount, totalPayments, totalRefunds, currentAra, currentStatus);
 
         // Calculate net change (negative when tests are cancelled)
         BigDecimal netChange = newNetAmount.subtract(currentNetAmount);
@@ -1017,7 +1475,6 @@ public class BillingManagementService {
         // FIXED: Safety check - prevent negative due amounts
         if (newDueAmount.compareTo(BigDecimal.ZERO) < 0) {
             logger.warn("FIXED: Correcting negative due amount from {} to 0", newDueAmount);
-            // If due is negative, it means we need additional refund
             BigDecimal additionalRefund = newDueAmount.abs();
             refundAmount = refundAmount.add(additionalRefund);
             newTotalRefunds = totalRefunds.add(refundAmount);
@@ -1025,8 +1482,9 @@ public class BillingManagementService {
             newDueAmount = BigDecimal.ZERO;
         }
 
-        // FIXED: Payment status calculation
-        String newPaymentStatus = calculatePaymentStatus(newAra, newNetAmount, newDueAmount);
+        // FIXED: Enhanced payment status calculation that preserves correct status
+        String newPaymentStatus = calculatePaymentStatusForCancellation(
+                currentAra, newAra, currentNetAmount, newNetAmount, newDueAmount, currentStatus);
 
         // Update billing
         billing.setNetAmount(newNetAmount);
@@ -1051,9 +1509,112 @@ public class BillingManagementService {
     }
 
     /**
+     * NEW: Handle billing updates when inline discounts change
+     */
+    @Transactional
+    public BillingEntity updateBillingAfterInlineDiscountChange(Long billingId, BigDecimal newNetAmount,
+                                                                BigDecimal newTotalAmount, String username) {
+        logger.info("FIXED: Handling inline discount change - BillingId: {}, NewNetAmount: {}, NewTotalAmount: {}, User: {}",
+                billingId, newNetAmount, newTotalAmount, username);
+
+        BillingEntity billing = billingRepository.findById(billingId)
+                .orElseThrow(() -> new IllegalArgumentException("Billing not found with ID: " + billingId));
+
+        if (newNetAmount == null || newNetAmount.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("New net amount must be non-negative");
+        }
+
+        BigDecimal totalPayments = getTotalPayments(billing);
+        BigDecimal totalRefunds = getTotalRefunds(billing);
+        BigDecimal currentAra = totalPayments.subtract(totalRefunds);
+
+        // Update total amount if provided
+        if (newTotalAmount != null && newTotalAmount.compareTo(BigDecimal.ZERO) >= 0) {
+            billing.setTotalAmount(newTotalAmount);
+        }
+
+        // Calculate due amount based on new net amount
+        BigDecimal newDueAmount = newNetAmount.subtract(currentAra);
+
+        // Safety check - prevent negative due amounts
+        if (newDueAmount.compareTo(BigDecimal.ZERO) < 0) {
+            logger.warn("FIXED: Correcting negative due amount from {} to 0", newDueAmount);
+            newDueAmount = BigDecimal.ZERO;
+        }
+
+        // Calculate global discount for reporting
+        BigDecimal currentTotalAmount = safeGetAmount(billing.getTotalAmount());
+        BigDecimal globalDiscount = currentTotalAmount.subtract(newNetAmount).max(BigDecimal.ZERO);
+
+        // Payment status calculation
+        String newPaymentStatus = calculatePaymentStatus(currentAra, newNetAmount, newDueAmount);
+
+        // Update billing
+        billing.setNetAmount(newNetAmount);
+        billing.setDiscount(globalDiscount);
+        billing.setDueAmount(newDueAmount);
+        billing.setPaymentStatus(newPaymentStatus);
+        billing.setUpdatedBy(username);
+
+        billing = billingRepository.save(billing);
+
+        logger.info("FIXED: Inline discount change completed - Total: {}, NewNet: {}, Discount: {}, ARA: {}, Due: {}, Status: {}",
+                currentTotalAmount, newNetAmount, globalDiscount, currentAra, newDueAmount, newPaymentStatus);
+
+        return billing;
+    }
+
+    /**
+     * FIXED: Handle billing updates when global discount changes
+     */
+    @Transactional
+    public BillingEntity updateBillingAfterDiscountChange(Long billingId, BigDecimal newNetAmount, String username) {
+        logger.info("FIXED: Handling global discount change - BillingId: {}, NewNetAmount: {}, User: {}",
+                billingId, newNetAmount, username);
+
+        BillingEntity billing = billingRepository.findById(billingId)
+                .orElseThrow(() -> new IllegalArgumentException("Billing not found with ID: " + billingId));
+
+        if (newNetAmount == null || newNetAmount.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("New net amount must be non-negative");
+        }
+
+        BigDecimal totalPayments = getTotalPayments(billing);
+        BigDecimal totalRefunds = getTotalRefunds(billing);
+        BigDecimal currentAra = totalPayments.subtract(totalRefunds);
+        String currentStatus = billing.getPaymentStatus();
+
+        logger.info("FIXED: Discount change - Payments: {}, Refunds: {}, ARA: {}, CurrentStatus: {}",
+                totalPayments, totalRefunds, currentAra, currentStatus);
+
+        // Calculate due amount based on new net amount
+        BigDecimal newDueAmount = newNetAmount.subtract(currentAra);
+
+        // Safety check - prevent negative due amounts
+        if (newDueAmount.compareTo(BigDecimal.ZERO) < 0) {
+            logger.warn("FIXED: Correcting negative due amount from {} to 0", newDueAmount);
+            newDueAmount = BigDecimal.ZERO;
+        }
+
+        // Payment status calculation
+        String newPaymentStatus = calculatePaymentStatus(currentAra, newNetAmount, newDueAmount);
+
+        // Update billing
+        billing.setNetAmount(newNetAmount);
+        billing.setDueAmount(newDueAmount);
+        billing.setPaymentStatus(newPaymentStatus);
+        billing.setUpdatedBy(username);
+
+        billing = billingRepository.save(billing);
+
+        logger.info("FIXED: Discount change completed - NewNet: {}, ARA: {}, Due: {}, Status: {}",
+                newNetAmount, currentAra, newDueAmount, newPaymentStatus);
+
+        return billing;
+    }
+
+    /**
      * FIXED: Proper refund calculation that handles your specific case
-     * Case: Paid 1000, Refunded 400, ARA=600, Cancel test worth 300
-     * Expected: Refund 300 more, ARA=300, Due=0
      */
     private BigDecimal calculateRefundAmountForCancellation(BigDecimal totalPayments, BigDecimal existingRefunds,
                                                             BigDecimal currentNetAmount, BigDecimal newNetAmount,
@@ -1098,6 +1659,27 @@ public class BillingManagementService {
         } else {
             return UNPAID;
         }
+    }
+
+    /**
+     * FIXED: Enhanced payment status calculation specifically for test cancellation scenarios
+     */
+    private String calculatePaymentStatusForCancellation(BigDecimal currentAra, BigDecimal newAra,
+                                                         BigDecimal currentNetAmount, BigDecimal newNetAmount,
+                                                         BigDecimal dueAmount, String currentStatus) {
+
+        // If the patient was already PAID and still has no due amount, keep PAID status
+        if (PAID.equals(currentStatus) && dueAmount.compareTo(BigDecimal.ZERO) == 0) {
+            return PAID;
+        }
+
+        // If the patient was PARTIALLY_PAID and still has some payment made
+        if (PARTIALLY_PAID.equals(currentStatus) && newAra.compareTo(BigDecimal.ZERO) > 0 && dueAmount.compareTo(BigDecimal.ZERO) > 0) {
+            return PARTIALLY_PAID;
+        }
+
+        // Default to standard calculation
+        return calculatePaymentStatus(newAra, newNetAmount, dueAmount);
     }
 
     /**
@@ -1285,32 +1867,6 @@ public class BillingManagementService {
         );
     }
 
-    /**
-     * NEW: Method specifically for your test case debugging
-     */
-    public String debugBillingState(Long billingId) {
-        BillingEntity billing = billingRepository.findById(billingId)
-                .orElseThrow(() -> new IllegalArgumentException("Billing not found with ID: " + billingId));
-
-        BigDecimal totalPayments = getTotalPayments(billing);
-        BigDecimal totalRefunds = getTotalRefunds(billing);
-        BigDecimal actualAra = totalPayments.subtract(totalRefunds);
-
-        return String.format(
-                "DEBUG Billing State - ID: %s\n" +
-                        "Net Amount: %s\n" +
-                        "Total Payments: %s\n" +
-                        "Total Refunds: %s\n" +
-                        "Actual Received Amount (ARA): %s\n" +
-                        "Due Amount: %s\n" +
-                        "Payment Status: %s\n" +
-                        "Transactions: %d",
-                billing.getId(), billing.getNetAmount(), totalPayments, totalRefunds,
-                actualAra, billing.getDueAmount(), billing.getPaymentStatus(),
-                billing.getTransactions().size()
-        );
-    }
-
     public static class BillingSummary {
         private final Long billingId;
         private final BigDecimal netAmount;
@@ -1345,7 +1901,6 @@ public class BillingManagementService {
         public int getTransactionCount() { return transactionCount; }
     }
 }
-
 
 
 

@@ -11,12 +11,10 @@ import tiameds.com.tiameds.dto.visits.BillDTO;
 import tiameds.com.tiameds.dto.visits.BillDtoDue;
 import tiameds.com.tiameds.entity.*;
 import tiameds.com.tiameds.repository.*;
-import tiameds.com.tiameds.services.lab.BillingManagementService;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 
 import java.math.BigDecimal;
 import java.time.*;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -45,7 +43,7 @@ public class PatientService {
                           HealthPackageRepository packageRepository,
                           InsuranceRepository insuranceRepository,
                           BillingRepository billingRepository,
-                          TestDiscountRepository testDiscountRepository, 
+                          TestDiscountRepository testDiscountRepository,
                           VisitRepository visitRepository,
                           BillingManagementService billingManagementService
     ) {
@@ -367,14 +365,14 @@ public class PatientService {
         BigDecimal actualReceived = (billingDTO.getReceivedAmount() != null ? billingDTO.getReceivedAmount() : BigDecimal.ZERO)
                 .subtract(billingDTO.getRefundAmount() != null ? billingDTO.getRefundAmount() : BigDecimal.ZERO);
         billing.setActualReceivedAmount(actualReceived.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : actualReceived);
-        
+
         // Calculate due amount based on actual received amount: netAmount - actualReceivedAmount
         BigDecimal netAmount = billingDTO.getNetAmount() != null ? billingDTO.getNetAmount() : BigDecimal.ZERO;
         BigDecimal actualReceivedAmount = billing.getActualReceivedAmount();
         BigDecimal dueAmount = netAmount.subtract(actualReceivedAmount);
         billing.setDueAmount(dueAmount.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : dueAmount);
 //        billing.setRefundAmount(billingDTO.getRefundAmount() != null ? billingDTO.getRefundAmount() : BigDecimal.ZERO)
-        
+
 
 
 
@@ -389,40 +387,88 @@ public class PatientService {
         // Keep existing transactions - do not clear them
 
         // Handle transactions - only create if there's actual money movement
+//        if (billingDTO.getTransactions() != null && !billingDTO.getTransactions().isEmpty()) {
+//            for (TransactionDTO transactionDTO : billingDTO.getTransactions()) {
+//                // Only create transaction if there's actual money movement
+//                BigDecimal receivedAmount = transactionDTO.getReceivedAmount() != null ? transactionDTO.getReceivedAmount() : BigDecimal.ZERO;
+//                BigDecimal refundAmount = transactionDTO.getRefundAmount() != null ? transactionDTO.getRefundAmount() : BigDecimal.ZERO;
+//
+//                if (receivedAmount.compareTo(BigDecimal.ZERO) > 0 || refundAmount.compareTo(BigDecimal.ZERO) > 0) {
+//                    TransactionEntity transaction = new TransactionEntity();
+//
+//                    transaction.setPaymentMethod(transactionDTO.getPaymentMethod() != null ? transactionDTO.getPaymentMethod() : "CASH");
+//                    transaction.setUpiId(transactionDTO.getUpiId());
+//                    transaction.setUpiAmount(transactionDTO.getUpiAmount() != null ? transactionDTO.getUpiAmount() : BigDecimal.ZERO);
+//                    transaction.setCardAmount(transactionDTO.getCardAmount() != null ? transactionDTO.getCardAmount() : BigDecimal.ZERO);
+//                    transaction.setCashAmount(transactionDTO.getCashAmount() != null ? transactionDTO.getCashAmount() : BigDecimal.ZERO);
+//                    transaction.setReceivedAmount(transactionDTO.getReceivedAmount() != null ? transactionDTO.getReceivedAmount() : BigDecimal.ZERO);
+//                    transaction.setRefundAmount(transactionDTO.getRefundAmount() != null ? transactionDTO.getRefundAmount() : BigDecimal.ZERO);
+//                    transaction.setDueAmount(transactionDTO.getDueAmount() != null ? transactionDTO.getDueAmount() : BigDecimal.ZERO);
+//                    transaction.setPaymentDate(transactionDTO.getPaymentDate() != null ? transactionDTO.getPaymentDate() : LocalDate.now().toString());
+//                    transaction.setRemarks(transactionDTO.getRemarks());
+//                    transaction.setCreatedBy(currentUser);
+//
+//                    // Set bidirectional relationship
+//                    transaction.setBilling(billing);
+//                    billing.getTransactions().add(transaction);
+//                }
+//            }
+//        }
+        // Add lab association (avoid duplicates)
+
+        // Handle transactions - only create if there's actual money movement
+        // Handle transactions - only create if there's actual money movement
         if (billingDTO.getTransactions() != null && !billingDTO.getTransactions().isEmpty()) {
             for (TransactionDTO transactionDTO : billingDTO.getTransactions()) {
-                // Only create transaction if there's actual money movement
                 BigDecimal receivedAmount = transactionDTO.getReceivedAmount() != null ? transactionDTO.getReceivedAmount() : BigDecimal.ZERO;
-                BigDecimal refundAmount = transactionDTO.getRefundAmount() != null ? transactionDTO.getRefundAmount() : BigDecimal.ZERO;
-                
-                if (receivedAmount.compareTo(BigDecimal.ZERO) > 0 || refundAmount.compareTo(BigDecimal.ZERO) > 0) {
-                    TransactionEntity transaction = new TransactionEntity();
+                BigDecimal refundAmount   = transactionDTO.getRefundAmount()   != null ? transactionDTO.getRefundAmount()   : BigDecimal.ZERO;
 
-                    transaction.setPaymentMethod(transactionDTO.getPaymentMethod() != null ? transactionDTO.getPaymentMethod() : "CASH");
-                    transaction.setUpiId(transactionDTO.getUpiId());
-                    transaction.setUpiAmount(transactionDTO.getUpiAmount() != null ? transactionDTO.getUpiAmount() : BigDecimal.ZERO);
-                    transaction.setCardAmount(transactionDTO.getCardAmount() != null ? transactionDTO.getCardAmount() : BigDecimal.ZERO);
-                    transaction.setCashAmount(transactionDTO.getCashAmount() != null ? transactionDTO.getCashAmount() : BigDecimal.ZERO);
-                    transaction.setReceivedAmount(transactionDTO.getReceivedAmount() != null ? transactionDTO.getReceivedAmount() : BigDecimal.ZERO);
-                    transaction.setRefundAmount(transactionDTO.getRefundAmount() != null ? transactionDTO.getRefundAmount() : BigDecimal.ZERO);
-                    transaction.setDueAmount(transactionDTO.getDueAmount() != null ? transactionDTO.getDueAmount() : BigDecimal.ZERO);
-                    transaction.setPaymentDate(transactionDTO.getPaymentDate() != null ? transactionDTO.getPaymentDate() : LocalDate.now().toString());
-                    transaction.setRemarks(transactionDTO.getRemarks());
-                    transaction.setCreatedBy(currentUser);
+                // ✅ Payment transaction row
+                if (receivedAmount.compareTo(BigDecimal.ZERO) > 0) {
+                    TransactionEntity paymentTransaction = new TransactionEntity();
+                    paymentTransaction.setPaymentMethod(transactionDTO.getPaymentMethod() != null ? transactionDTO.getPaymentMethod() : "CASH");
+                    paymentTransaction.setUpiId(transactionDTO.getUpiId() != null ? transactionDTO.getUpiId() : "");
+                    paymentTransaction.setUpiAmount(transactionDTO.getUpiAmount() != null ? transactionDTO.getUpiAmount() : BigDecimal.ZERO);
+                    paymentTransaction.setCardAmount(transactionDTO.getCardAmount() != null ? transactionDTO.getCardAmount() : BigDecimal.ZERO);
+                    paymentTransaction.setCashAmount(transactionDTO.getCashAmount() != null ? transactionDTO.getCashAmount() : BigDecimal.ZERO);
+                    paymentTransaction.setReceivedAmount(receivedAmount);
+                    paymentTransaction.setRefundAmount(BigDecimal.ZERO); // no refund in this row
+                    paymentTransaction.setDueAmount(transactionDTO.getDueAmount() != null ? transactionDTO.getDueAmount() : BigDecimal.ZERO);
+                    paymentTransaction.setPaymentDate(transactionDTO.getPaymentDate() != null ? transactionDTO.getPaymentDate() : LocalDate.now().toString());
+                    paymentTransaction.setRemarks(transactionDTO.getRemarks() != null ? transactionDTO.getRemarks() : "");
+                    paymentTransaction.setCreatedBy(currentUser != null ? currentUser : "");
+                    paymentTransaction.setBilling(billing);
 
-                    // Set bidirectional relationship
-                    transaction.setBilling(billing);
-                    billing.getTransactions().add(transaction);
+                    billing.getTransactions().add(paymentTransaction);
+                }
+
+                // ✅ Refund transaction row (Overpayment refund)
+                if (refundAmount.compareTo(BigDecimal.ZERO) > 0) {
+                    TransactionEntity refundTransaction = new TransactionEntity();
+                    refundTransaction.setPaymentMethod("REFUND"); // always REFUND for overpayment
+                    refundTransaction.setUpiId(""); // blank
+                    refundTransaction.setUpiAmount(BigDecimal.ZERO);
+                    refundTransaction.setCardAmount(BigDecimal.ZERO);
+                    refundTransaction.setCashAmount(BigDecimal.ZERO);
+                    refundTransaction.setReceivedAmount(BigDecimal.ZERO);
+                    refundTransaction.setRefundAmount(refundAmount);
+                    refundTransaction.setDueAmount(transactionDTO.getDueAmount() != null ? transactionDTO.getDueAmount() : BigDecimal.ZERO);
+                    refundTransaction.setPaymentDate(transactionDTO.getPaymentDate() != null ? transactionDTO.getPaymentDate() : LocalDate.now().toString());
+                    refundTransaction.setRemarks("Refund for overpayment"); // fixed remark
+                    refundTransaction.setCreatedBy(currentUser != null ? currentUser : "");
+                    refundTransaction.setBilling(billing);
+
+                    billing.getTransactions().add(refundTransaction);
                 }
             }
         }
-        // Add lab association (avoid duplicates)
+
+
+
         billing.getLabs().add(lab);
 
         return billing;
     }
-
-
 
 
     public Optional<BillingEntity> getBillingById(Long billingId) {
