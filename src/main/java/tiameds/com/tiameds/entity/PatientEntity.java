@@ -96,7 +96,6 @@ public class PatientEntity {
     @Column(name = "patient_code", unique = true)
     private String patientCode;
 
-
     // One patient can have multiple labs and one lab can have multiple patients
     @ManyToMany(fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinTable(
