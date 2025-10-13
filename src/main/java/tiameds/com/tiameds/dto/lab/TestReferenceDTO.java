@@ -24,4 +24,8 @@ public class TestReferenceDTO {
     private String updatedBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    
+    // JSON fields
+    private String reportJson;
+    private String referenceRanges;
 }

@@ -1,6 +1,5 @@
 package tiameds.com.tiameds.dto.lab;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import jakarta.persistence.Column;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -57,4 +56,11 @@ public class ReportDto {
 
     @JsonProperty("comments")
     private String comments;
+
+    // JSON fields
+    @JsonProperty("reportJson")
+    private String reportJson;
+
+    @JsonProperty("referenceRanges")
+    private String referenceRanges;
 }

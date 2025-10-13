@@ -1,0 +1,82 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+
+jobs:
+  build-and-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      SONAR_PROJECT_KEY: ${{ secrets.SONAR_PROJECT_KEY }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SPOTBUGS_ENABLED: ${{ secrets.SPOTBUGS_ENABLED }}
+      SPOTBUGS_REPORT_PATH: ${{ secrets.SPOTBUGS_REPORT_PATH }}
+      OWASP_DC_ENABLED: ${{ secrets.OWASP_DC_ENABLED }}
+      OWASP_DC_SUPPRESSION_FILE: ${{ secrets.OWASP_DC_SUPPRESSION_FILE }}
+      OWASP_DC_REPORT_PATH: ${{ secrets.OWASP_DC_REPORT_PATH }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Cache Maven
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Build (fail if tests fail)
+        run: mvn -B -DskipTests=false clean verify
+
+      # SonarQube SAST
+      - name: Sonar Scan
+        if: ${{ env.SONAR_HOST_URL != '' && env.SONAR_PROJECT_KEY != '' && env.SONAR_TOKEN != '' }}
+        env:
+          SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
+        run: |
+          mvn -B sonar:sonar \
+            -Dsonar.host.url=${SONAR_HOST_URL} \
+            -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+            -Dsonar.login=${SONAR_TOKEN}
+
+      # SpotBugs + FindSecBugs
+      - name: SpotBugs Scan
+        if: ${{ env.SPOTBUGS_ENABLED == 'true' }}
+        run: |
+          mvn -B com.github.spotbugs:spotbugs-maven-plugin:4.8.6.4:spotbugs
+          echo "SpotBugs report at ${SPOTBUGS_REPORT_PATH}"
+
+      # OWASP Dependency-Check (SCA)
+      - name: Dependency Check
+        if: ${{ env.OWASP_DC_ENABLED == 'true' }}
+        run: |
+          mvn -B org.owasp:dependency-check-maven:10.0.3:check \
+            -Dformat=HTML \
+            -DfailOnError=true \
+            -DsuppressionFile="${OWASP_DC_SUPPRESSION_FILE}"
+          echo "Dependency-Check report at ${OWASP_DC_REPORT_PATH}"
+
+      - name: Upload reports (artifacts)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports
+          path: |
+            **/target/site/spotbugs/*.xml
+            ${OWASP_DC_REPORT_PATH}
+          if-no-files-found: ignore

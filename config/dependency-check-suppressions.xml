@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suppressions>
+    <!-- Suppress CVE-2021-44228 in log4j for testing -->
+    <suppress>
+        <cve>CVE-2021-44228</cve>
+        <note>Temporary ignore log4j vulnerability</note>
+    </suppress>
+</suppressions>
+

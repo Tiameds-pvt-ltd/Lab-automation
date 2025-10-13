@@ -210,7 +210,7 @@ public class LabController {
                 testServices.uploadCSV(priceListFile, savedLab);
             }
 
-            ClassPathResource referencePointResource = new ClassPathResource("Lab_Modified.xlsx-Sheet1.csv");
+            ClassPathResource referencePointResource = new ClassPathResource("sample_test_references_with_reference_ranges.csv");
             try (BufferedReader referencePointReader = new BufferedReader(new InputStreamReader(referencePointResource.getInputStream()))) {
                 // Convert BufferedReader content to MultipartFile for the service
                 StringBuilder contentBuilder = new StringBuilder();
@@ -220,8 +220,8 @@ public class LabController {
                 }
                 byte[] contentBytes = contentBuilder.toString().getBytes();
                 MultipartFile referencePointFile = new CustomMockMultipartFile(
-                        "Lab_Modified.xlsx-Sheet1.csv",
-                        "Lab_Modified.xlsx-Sheet1.csv",
+                        "sample_test_references_with_reference_ranges.csv",
+                        "sample_test_references_with_reference_ranges.csv",
                         "text/csv",
                         contentBytes
                 );

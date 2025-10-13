@@ -166,6 +166,37 @@ public class AdminTestReferanceandTestServices {
         entity.setMinAgeUnit(parseAgeUnitWithDefault(record, "Min Age Unit")); // Default: YEARS
         entity.setMaxAgeUnit(parseAgeUnitWithDefault(record, "Max Age Unit")); // Default: YEARS
 
+        // Handle Remarks, ReportJson, and ReferenceRanges
+        entity.setRemarks(getStringOrBlank(record, "Remarks"));
+        
+        // Process ReportJson
+        String reportJson = getStringOrBlank(record, "ReportJson");
+        if (!reportJson.isEmpty()) {
+            // Validate JSON format
+            if (isValidJson(reportJson)) {
+                entity.setReportJson(reportJson.trim());
+            } else {
+                LOGGER.warn("Invalid JSON in ReportJson column (record {}): {}", record.getRecordNumber(), reportJson);
+                entity.setReportJson(null);
+            }
+        } else {
+            entity.setReportJson(null);
+        }
+        
+        // Process ReferenceRanges
+        String referenceRanges = getStringOrBlank(record, "ReferenceRanges");
+        if (!referenceRanges.isEmpty()) {
+            // Validate JSON array format
+            if (isValidJsonArray(referenceRanges)) {
+                entity.setReferenceRanges(referenceRanges.trim());
+            } else {
+                LOGGER.warn("Invalid JSON array in ReferenceRanges column (record {}): {}", record.getRecordNumber(), referenceRanges);
+                entity.setReferenceRanges(null);
+            }
+        } else {
+            entity.setReferenceRanges(null);
+        }
+
         // Audit fields
         entity.setCreatedBy(currentUser.getUsername());
         entity.setUpdatedBy(currentUser.getUsername());
@@ -238,8 +269,12 @@ public class AdminTestReferanceandTestServices {
                     entity.setGender(Gender.MF);
                     break;
                 default:
-                    LOGGER.warn("Unknown gender '{}' (record {}). Skipping.", genderStr, record.getRecordNumber());
+                    LOGGER.warn("Unknown gender '{}' (record {}). Defaulting to MF.", genderStr, record.getRecordNumber());
+                    entity.setGender(Gender.MF);
             }
+        } else {
+            // Default to MF when gender is empty
+            entity.setGender(Gender.MF);
         }
     }
 
@@ -267,7 +302,7 @@ public class AdminTestReferanceandTestServices {
         List<SuperAdminReferanceEntity> testReferences = superAdminReferanceRepository.findAll();
         // Generate CSV content
         StringBuilder csvContent = new StringBuilder();
-        csvContent.append("Category,Test Name,Test Description,Units,Gender,Min,Max,Age Min,Min Age Unit,Age Max,Max Age Unit\n");
+        csvContent.append("Category,Test Name,Test Description,Units,Gender,Min Reference Range,Max Reference Range,Age Min,Min Age Unit,Age Max,Max Age Unit,Remarks,ReportJson,ReferenceRanges\n");
         for (SuperAdminReferanceEntity testReference : testReferences) {
             csvContent.append("\"").append(escapeCsv(testReference.getCategory())).append("\",");
             csvContent.append("\"").append(escapeCsv(testReference.getTestName())).append("\",");
@@ -280,7 +315,10 @@ public class AdminTestReferanceandTestServices {
             csvContent.append(testReference.getAgeMin() != null ? testReference.getAgeMin() : "").append(",");
             csvContent.append("\"").append(escapeCsv(String.valueOf(testReference.getMinAgeUnit()))).append("\",");
             csvContent.append(testReference.getAgeMax() != null ? testReference.getAgeMax() : "").append(",");
-            csvContent.append("\"").append(escapeCsv(String.valueOf(testReference.getMaxAgeUnit()))).append("\"\n");
+            csvContent.append("\"").append(escapeCsv(String.valueOf(testReference.getMaxAgeUnit()))).append("\",");
+            csvContent.append("\"").append(escapeCsv(testReference.getRemarks())).append("\",");
+            csvContent.append("\"").append(escapeCsv(testReference.getReportJson())).append("\",");
+            csvContent.append("\"").append(escapeCsv(testReference.getReferenceRanges())).append("\"\n");
         }
 
         // Set the response headers for file download
@@ -351,5 +389,215 @@ public class AdminTestReferanceandTestServices {
                 .sorted(Comparator.comparing(TestReferenceDTO::getCategory).thenComparing(TestReferenceDTO::getTestName))
                 .collect(Collectors.toList());
         return ApiResponseHelper.successResponse("Test references retrieved successfully", testReferenceDTOs);
+    }
+
+    // ------------------ JSON Validation Helper ------------------
+    
+    private boolean isValidJson(String jsonString) {
+        if (jsonString == null || jsonString.trim().isEmpty()) {
+            return false;
+        }
+        try {
+            // Simple JSON validation - check if it starts with { and ends with }
+            String trimmed = jsonString.trim();
+            if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+                // Additional validation could be added here using Jackson ObjectMapper
+                // For now, basic structure validation is sufficient
+                return true;
+            }
+            return false;
+        } catch (Exception e) {
+            LOGGER.warn("JSON validation error: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    private boolean isValidJsonArray(String jsonString) {
+        if (jsonString == null || jsonString.trim().isEmpty()) {
+            return false;
+        }
+        try {
+            // Simple JSON array validation - check if it starts with [ and ends with ]
+            String trimmed = jsonString.trim();
+            if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+                // Additional validation could be added here using Jackson ObjectMapper
+                // For now, basic structure validation is sufficient
+                return true;
+            }
+            return false;
+        } catch (Exception e) {
+            LOGGER.warn("JSON array validation error: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    // ------------------ JSON-Specific Operations ------------------
+
+    @Transactional
+    public ResponseEntity<?> createTestReferenceWithJson(SuperAdminReferanceEntity testReference, User currentUser) {
+        try {
+            // Validate JSON if provided
+            if (testReference.getReportJson() != null && !testReference.getReportJson().trim().isEmpty()) {
+                if (!isValidJson(testReference.getReportJson())) {
+                    return ApiResponseHelper.errorResponse("Invalid JSON format in ReportJson field", HttpStatus.BAD_REQUEST);
+                }
+            }
+
+            // Set audit fields
+            testReference.setCreatedBy(currentUser.getUsername());
+            testReference.setUpdatedBy(currentUser.getUsername());
+            testReference.setCreatedAt(LocalDateTime.now());
+            testReference.setUpdatedAt(LocalDateTime.now());
+
+            // Save the entity
+            superAdminReferanceRepository.save(testReference);
+            return ApiResponseHelper.successResponseWithData("Test reference created successfully with JSON data");
+        } catch (Exception e) {
+            LOGGER.error("Error creating test reference with JSON: {}", e.getMessage(), e);
+            return ApiResponseHelper.errorResponse("Error creating test reference: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @Transactional
+    public ResponseEntity<?> updateTestReferenceJson(Long id, String reportJson, User currentUser) {
+        try {
+            SuperAdminReferanceEntity entity = superAdminReferanceRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Test reference not found with ID: " + id));
+
+            // Validate JSON if provided
+            if (reportJson != null && !reportJson.trim().isEmpty()) {
+                if (!isValidJson(reportJson)) {
+                    return ApiResponseHelper.errorResponse("Invalid JSON format", HttpStatus.BAD_REQUEST);
+                }
+                entity.setReportJson(reportJson);
+            } else {
+                entity.setReportJson(null);
+            }
+
+            // Update audit fields
+            entity.setUpdatedBy(currentUser.getUsername());
+            entity.setUpdatedAt(LocalDateTime.now());
+
+            superAdminReferanceRepository.save(entity);
+            return ApiResponseHelper.successResponseWithData("Test reference JSON updated successfully");
+        } catch (Exception e) {
+            LOGGER.error("Error updating test reference JSON: {}", e.getMessage(), e);
+            return ApiResponseHelper.errorResponse("Error updating test reference JSON: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public ResponseEntity<?> searchTestReferencesByJson(String jsonKey, String jsonValue) {
+        try {
+            List<SuperAdminReferanceEntity> allReferences = superAdminReferanceRepository.findAll();
+            List<SuperAdminReferanceEntity> filteredReferences = new ArrayList<>();
+
+            for (SuperAdminReferanceEntity reference : allReferences) {
+                if (reference.getReportJson() != null && !reference.getReportJson().trim().isEmpty()) {
+                    // Simple search - check if the JSON contains the key-value pair
+                    String json = reference.getReportJson().toLowerCase();
+                    if (jsonKey != null && jsonValue != null) {
+                        if (json.contains(jsonKey.toLowerCase()) && json.contains(jsonValue.toLowerCase())) {
+                            filteredReferences.add(reference);
+                        }
+                    } else if (jsonKey != null) {
+                        if (json.contains(jsonKey.toLowerCase())) {
+                            filteredReferences.add(reference);
+                        }
+                    } else if (jsonValue != null) {
+                        if (json.contains(jsonValue.toLowerCase())) {
+                            filteredReferences.add(reference);
+                        }
+                    }
+                }
+            }
+
+            return ApiResponseHelper.successResponse("Test references found", filteredReferences);
+        } catch (Exception e) {
+            LOGGER.error("Error searching test references by JSON: {}", e.getMessage(), e);
+            return ApiResponseHelper.errorResponse("Error searching test references: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public ResponseEntity<?> getTestReferenceById(Long id) {
+        try {
+            SuperAdminReferanceEntity reference = superAdminReferanceRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Test reference not found with ID: " + id));
+            return ApiResponseHelper.successResponse("Test reference retrieved successfully", reference);
+        } catch (Exception e) {
+            LOGGER.error("Error retrieving test reference by ID: {}", e.getMessage(), e);
+            return ApiResponseHelper.errorResponse("Error retrieving test reference: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @Transactional
+    public ResponseEntity<?> updateTestReferenceRanges(Long id, String referenceRanges, User currentUser) {
+        try {
+            SuperAdminReferanceEntity entity = superAdminReferanceRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Test reference not found with ID: " + id));
+
+            // Validate JSON array if provided
+            if (referenceRanges != null && !referenceRanges.trim().isEmpty()) {
+                if (!isValidJsonArray(referenceRanges)) {
+                    return ApiResponseHelper.errorResponse("Invalid JSON array format", HttpStatus.BAD_REQUEST);
+                }
+                entity.setReferenceRanges(referenceRanges.trim());
+            } else {
+                entity.setReferenceRanges(null);
+            }
+
+            // Update audit fields
+            entity.setUpdatedBy(currentUser.getUsername());
+            entity.setUpdatedAt(LocalDateTime.now());
+
+            superAdminReferanceRepository.save(entity);
+            return ApiResponseHelper.successResponseWithData("Test reference ranges updated successfully");
+        } catch (Exception e) {
+            LOGGER.error("Error updating test reference ranges: {}", e.getMessage(), e);
+            return ApiResponseHelper.errorResponse("Error updating test reference ranges: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public ResponseEntity<?> searchTestReferencesByReferenceRanges(String gender, String ageMin, String ageMax) {
+        try {
+            List<SuperAdminReferanceEntity> allReferences = superAdminReferanceRepository.findAll();
+            List<SuperAdminReferanceEntity> filteredReferences = new ArrayList<>();
+
+            for (SuperAdminReferanceEntity reference : allReferences) {
+                if (reference.getReferenceRanges() != null && !reference.getReferenceRanges().trim().isEmpty()) {
+                    String referenceRanges = reference.getReferenceRanges().toLowerCase();
+                    boolean matches = true;
+
+                    // Search by gender
+                    if (gender != null && !gender.trim().isEmpty()) {
+                        if (!referenceRanges.contains(gender.toLowerCase())) {
+                            matches = false;
+                        }
+                    }
+
+                    // Search by age minimum
+                    if (ageMin != null && !ageMin.trim().isEmpty() && matches) {
+                        if (!referenceRanges.contains(ageMin.toLowerCase())) {
+                            matches = false;
+                        }
+                    }
+
+                    // Search by age maximum
+                    if (ageMax != null && !ageMax.trim().isEmpty() && matches) {
+                        if (!referenceRanges.contains(ageMax.toLowerCase())) {
+                            matches = false;
+                        }
+                    }
+
+                    if (matches) {
+                        filteredReferences.add(reference);
+                    }
+                }
+            }
+
+            return ApiResponseHelper.successResponse("Test references found by reference ranges", filteredReferences);
+        } catch (Exception e) {
+            LOGGER.error("Error searching test references by reference ranges: {}", e.getMessage(), e);
+            return ApiResponseHelper.errorResponse("Error searching test references: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 }

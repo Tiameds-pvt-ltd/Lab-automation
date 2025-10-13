@@ -4,7 +4,9 @@ package tiameds.com.tiameds.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.type.SqlTypes;
 import tiameds.com.tiameds.repository.GenderConverter;
 
 import java.time.LocalDateTime;
@@ -58,6 +60,17 @@ public class SuperAdminReferanceEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = true)
     private AgeUnit maxAgeUnit;
+
+    @Column(nullable = true)
+    private String remarks;
+
+    @Column(columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private String reportJson;
+
+    @Column(columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private String referenceRanges;
 
     @Column(nullable = true)
     private String createdBy;

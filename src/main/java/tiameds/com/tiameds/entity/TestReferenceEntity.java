@@ -5,7 +5,9 @@ import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.type.SqlTypes;
 import tiameds.com.tiameds.repository.GenderConverter;
 
 import java.time.LocalDateTime;
@@ -76,6 +78,15 @@ public class TestReferenceEntity {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    //---------- new feild for json ------------------------
+    @Column(columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private String reportJson;
+
+    @Column(columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private String referenceRanges;
 
     @ManyToMany(mappedBy = "testReferences", fetch = FetchType.EAGER, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JsonBackReference

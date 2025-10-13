@@ -146,6 +146,57 @@
                     <target>17</target>
                 </configuration>
             </plugin>
+            <!-- security-->
+            <plugin>
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-maven-plugin</artifactId>
+                <version>4.8.6.4</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.h3xstream.findsecbugs</groupId>
+                        <artifactId>findsecbugs-plugin</artifactId>
+                        <version>1.13.0</version>
+                    </dependency>
+                </dependencies>
+                <configuration>
+                    <xmlOutput>true</xmlOutput>
+                    <effort>max</effort>
+                    <threshold>Low</threshold>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>spotbugs</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <inherited>false</inherited>
+            </plugin>
+
+            <!-- OWASP Dependency Check -->
+            <plugin>
+                <groupId>org.owasp</groupId>
+                <artifactId>dependency-check-maven</artifactId>
+                <version>10.0.3</version>
+                <configuration>
+                    <format>HTML</format>
+                    <failOnError>true</failOnError>
+                     <suppressionFiles>
+                        <suppressionFile>${env.OWASP_DC_SUPPRESSION_FILE}</suppressionFile>
+                    </suppressionFiles>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <inherited>false</inherited>
+            </plugin>
         </plugins>
+
+        <!-- //security -->
+        
     </build>
 </project>

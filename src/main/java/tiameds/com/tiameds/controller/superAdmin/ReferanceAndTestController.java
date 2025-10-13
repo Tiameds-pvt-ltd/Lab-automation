@@ -140,4 +140,108 @@ public class ReferanceAndTestController {
             return ApiResponseHelper.errorResponse("An unexpected error occurred: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+    // Create test reference with JSON data
+    @PostMapping("/test-referance/create")
+    public ResponseEntity<?> createTestReferenceWithJson(
+            @RequestBody SuperAdminReferanceEntity testReference,
+            @RequestHeader("Authorization") String token) {
+        try {
+            Optional<User> userOptional = userAuthService.authenticateUser(token);
+            if (userOptional.isEmpty()) {
+                return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
+            }
+            User currentUser = userOptional.get();
+            return adminTestReferanceandTestServices.createTestReferenceWithJson(testReference, currentUser);
+        } catch (Exception e) {
+            return ApiResponseHelper.errorResponse("Error creating test reference: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    // Update test reference JSON data
+    @PutMapping("/test-referance/{id}/json")
+    public ResponseEntity<?> updateTestReferenceJson(
+            @PathVariable Long id,
+            @RequestBody String reportJson,
+            @RequestHeader("Authorization") String token) {
+        try {
+            Optional<User> userOptional = userAuthService.authenticateUser(token);
+            if (userOptional.isEmpty()) {
+                return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
+            }
+            User currentUser = userOptional.get();
+            return adminTestReferanceandTestServices.updateTestReferenceJson(id, reportJson, currentUser);
+        } catch (Exception e) {
+            return ApiResponseHelper.errorResponse("Error updating test reference JSON: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    // Get test references by JSON content (search)
+    @GetMapping("/test-referance/search-by-json")
+    public ResponseEntity<?> searchTestReferencesByJson(
+            @RequestParam(required = false) String jsonKey,
+            @RequestParam(required = false) String jsonValue,
+            @RequestHeader("Authorization") String token) {
+        try {
+            Optional<User> userOptional = userAuthService.authenticateUser(token);
+            if (userOptional.isEmpty()) {
+                return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
+            }
+            return adminTestReferanceandTestServices.searchTestReferencesByJson(jsonKey, jsonValue);
+        } catch (Exception e) {
+            return ApiResponseHelper.errorResponse("Error searching test references: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    // Get test reference by ID with JSON data
+    @GetMapping("/test-referance/{id}")
+    public ResponseEntity<?> getTestReferenceById(
+            @PathVariable Long id,
+            @RequestHeader("Authorization") String token) {
+        try {
+            Optional<User> userOptional = userAuthService.authenticateUser(token);
+            if (userOptional.isEmpty()) {
+                return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
+            }
+            return adminTestReferanceandTestServices.getTestReferenceById(id);
+        } catch (Exception e) {
+            return ApiResponseHelper.errorResponse("Error retrieving test reference: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    // Update test reference reference ranges JSON data
+    @PutMapping("/test-referance/{id}/reference-ranges")
+    public ResponseEntity<?> updateTestReferenceRanges(
+            @PathVariable Long id,
+            @RequestBody String referenceRanges,
+            @RequestHeader("Authorization") String token) {
+        try {
+            Optional<User> userOptional = userAuthService.authenticateUser(token);
+            if (userOptional.isEmpty()) {
+                return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
+            }
+            User currentUser = userOptional.get();
+            return adminTestReferanceandTestServices.updateTestReferenceRanges(id, referenceRanges, currentUser);
+        } catch (Exception e) {
+            return ApiResponseHelper.errorResponse("Error updating test reference ranges: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    // Search test references by reference ranges content
+    @GetMapping("/test-referance/search-by-reference-ranges")
+    public ResponseEntity<?> searchTestReferencesByReferenceRanges(
+            @RequestParam(required = false) String gender,
+            @RequestParam(required = false) String ageMin,
+            @RequestParam(required = false) String ageMax,
+            @RequestHeader("Authorization") String token) {
+        try {
+            Optional<User> userOptional = userAuthService.authenticateUser(token);
+            if (userOptional.isEmpty()) {
+                return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
+            }
+            return adminTestReferanceandTestServices.searchTestReferencesByReferenceRanges(gender, ageMin, ageMax);
+        } catch (Exception e) {
+            return ApiResponseHelper.errorResponse("Error searching test references by reference ranges: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
 }

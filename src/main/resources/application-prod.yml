@@ -68,3 +68,16 @@ springdoc:
     path: /v3/api-docs
   swagger-ui:
     path: /doc  # Consider restricting Swagger UI in production
+
+security-scanning:
+  sonarqube:
+    host-url: ${SONAR_HOST_URL}
+    project-key: ${SONAR_PROJECT_KEY}
+    token: ${SONAR_TOKEN}
+  spotbugs:
+    enabled: ${SPOTBUGS_ENABLED:false}
+    report-path: ${SPOTBUGS_REPORT_PATH:build/reports/spotbugs/spotbugs.xml}
+  dependency-check:
+    enabled: ${OWASP_DC_ENABLED:false}
+    suppression-file: ${OWASP_DC_SUPPRESSION_FILE:./config/dependency-check-suppressions.xml}
+    report-path: ${OWASP_DC_REPORT_PATH:./reports/dependency-check-report.html}

@@ -58,6 +58,11 @@ public class TestReferenceServices {
                     dto.setUpdatedBy(TestReferenceEntity.getUpdatedBy());
                     dto.setCreatedAt(TestReferenceEntity.getCreatedAt());
                     dto.setUpdatedAt(TestReferenceEntity.getUpdatedAt());
+                    
+                    // Add JSON fields
+                    dto.setReportJson(TestReferenceEntity.getReportJson());
+                    dto.setReferenceRanges(TestReferenceEntity.getReferenceRanges());
+                    
                     return dto;
                 }).toList();
         return testReferenceDTOS;
@@ -80,6 +85,11 @@ public class TestReferenceServices {
         testReferenceEntity.setMinAgeUnit(AgeUnit.valueOf(testReferenceDTO.getMinAgeUnit()));
         testReferenceEntity.setAgeMax(testReferenceDTO.getAgeMax());
         testReferenceEntity.setMaxAgeUnit(AgeUnit.valueOf(testReferenceDTO.getMaxAgeUnit()));
+        
+        // Add JSON fields
+        testReferenceEntity.setReportJson(testReferenceDTO.getReportJson());
+        testReferenceEntity.setReferenceRanges(testReferenceDTO.getReferenceRanges());
+        
         testReferenceEntity.setUpdatedBy(currentUser.getUsername());
         testReferenceRepository.save(testReferenceEntity);
         TestReferenceDTO dto = new TestReferenceDTO();
@@ -97,6 +107,11 @@ public class TestReferenceServices {
         dto.setUpdatedBy(testReferenceEntity.getUpdatedBy());
         dto.setCreatedAt(testReferenceEntity.getCreatedAt());
         dto.setUpdatedAt(testReferenceEntity.getUpdatedAt());
+        
+        // Add JSON fields to response DTO
+        dto.setReportJson(testReferenceEntity.getReportJson());
+        dto.setReferenceRanges(testReferenceEntity.getReferenceRanges());
+        
         return dto;
     }
 
@@ -123,6 +138,11 @@ public class TestReferenceServices {
         entity.setMinAgeUnit(AgeUnit.valueOf(testReferenceDTO.getMinAgeUnit()));
         entity.setAgeMax(testReferenceDTO.getAgeMax());
         entity.setMaxAgeUnit(AgeUnit.valueOf(testReferenceDTO.getMaxAgeUnit()));
+        
+        // Add JSON fields
+        entity.setReportJson(testReferenceDTO.getReportJson());
+        entity.setReferenceRanges(testReferenceDTO.getReferenceRanges());
+        
         entity.setCreatedBy(currentUser.getUsername());
         entity.setUpdatedBy(currentUser.getUsername());
 
@@ -144,6 +164,11 @@ public class TestReferenceServices {
         dto.setUpdatedBy(entity.getUpdatedBy());
         dto.setCreatedAt(entity.getCreatedAt());
         dto.setUpdatedAt(entity.getUpdatedAt());
+        
+        // Add JSON fields to response DTO
+        dto.setReportJson(entity.getReportJson());
+        dto.setReferenceRanges(entity.getReferenceRanges());
+        
         return dto;
     }
 
@@ -153,7 +178,7 @@ public class TestReferenceServices {
 
         // Generate CSV content
         StringBuilder csvContent = new StringBuilder();
-        csvContent.append("Category,Test Name,Test Description,Units,Gender,Min Reference Range,Max Reference Range,Min,Min Age Unit,Age Max,Max Age Unit,Created By,Updated By,Created At,Updated At\n");
+        csvContent.append("Category,Test Name,Test Description,Units,Gender,Min Reference Range,Max Reference Range,Age Min,Min Age Unit,Age Max,Max Age Unit,Remarks,ReportJson,ReferenceRanges,Created By,Updated By,Created At,Updated At\n");
 
         for (TestReferenceEntity entity : testReferenceEntities) {
             csvContent.append("\"").append(escapeCSV(entity.getCategory())).append("\",");
@@ -167,6 +192,9 @@ public class TestReferenceServices {
             csvContent.append("\"").append(entity.getMinAgeUnit() != null ? entity.getMinAgeUnit().toString() : "").append("\",");
             csvContent.append("\"").append(entity.getAgeMax() != null ? entity.getAgeMax().toString() : "").append("\",");
             csvContent.append("\"").append(entity.getMaxAgeUnit() != null ? entity.getMaxAgeUnit().toString() : "").append("\",");
+            csvContent.append("\"").append("").append("\","); // Remarks column (empty for now)
+            csvContent.append("\"").append(escapeCSV(entity.getReportJson() != null ? entity.getReportJson() : "")).append("\",");
+            csvContent.append("\"").append(escapeCSV(entity.getReferenceRanges() != null ? entity.getReferenceRanges() : "")).append("\",");
             csvContent.append("\"").append(escapeCSV(entity.getCreatedBy())).append("\",");
             csvContent.append("\"").append(escapeCSV(entity.getUpdatedBy())).append("\",");
             csvContent.append("\"").append(entity.getCreatedAt() != null ? entity.getCreatedAt().toString() : "").append("\",");
@@ -214,6 +242,11 @@ public class TestReferenceServices {
                     dto.setUpdatedBy(TestReferenceEntity.getUpdatedBy());
                     dto.setCreatedAt(TestReferenceEntity.getCreatedAt());
                     dto.setUpdatedAt(TestReferenceEntity.getUpdatedAt());
+                    
+                    // Add JSON fields
+                    dto.setReportJson(TestReferenceEntity.getReportJson());
+                    dto.setReferenceRanges(TestReferenceEntity.getReferenceRanges());
+                    
                     return dto;
                 }).toList();
         return testReferenceDTOS;
@@ -450,6 +483,35 @@ public List<TestReferenceEntity> uploadCsv(Lab lab, MultipartFile file, User cur
         entity.setMinAgeUnit(parseAgeUnitWithDefault(record, "Min Age Unit")); // Default: YEARS
         entity.setMaxAgeUnit(parseAgeUnitWithDefault(record, "Max Age Unit")); // Default: YEARS
 
+        // Handle JSON columns
+        // Process ReportJson
+        String reportJson = getStringOrBlank(record, "ReportJson");
+        if (!reportJson.isEmpty()) {
+            // Validate JSON format
+            if (isValidJson(reportJson)) {
+                entity.setReportJson(reportJson.trim());
+            } else {
+                LOGGER.warning("Invalid JSON in ReportJson column (record " + record.getRecordNumber() + "): " + reportJson);
+                entity.setReportJson(null);
+            }
+        } else {
+            entity.setReportJson(null);
+        }
+        
+        // Process ReferenceRanges
+        String referenceRanges = getStringOrBlank(record, "ReferenceRanges");
+        if (!referenceRanges.isEmpty()) {
+            // Validate JSON array format
+            if (isValidJsonArray(referenceRanges)) {
+                entity.setReferenceRanges(referenceRanges.trim());
+            } else {
+                LOGGER.warning("Invalid JSON array in ReferenceRanges column (record " + record.getRecordNumber() + "): " + referenceRanges);
+                entity.setReferenceRanges(null);
+            }
+        } else {
+            entity.setReferenceRanges(null);
+        }
+
         // Audit fields
         entity.setCreatedBy(currentUser.getUsername());
         entity.setUpdatedBy(currentUser.getUsername());
@@ -535,9 +597,44 @@ public List<TestReferenceEntity> uploadCsv(Lab lab, MultipartFile file, User cur
         }
     }
 
-
-
-
-
+    // ------------------ JSON Validation Helper Methods ------------------
+    
+    private boolean isValidJson(String jsonString) {
+        if (jsonString == null || jsonString.trim().isEmpty()) {
+            return false;
+        }
+        try {
+            // Simple JSON validation - check if it starts with { and ends with }
+            String trimmed = jsonString.trim();
+            if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+                // Additional validation could be added here using Jackson ObjectMapper
+                // For now, basic structure validation is sufficient
+                return true;
+            }
+            return false;
+        } catch (Exception e) {
+            LOGGER.warning("JSON validation error: " + e.getMessage());
+            return false;
+        }
+    }
+    
+    private boolean isValidJsonArray(String jsonString) {
+        if (jsonString == null || jsonString.trim().isEmpty()) {
+            return false;
+        }
+        try {
+            // Simple JSON array validation - check if it starts with [ and ends with ]
+            String trimmed = jsonString.trim();
+            if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+                // Additional validation could be added here using Jackson ObjectMapper
+                // For now, basic structure validation is sufficient
+                return true;
+            }
+            return false;
+        } catch (Exception e) {
+            LOGGER.warning("JSON array validation error: " + e.getMessage());
+            return false;
+        }
+    }
 
 }

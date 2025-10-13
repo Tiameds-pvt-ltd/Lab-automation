@@ -4,7 +4,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import software.amazon.awssdk.services.secretsmanager.model.ResourceNotFoundException;
 import tiameds.com.tiameds.dto.lab.ReportDto;
 import tiameds.com.tiameds.dto.lab.TestResultDto;
 import tiameds.com.tiameds.entity.ReportEntity;
@@ -109,6 +108,9 @@ public class ReportService {
             reportEntity.setReferenceAgeRange(reportDto.getReferenceAgeRange());
             reportEntity.setEnteredValue(reportDto.getEnteredValue());
             reportEntity.setUnit(reportDto.getUnit());
+            // JSON fields
+            reportEntity.setReportJson(reportDto.getReportJson());
+            reportEntity.setReferenceRanges(reportDto.getReferenceRanges());
             reportEntity.setCreatedBy(user.getId());
 
             updatedReports.add(reportEntity);
@@ -218,6 +220,9 @@ public class ReportService {
             reportEntity.setRemarks(reportDto.getRemarks());
             reportEntity.setComments(reportDto.getComments());
             reportEntity.setUnit(reportDto.getUnit());
+            // JSON fields
+            reportEntity.setReportJson(reportDto.getReportJson());
+            reportEntity.setReferenceRanges(reportDto.getReferenceRanges());
             reportEntity.setCreatedBy(user.getId());
 
             reportEntities.add(reportEntity);
