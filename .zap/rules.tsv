@@ -1,0 +1,9 @@
+# ZAP Rules Configuration
+# This file contains rules to suppress false positives in ZAP scans
+# Format: Rule ID	Rule Name	Risk Level	Confidence	URL Pattern	Parameter	Attack	Evidence	Other Info	CWE ID	WASC ID	Description
+
+# Example: Suppress false positive for XSS in specific endpoint
+# 10021	Cross Site Scripting (Reflected)	High	Medium	.*/api/public/.*	.*	.*	.*	.*	79	8	Public API endpoint with controlled input
+
+# Add your specific rules here
+# For more information, see: https://www.zaproxy.org/docs/desktop/addons/alert-filters/

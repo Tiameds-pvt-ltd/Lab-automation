@@ -177,12 +177,12 @@
             <plugin>
                 <groupId>org.owasp</groupId>
                 <artifactId>dependency-check-maven</artifactId>
-                <version>10.0.3</version>
+                <version>10.0.4</version>
                 <configuration>
                     <format>HTML</format>
                     <failOnError>true</failOnError>
                      <suppressionFiles>
-                        <suppressionFile>${env.OWASP_DC_SUPPRESSION_FILE}</suppressionFile>
+                        <suppressionFile>${project.basedir}/config/dependency-check-suppressions.xml</suppressionFile>
                     </suppressionFiles>
                 </configuration>
                 <executions>
@@ -193,6 +193,13 @@
                     </execution>
                 </executions>
                 <inherited>false</inherited>
+            </plugin>
+
+            <!-- SonarQube Scanner -->
+            <plugin>
+                <groupId>org.sonarsource.scanner.maven</groupId>
+                <artifactId>sonar-maven-plugin</artifactId>
+                <version>3.11.0.3922</version>
             </plugin>
         </plugins>
 

@@ -30,7 +30,83 @@ jobs:
       - name: Build with Maven
         run: mvn -DskipTests clean install
 
-      # Step 4: Configure AWS credentials
+      # Step 4: Security Scanning
+      - name: Run Security Scans
+        continue-on-error: true
+        run: |
+          echo "🔒 Starting security scanning..."
+          
+          echo "📦 Running OWASP Dependency-Check..."
+          mvn org.owasp:dependency-check-maven:check -Ddependency-check.nvd.api.skip=true || echo "⚠️ OWASP scan completed with issues"
+          
+          echo "🔍 Running SpotBugs security analysis..."
+          mvn spotbugs:check || echo "⚠️ SpotBugs scan completed with issues"
+          
+          echo "✅ Security scans completed!"
+
+      # Step 5: SonarQube Analysis (Optional)
+      - name: SonarQube Analysis
+        if: ${{ secrets.SONAR_HOST_URL != '' && secrets.SONAR_PROJECT_KEY != '' && secrets.SONAR_TOKEN != '' }}
+        continue-on-error: true
+        run: |
+          echo "🔍 Running SonarQube analysis..."
+          mvn sonar:sonar \
+            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
+            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }} \
+            -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
+            -Dsonar.qualitygate.wait=true || echo "⚠️ SonarQube analysis completed with issues"
+          echo "✅ SonarQube analysis completed!"
+
+      # Step 6: Start Application for ZAP Testing
+      - name: Start Application for ZAP
+        if: ${{ secrets.ZAP_ENABLED == 'true' }}
+        continue-on-error: true
+        run: |
+          echo "🚀 Starting application for ZAP testing..."
+          mvn spring-boot:run &
+          APP_PID=$!
+          echo "APP_PID=$APP_PID" >> $GITHUB_ENV
+          echo "⏳ Waiting for application to start..."
+          sleep 60
+          echo "✅ Application started!"
+
+      # Step 7: OWASP ZAP Baseline Scan (Optional)
+      - name: OWASP ZAP Baseline Scan
+        if: ${{ secrets.ZAP_ENABLED == 'true' }}
+        continue-on-error: true
+        uses: zaproxy/action-baseline@v0.7.0
+        with:
+          target: 'http://localhost:8080'
+          rules_file_name: '.zap/rules.tsv'
+          cmd_options: '-a'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Step 8: OWASP ZAP Full Scan (Optional)
+      - name: OWASP ZAP Full Scan
+        if: ${{ secrets.ZAP_ENABLED == 'true' }}
+        continue-on-error: true
+        uses: zaproxy/action-full-scan@v0.4.0
+        with:
+          target: 'http://localhost:8080'
+          rules_file_name: '.zap/rules.tsv'
+          cmd_options: '-a'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Step 9: Stop Application
+      - name: Stop Application
+        if: ${{ secrets.ZAP_ENABLED == 'true' }}
+        continue-on-error: true
+        run: |
+          echo "🛑 Stopping application..."
+          if [ ! -z "$APP_PID" ]; then
+            kill $APP_PID || echo "Application already stopped"
+          fi
+          pkill -f spring-boot:run || echo "Application already stopped"
+          echo "✅ Application stopped!"
+
+      # Step 10: Configure AWS credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v3
         with:
@@ -38,12 +114,12 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      # Step 5: Log in to Amazon ECR
+      # Step 11: Log in to Amazon ECR
       - name: Log in to Amazon ECR
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
 
-      # Step 6: Build, Tag, and Push Docker Image to Amazon ECR
+      # Step 12: Build, Tag, and Push Docker Image to Amazon ECR
       - name: Build, Tag, and Push Docker Image to Amazon ECR
         env:
           ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
@@ -54,7 +130,7 @@ jobs:
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-      # Step 7: Update ECS Task Definition
+      # Step 13: Update ECS Task Definition
       - name: Update ECS Task Definition
         id: update-task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
@@ -63,7 +139,7 @@ jobs:
           container-name: tiamed-lab-test
           image: ${{ steps.ecr-login.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}
 
-      # Step 8: Deploy to ECS
+      # Step 14: Deploy to ECS
       - name: Deploy to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
@@ -72,7 +148,7 @@ jobs:
           cluster: ${{ secrets.ECS_CLUSTER }}
           wait-for-service-stability: true
       #
-      # Step 9: Post-deployment Health Check
+      # Step 15: Post-deployment Health Check
 #      - name: Health Check
 #        env:
 #          SERVICE_URL: ${{ secrets.SERVICE_URL }}
