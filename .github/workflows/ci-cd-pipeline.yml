@@ -26,9 +26,9 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-#      # Step 3: Build and Test with Maven
-#      - name: Build with Maven
-#        run: mvn -DskipTests clean package
+      # Step 3: Build and Test with Maven
+      - name: Build with Maven
+        run: mvn -DskipTests clean package
 
       # Step 4: Security Scanning
       - name: Run Security Scans
