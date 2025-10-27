@@ -43,6 +43,7 @@ jobs:
           mvn spotbugs:check || echo "⚠️ SpotBugs scan completed with issues"
           
           echo "✅ Security scans completed!"
+          
 
       # Step 5: SonarQube Analysis (Optional)
       - name: SonarQube Analysis
