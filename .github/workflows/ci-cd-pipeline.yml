@@ -26,9 +26,9 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      # Step 3: Build and Test with Maven
-      - name: Build with Maven
-        run: mvn -Dmaven.test.skip=true clean package
+#      # Step 3: Build and Test with Maven
+#      - name: Build with Maven
+#        run: mvn -DskipTests clean package
 
       # Step 4: Security Scanning
       - name: Run Security Scans
@@ -37,10 +37,10 @@ jobs:
           echo "🔒 Starting security scanning..."
           
           echo "📦 Running OWASP Dependency-Check..."
-          mvn org.owasp:dependency-check-maven:check -Dmaven.test.skip=true -Ddependency-check.nvd.api.skip=true || echo "⚠️ OWASP scan completed with issues"
+          mvn org.owasp:dependency-check-maven:check -Ddependency-check.nvd.api.skip=true || echo "⚠️ OWASP scan completed with issues"
           
           echo "🔍 Running SpotBugs security analysis..."
-          mvn spotbugs:check -Dmaven.test.skip=true || echo "⚠️ SpotBugs scan completed with issues"
+          mvn spotbugs:check || echo "⚠️ SpotBugs scan completed with issues"
           
           echo "✅ Security scans completed!"
 
@@ -51,7 +51,6 @@ jobs:
         run: |
           echo "🔍 Running SonarQube analysis..."
           mvn sonar:sonar \
-            -Dmaven.test.skip=true \
             -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
             -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }} \
             -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
