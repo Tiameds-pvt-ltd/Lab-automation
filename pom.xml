@@ -170,8 +170,6 @@
                         </goals>
                     </execution>
                 </executions>
-                <inherited>false</inherited>
-            </plugin>
 
             <!-- OWASP Dependency Check -->
             <plugin>
