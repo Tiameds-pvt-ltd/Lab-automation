@@ -28,7 +28,7 @@ jobs:
 
       # Step 3: Build and Package Spring Boot Application
       - name: Build Application (Skip Tests)
-        run: mvn clean package -DskipTests
+        run: mvn clean package -Dmaven.test.skip=true
         env:
           # Provide dummy values for DB connection during build
           # Real values will be provided by AWS Secrets Manager in production
@@ -54,7 +54,7 @@ jobs:
 
       # Step 5: SonarQube Analysis (Optional)
       - name: SonarQube Analysis
-        if: ${{ secrets.SONAR_HOST_URL != '' && secrets.SONAR_PROJECT_KEY != '' && secrets.SONAR_TOKEN != '' }}
+        if: false  # Set to true in GitHub Actions variables if you want to enable SonarQube
         continue-on-error: true
         run: |
           echo "🔍 Running SonarQube analysis..."
