@@ -26,9 +26,17 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      # Step 3: Build and Test with Maven
-      - name: Build with Maven
-        run: mvn -DskipTests clean package
+      # Step 3: Build and Package Spring Boot Application
+      - name: Build Application (Skip Tests)
+        run: mvn clean package -DskipTests
+        env:
+          # Provide dummy values for DB connection during build
+          # Real values will be provided by AWS Secrets Manager in production
+          DB_URL: localhost
+          DB_NAME: dummy
+          DB_USERNAME: dummy
+          DB_PASSWORD: dummy
+          JWT_SECRET: dummy-secret-for-build-only
 
       # Step 4: Security Scanning
       - name: Run Security Scans
@@ -43,7 +51,6 @@ jobs:
           mvn spotbugs:check || echo "⚠️ SpotBugs scan completed with issues"
           
           echo "✅ Security scans completed!"
-          
 
       # Step 5: SonarQube Analysis (Optional)
       - name: SonarQube Analysis
@@ -58,14 +65,14 @@ jobs:
             -Dsonar.qualitygate.wait=true || echo "⚠️ SonarQube analysis completed with issues"
           echo "✅ SonarQube analysis completed!"
 
-      # Step 6: Start Application for ZAP Testing
+      # Step 6: Start Application for ZAP Testing (DISABLED - Requires DB Connection)
+      # Note: ZAP dynamic testing requires starting the application with a database
+      # To enable, set up a test database service in GitHub Actions
       - name: Start Application for ZAP
-        if: ${{ secrets.ZAP_ENABLED == 'true' }}
+        if: false  # Disabled - requires database connection
         continue-on-error: true
         run: |
           echo "🚀 Starting application for ZAP testing..."
-          echo "⚠️  Note: ZAP testing requires database credentials to be configured as secrets"
-          echo "⚠️  Make sure to set: DB_URL, DB_NAME, DB_USERNAME, DB_PASSWORD environment variables"
           mvn spring-boot:run &
           APP_PID=$!
           echo "APP_PID=$APP_PID" >> $GITHUB_ENV
@@ -73,9 +80,9 @@ jobs:
           sleep 60
           echo "✅ Application started!"
 
-      # Step 7: OWASP ZAP Baseline Scan (Optional)
+      # Step 7: OWASP ZAP Baseline Scan (DISABLED - Requires DB Connection)
       - name: OWASP ZAP Baseline Scan
-        if: ${{ secrets.ZAP_ENABLED == 'true' }}
+        if: false  # Disabled - requires database connection
         continue-on-error: true
         uses: zaproxy/action-baseline@v0.7.0
         with:
@@ -85,9 +92,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step 8: OWASP ZAP Full Scan (Optional)
+      # Step 8: OWASP ZAP Full Scan (DISABLED - Requires DB Connection)
       - name: OWASP ZAP Full Scan
-        if: ${{ secrets.ZAP_ENABLED == 'true' }}
+        if: false  # Disabled - requires database connection
         continue-on-error: true
         uses: zaproxy/action-full-scan@v0.4.0
         with:
@@ -97,9 +104,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step 9: Stop Application
+      # Step 9: Stop Application (DISABLED - ZAP Testing Disabled)
       - name: Stop Application
-        if: ${{ secrets.ZAP_ENABLED == 'true' }}
+        if: false  # Disabled - ZAP testing disabled
         continue-on-error: true
         run: |
           echo "🛑 Stopping application..."
