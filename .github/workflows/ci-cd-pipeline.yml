@@ -28,7 +28,7 @@ jobs:
 
       # Step 3: Build and Test with Maven
       - name: Build with Maven
-        run: mvn -DskipTests clean install
+        run: mvn -DskipTests clean package
 
       # Step 4: Security Scanning
       - name: Run Security Scans
@@ -63,6 +63,8 @@ jobs:
         continue-on-error: true
         run: |
           echo "🚀 Starting application for ZAP testing..."
+          echo "⚠️  Note: ZAP testing requires database credentials to be configured as secrets"
+          echo "⚠️  Make sure to set: DB_URL, DB_NAME, DB_USERNAME, DB_PASSWORD environment variables"
           mvn spring-boot:run &
           APP_PID=$!
           echo "APP_PID=$APP_PID" >> $GITHUB_ENV
