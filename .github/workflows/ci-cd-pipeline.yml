@@ -33,15 +33,18 @@ jobs:
           SPRING_PROFILES_ACTIVE: ci
           JWT_SECRET: dummy-secret-for-build-only
 
-      # Step 4: Security Scanning
+      # Step 4: Security Scanning (OWASP non-blocking)
       - name: Run Security Scans
         continue-on-error: true
         run: |
           echo "🔒 Starting security scanning..."
           
-          echo "📦 Running OWASP Dependency-Check (skipped due to NVD update issues)..."
-          # Skipping OWASP scan to avoid NVD data update failures in CI
-          # mvn org.owasp:dependency-check-maven:check || echo "⚠️ OWASP scan skipped"
+          echo "📦 Running OWASP Dependency-Check (non-blocking, no API key)..."
+          mkdir -p dependency-check-data
+          mvn org.owasp:dependency-check-maven:10.0.4:check \
+            -DdataDirectory=dependency-check-data \
+            -Dautoupdate=false \
+            -Dnvd.api.disabled=true || echo "⚠️ OWASP scan skipped or completed with issues"
           
           echo "🔍 Running SpotBugs security analysis..."
           mvn spotbugs:check || echo "⚠️ SpotBugs scan completed with issues"
@@ -62,7 +65,6 @@ jobs:
           echo "✅ SonarQube analysis completed!"
 
       # Step 6: Start Application for ZAP Testing
-      # Using H2 in-memory database for dynamic security scanning
       - name: Start Application for ZAP
         if: false  # Set to true to enable ZAP testing
         continue-on-error: true
@@ -155,6 +157,7 @@ jobs:
           service: ${{ secrets.ECS_SERVICE }}
           cluster: ${{ secrets.ECS_CLUSTER }}
           wait-for-service-stability: true
+
       #
       # Step 15: Post-deployment Health Check
 #      - name: Health Check
