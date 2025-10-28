@@ -207,6 +207,8 @@
                     <format>HTML</format>
                     <failOnError>true</failOnError>
                     <nvdApiKey>ef62fd69-5d2d-486f-aa7b-18fa6c242498</nvdApiKey>
+                    <autoUpdate>false</autoUpdate>
+
                      <suppressionFiles>
                         <suppressionFile>${project.basedir}/config/dependency-check-suppressions.xml</suppressionFile>
                     </suppressionFiles>
