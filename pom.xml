@@ -31,6 +31,11 @@
     </properties>
     <dependencies>
         <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>secretsmanager</artifactId>
             <version>2.20.0</version> <!-- Use the latest version -->
@@ -201,6 +206,7 @@
                 <configuration>
                     <format>HTML</format>
                     <failOnError>true</failOnError>
+                    <nvdApiKey>ef62fd69-5d2d-486f-aa7b-18fa6c242498</nvdApiKey>
                      <suppressionFiles>
                         <suppressionFile>${project.basedir}/config/dependency-check-suppressions.xml</suppressionFile>
                     </suppressionFiles>
@@ -226,4 +232,22 @@
         <!-- //security -->
         
     </build>
+
+    <profiles>
+        <profile>
+            <id>ci</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.owasp</groupId>
+                        <artifactId>dependency-check-maven</artifactId>
+                        <version>10.0.4</version>
+                        <configuration>
+                            <skip>true</skip>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

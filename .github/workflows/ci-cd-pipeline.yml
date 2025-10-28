@@ -28,14 +28,9 @@ jobs:
 
       # Step 3: Build and Package Spring Boot Application
       - name: Build Application (Skip Tests)
-        run: mvn clean package -Dmaven.test.skip=true
+        run: mvn clean package -Pci -Dmaven.test.skip=true
         env:
-          # Provide dummy values for DB connection during build
-          # Real values will be provided by AWS Secrets Manager in production
-          DB_URL: localhost
-          DB_NAME: dummy
-          DB_USERNAME: dummy
-          DB_PASSWORD: dummy
+          SPRING_PROFILES_ACTIVE: ci
           JWT_SECRET: dummy-secret-for-build-only
 
       # Step 4: Security Scanning
@@ -66,48 +61,50 @@ jobs:
             -Dsonar.qualitygate.wait=true || echo "⚠️ SonarQube analysis completed with issues"
           echo "✅ SonarQube analysis completed!"
 
-      # Step 6: Start Application for ZAP Testing (DISABLED - Requires DB Connection)
-      # Note: ZAP dynamic testing requires starting the application with a database
-      # To enable, set up a test database service in GitHub Actions
+      # Step 6: Start Application for ZAP Testing
+      # Using H2 in-memory database for dynamic security scanning
       - name: Start Application for ZAP
-        if: false  # Disabled - requires database connection
+        if: false  # Set to true to enable ZAP testing
         continue-on-error: true
         run: |
-          echo "🚀 Starting application for ZAP testing..."
-          mvn spring-boot:run &
+          echo "🚀 Starting application for ZAP testing with H2 database..."
+          mvn spring-boot:run -Dspring-boot.run.profiles=ci &
           APP_PID=$!
           echo "APP_PID=$APP_PID" >> $GITHUB_ENV
           echo "⏳ Waiting for application to start..."
           sleep 60
           echo "✅ Application started!"
+        env:
+          SPRING_PROFILES_ACTIVE: ci
+          JWT_SECRET: test-jwt-secret-for-zap-scanning
 
-      # Step 7: OWASP ZAP Baseline Scan (DISABLED - Requires DB Connection)
+      # Step 7: OWASP ZAP Baseline Scan
       - name: OWASP ZAP Baseline Scan
-        if: false  # Disabled - requires database connection
+        if: false  # Set to true to enable ZAP baseline scan
         continue-on-error: true
         uses: zaproxy/action-baseline@v0.7.0
         with:
-          target: 'http://localhost:8080'
+          target: 'http://localhost:8080/api/v1'
           rules_file_name: '.zap/rules.tsv'
           cmd_options: '-a'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step 8: OWASP ZAP Full Scan (DISABLED - Requires DB Connection)
+      # Step 8: OWASP ZAP Full Scan
       - name: OWASP ZAP Full Scan
-        if: false  # Disabled - requires database connection
+        if: false  # Set to true to enable ZAP full scan
         continue-on-error: true
         uses: zaproxy/action-full-scan@v0.4.0
         with:
-          target: 'http://localhost:8080'
+          target: 'http://localhost:8080/api/v1'
           rules_file_name: '.zap/rules.tsv'
           cmd_options: '-a'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step 9: Stop Application (DISABLED - ZAP Testing Disabled)
+      # Step 9: Stop Application
       - name: Stop Application
-        if: false  # Disabled - ZAP testing disabled
+        if: false  # Set to true to enable application shutdown after ZAP
         continue-on-error: true
         run: |
           echo "🛑 Stopping application..."
