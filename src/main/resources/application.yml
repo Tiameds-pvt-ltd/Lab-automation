@@ -76,10 +76,10 @@ rate:
   limit:
     login:
       attempts: 5  # Max login attempts per user
-      window: 10   # Time window in minutes
+      window: 3   # Time window in minutes
     ip:
       attempts: 10  # Max login attempts per IP
-      window: 10    # Time window in minutes
+      window: 3    # Time window in minutes
 
 # Security configuration
 security:
