@@ -1,13 +1,10 @@
 package tiameds.com.tiameds.services.lab;
 
 
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import tiameds.com.tiameds.dto.lab.SampleDto;
 import tiameds.com.tiameds.entity.SampleEntity;
 import tiameds.com.tiameds.repository.SampleAssocationRepository;
-import tiameds.com.tiameds.utils.ApiResponseHelper;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -35,37 +32,50 @@ public class SampleAssociationService {
     }
 
 
-    public ResponseEntity<?> createSample(SampleDto sampleDto) {
+    public SampleDto createSample(SampleDto sampleDto) {
         //check if the sample exists on  db
         if (sampleAssociationRepository.findByName(sampleDto.getName()).isPresent()) {
-              return ApiResponseHelper.errorResponse("Sample already exists", HttpStatus.BAD_REQUEST);
+            throw new RuntimeException("Sample already exists");
         }
         //create the sample
         SampleEntity sampleEntity = new SampleEntity();
         sampleEntity.setName(sampleDto.getName());
-        sampleAssociationRepository.save(sampleEntity);
-        return ApiResponseHelper.successResponse("Sample created successfully", sampleDto);
+        SampleEntity saved = sampleAssociationRepository.save(sampleEntity);
+        return toSampleDto(saved);
     }
 
 
-    public void updateSample(Long sampleId, SampleDto sampleDto) {
+    public SampleDto updateSample(Long sampleId, SampleDto sampleDto) {
         //check if the sample exists on  db
-        if (sampleAssociationRepository.findById(sampleId).isEmpty()) {
-            throw new RuntimeException("Sample not found");
-        }
-        //update the sample using the dto
-        SampleEntity sampleEntity = sampleAssociationRepository.findById(sampleId).get();
+        SampleEntity sampleEntity = sampleAssociationRepository.findById(sampleId)
+                .orElseThrow(() -> new RuntimeException("Sample not found"));
         sampleEntity.setName(sampleDto.getName());
-        sampleAssociationRepository.save(sampleEntity);
+        SampleEntity saved = sampleAssociationRepository.save(sampleEntity);
+        return toSampleDto(saved);
     }
 
-    public void deleteSample(Long sampleId) {
+    public SampleDto deleteSample(Long sampleId) {
         //check if the sample exists on  db
-        if (sampleAssociationRepository.findById(sampleId).isEmpty()) {
-            throw new RuntimeException("Sample not found");
-        }
-        //delete the sample
-        sampleAssociationRepository.deleteById(sampleId);
+        SampleEntity sampleEntity = sampleAssociationRepository.findById(sampleId)
+                .orElseThrow(() -> new RuntimeException("Sample not found"));
+        SampleDto snapshot = toSampleDto(sampleEntity);
+        sampleAssociationRepository.delete(sampleEntity);
+        return snapshot;
+    }
+
+    public SampleDto getSampleSnapshot(Long sampleId) {
+        return sampleAssociationRepository.findById(sampleId)
+                .map(this::toSampleDto)
+                .orElse(null);
+    }
+
+    private SampleDto toSampleDto(SampleEntity sampleEntity) {
+        SampleDto dto = new SampleDto();
+        dto.setId(sampleEntity.getId());
+        dto.setName(sampleEntity.getName());
+        dto.setCreatedAt(sampleEntity.getCreatedAt());
+        dto.setUpdatedAt(sampleEntity.getUpdatedAt());
+        return dto;
     }
 
 

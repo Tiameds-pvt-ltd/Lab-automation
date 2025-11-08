@@ -1,13 +1,17 @@
 package tiameds.com.tiameds.controller.lab;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import tiameds.com.tiameds.audit.AuditLogService;
+import tiameds.com.tiameds.audit.helpers.FieldChangeTracker;
 import tiameds.com.tiameds.dto.lab.TestDTO;
 import tiameds.com.tiameds.entity.Lab;
+import tiameds.com.tiameds.entity.LabAuditLogs;
 import tiameds.com.tiameds.entity.Test;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.repository.LabRepository;
@@ -17,8 +21,11 @@ import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
 import tiameds.com.tiameds.utils.UserAuthService;
 
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -32,13 +39,23 @@ public class TestController {
     private final UserAuthService userAuthService;
     private final LabAccessableFilter labAccessableFilter;
     private final TestServices testServices;
+    private final AuditLogService auditLogService;
+    private final FieldChangeTracker fieldChangeTracker;
 
-    public TestController(LabRepository labRepository, TestRepository testRepository, UserAuthService userAuthService, LabAccessableFilter labAccessableFilter, TestServices testServices) {
+    public TestController(LabRepository labRepository,
+                          TestRepository testRepository,
+                          UserAuthService userAuthService,
+                          LabAccessableFilter labAccessableFilter,
+                          TestServices testServices,
+                          AuditLogService auditLogService,
+                          FieldChangeTracker fieldChangeTracker) {
         this.labRepository = labRepository;
         this.testRepository = testRepository;
         this.userAuthService = userAuthService;
         this.labAccessableFilter = labAccessableFilter;
         this.testServices = testServices;
+        this.auditLogService = auditLogService;
+        this.fieldChangeTracker = fieldChangeTracker;
     }
     // 1. Get all tests in a lab
     @Transactional
@@ -93,7 +110,8 @@ public class TestController {
     public ResponseEntity<?> addTest(
             @PathVariable Long labId,
             @RequestBody TestDTO testDTO,
-            @RequestHeader("Authorization") String token) {
+            @RequestHeader("Authorization") String token,
+            HttpServletRequest request) {
         try {
             // Authenticate the user using the provided token
             User currentUser = userAuthService.authenticateUser(token)
@@ -137,14 +155,15 @@ public class TestController {
             labRepository.save(lab); // This will cascade and save the Test entity if properly configured
 
             // Optionally, map the saved Test back to a DTO to include generated data like ID
-            TestDTO savedTestDTO = new TestDTO(
-                    test.getId(),
-                    test.getCategory(),
-                    test.getName(),
-                    test.getPrice(),
-                    test.getCreatedAt(),
-                    test.getUpdatedAt()
-            );
+            TestDTO savedTestDTO = toTestDTO(test);
+
+            logTestAudit(labId,
+                    "TEST_CREATE",
+                    null,
+                    savedTestDTO,
+                    resolveChangeReason(null, savedTestDTO),
+                    currentUser,
+                    request);
 
             return ApiResponseHelper.successResponseWithDataAndMessage("Test added successfully", HttpStatus.CREATED, savedTestDTO);
 
@@ -162,7 +181,8 @@ public class TestController {
             @PathVariable Long labId,
             @PathVariable Long testId,
             @RequestBody TestDTO testDTO,
-            @RequestHeader("Authorization") String token) {
+            @RequestHeader("Authorization") String token,
+            HttpServletRequest request) {
         try {
             // Authenticate the user using the provided token
             User currentUser = userAuthService.authenticateUser(token)
@@ -193,6 +213,8 @@ public class TestController {
                 return ApiResponseHelper.successResponseWithDataAndMessage("Test does not belong to this lab", HttpStatus.BAD_REQUEST, null);
             }
 
+            TestDTO oldTestSnapshot = getTestSnapshot(labId, testId);
+
             // Update the test entity with the new data
             test.setCategory(testDTO.getCategory());
             test.setName(testDTO.getName());
@@ -202,14 +224,15 @@ public class TestController {
             testRepository.save(test);
 
             // Optionally, map the updated Test back to a DTO to include generated data like ID
-            TestDTO updatedTestDTO = new TestDTO(
-                    test.getId(),
-                    test.getCategory(),
-                    test.getName(),
-                    test.getPrice(),
-                    test.getCreatedAt(),
-                    test.getUpdatedAt()
-            );
+            TestDTO updatedTestDTO = toTestDTO(test);
+
+            logTestAudit(labId,
+                    "TEST_UPDATE",
+                    oldTestSnapshot,
+                    updatedTestDTO,
+                    resolveChangeReason(oldTestSnapshot, updatedTestDTO),
+                    currentUser,
+                    request);
 
             return ApiResponseHelper.successResponseWithDataAndMessage("Test updated successfully", HttpStatus.OK, updatedTestDTO);
 
@@ -283,7 +306,8 @@ public class TestController {
     public ResponseEntity<?> removeTest(
             @PathVariable Long labId,
             @PathVariable Long testId,
-            @RequestHeader("Authorization") String token) {
+            @RequestHeader("Authorization") String token,
+            HttpServletRequest request) {
         try {
             // Authenticate the user using the provided token
             User currentUser = userAuthService.authenticateUser(token)
@@ -313,14 +337,24 @@ public class TestController {
                 return ApiResponseHelper.errorResponse("Test does not belong to this lab", HttpStatus.BAD_REQUEST);
             }
 
+            TestDTO oldTestSnapshot = getTestSnapshot(labId, testId);
+
             // Remove the test from the lab and maintain the bidirectional relationship
             lab.removeTest(test);
 
             //delete the test
-            testRepository.deleteById(testId);
+            testRepository.delete(test);
 
             // Persist the updated Lab entity
             labRepository.save(lab);
+
+            logTestAudit(labId,
+                    "TEST_DELETE",
+                    oldTestSnapshot,
+                    null,
+                    resolveChangeReason(oldTestSnapshot, null),
+                    currentUser,
+                    request);
 
             return ResponseEntity.ok(ApiResponseHelper.successResponse("Test removed successfully", null).getBody());
 
@@ -336,7 +370,8 @@ public class TestController {
     public ResponseEntity<?> uploadCSV(
             @PathVariable Long labId,
             @RequestParam("file") MultipartFile file,
-            @RequestHeader("Authorization") String token) {
+            @RequestHeader("Authorization") String token,
+            HttpServletRequest request) {
         try {
             // Authenticate the user
             User currentUser = userAuthService.authenticateUser(token)
@@ -356,7 +391,8 @@ public class TestController {
             }
 
             // Validate file type
-            if (file.isEmpty() || !file.getContentType().equals("text/csv")) {
+            String contentType = file.getContentType();
+            if (file.isEmpty() || contentType == null || !contentType.equals("text/csv")) {
                 return ApiResponseHelper.successResponseWithDataAndMessage("Please upload a CSV file", HttpStatus.BAD_REQUEST, null);
             }
 
@@ -364,15 +400,17 @@ public class TestController {
             List<Test> tests = testServices.uploadCSV(file, lab);
             // Convert saved tests to DTOs for response
             List<TestDTO> testDTOs = tests.stream()
-                    .map(test -> new TestDTO(
-                            test.getId(),
-                            test.getCategory(),
-                            test.getName(),
-                            test.getPrice(),
-                            test.getCreatedAt(),
-                            test.getUpdatedAt()
-                    ))
+                    .map(this::toTestDTO)
                     .collect(Collectors.toList());
+
+            if (!testDTOs.isEmpty()) {
+                String changeReason = String.format("Uploaded %d tests via CSV", testDTOs.size());
+                logTestBulkUpload(labId,
+                        testDTOs,
+                        changeReason,
+                        currentUser,
+                        request);
+            }
             return ApiResponseHelper.successResponseWithDataAndMessage("Tests uploaded successfully", HttpStatus.CREATED, testDTOs);
         } catch (RuntimeException e) {
             return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
@@ -412,5 +450,119 @@ public class TestController {
         } catch (Exception e) {
             return ApiResponseHelper.errorResponse("An unexpected error occurred: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    private void logTestAudit(Long labId,
+                              String action,
+                              TestDTO oldTest,
+                              TestDTO newTest,
+                              String changeReason,
+                              User currentUser,
+                              HttpServletRequest request) {
+        LabAuditLogs auditLog = new LabAuditLogs();
+        auditLog.setTimestamp(LocalDateTime.now());
+        auditLog.setModule("Lab");
+        auditLog.setEntityType("Test");
+        auditLog.setLab_id(String.valueOf(labId));
+        auditLog.setActionType(action);
+        auditLog.setChangeReason(changeReason != null ? changeReason : "");
+
+        if (newTest != null && newTest.getId() != 0) {
+            auditLog.setEntityId(String.valueOf(newTest.getId()));
+        } else if (oldTest != null && oldTest.getId() != 0) {
+            auditLog.setEntityId(String.valueOf(oldTest.getId()));
+        }
+
+        if (currentUser != null) {
+            auditLog.setUsername(currentUser.getUsername());
+            auditLog.setUserId(currentUser.getId());
+            if (currentUser.getRoles() != null && !currentUser.getRoles().isEmpty()) {
+                auditLog.setRole(currentUser.getRoles().iterator().next().getName());
+            }
+        }
+
+        if (request != null) {
+            String ip = request.getHeader("X-Forwarded-For");
+            auditLog.setIpAddress(ip != null ? ip : request.getRemoteAddr());
+            auditLog.setDeviceInfo(request.getHeader("User-Agent"));
+            auditLog.setRequestId(request.getHeader("X-Request-ID"));
+        }
+
+        if (oldTest != null) {
+            auditLog.setOldValue(fieldChangeTracker.objectToJson(oldTest));
+        }
+        if (newTest != null) {
+            auditLog.setNewValue(fieldChangeTracker.objectToJson(newTest));
+        }
+
+        Map<String, Object> fieldChanges = fieldChangeTracker.compareTestFields(oldTest, newTest);
+        String fieldChangedJson = fieldChangeTracker.fieldChangesToJson(fieldChanges);
+        if (fieldChangedJson != null) {
+            auditLog.setFieldChanged(fieldChangedJson);
+        }
+
+        auditLog.setSeverity(LabAuditLogs.Severity.MEDIUM);
+        auditLogService.persistAsync(auditLog);
+    }
+
+    private void logTestBulkUpload(Long labId,
+                                   List<TestDTO> uploadedTests,
+                                   String changeReason,
+                                   User currentUser,
+                                   HttpServletRequest request) {
+        LabAuditLogs auditLog = new LabAuditLogs();
+        auditLog.setTimestamp(LocalDateTime.now());
+        auditLog.setModule("Lab");
+        auditLog.setEntityType("Test");
+        auditLog.setLab_id(String.valueOf(labId));
+        auditLog.setActionType("TEST_UPLOAD_CSV");
+        auditLog.setChangeReason(changeReason != null ? changeReason : "");
+
+        if (currentUser != null) {
+            auditLog.setUsername(currentUser.getUsername());
+            auditLog.setUserId(currentUser.getId());
+            if (currentUser.getRoles() != null && !currentUser.getRoles().isEmpty()) {
+                auditLog.setRole(currentUser.getRoles().iterator().next().getName());
+            }
+        }
+
+        if (request != null) {
+            String ip = request.getHeader("X-Forwarded-For");
+            auditLog.setIpAddress(ip != null ? ip : request.getRemoteAddr());
+            auditLog.setDeviceInfo(request.getHeader("User-Agent"));
+            auditLog.setRequestId(request.getHeader("X-Request-ID"));
+        }
+
+        auditLog.setNewValue(fieldChangeTracker.objectToJson(uploadedTests));
+        auditLog.setSeverity(LabAuditLogs.Severity.MEDIUM);
+        auditLogService.persistAsync(auditLog);
+    }
+
+    private TestDTO getTestSnapshot(Long labId, Long testId) {
+        return testRepository.findById(testId)
+                .filter(test -> test.getLabs().stream().anyMatch(l -> Objects.equals(l.getId(), labId)))
+                .map(this::toTestDTO)
+                .orElse(null);
+    }
+
+    private TestDTO toTestDTO(Test test) {
+        return new TestDTO(
+                test.getId(),
+                test.getCategory(),
+                test.getName(),
+                test.getPrice(),
+                test.getCreatedAt(),
+                test.getUpdatedAt()
+        );
+    }
+
+    private String resolveChangeReason(TestDTO oldTest, TestDTO newTest) {
+        if (newTest != null && newTest.getName() != null) {
+            return "Test " + newTest.getName();
+        }
+        if (oldTest != null && oldTest.getName() != null) {
+            return "Test " + oldTest.getName();
+        }
+        return "";
     }
 }

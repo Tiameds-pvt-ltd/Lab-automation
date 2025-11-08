@@ -339,6 +339,9 @@ public class PatientService {
         visit.setVisitStatus("CANCELLED");
         visit.setUpdatedBy(username);
         visit.setVisitCancellationBy(username);
+        
+        // Save the visit entity
+        visitRepository.save(visit);
     }
 
     private BillingEntity mapBillingDTOToEntity(BillingDTO billingDTO, Lab lab, String currentUser) {

@@ -5,22 +5,32 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import tiameds.com.tiameds.audit.Auditable;
+import tiameds.com.tiameds.audit.AuditLogService;
+import tiameds.com.tiameds.audit.helpers.FieldChangeTracker;
 import tiameds.com.tiameds.dto.lab.*;
 import tiameds.com.tiameds.dto.visits.BillDTO;
 import tiameds.com.tiameds.dto.visits.BillDtoDue;
 import tiameds.com.tiameds.entity.BillingEntity;
 import tiameds.com.tiameds.entity.Lab;
+import tiameds.com.tiameds.entity.LabAuditLogs;
 import tiameds.com.tiameds.entity.PatientEntity;
 import tiameds.com.tiameds.entity.User;
+import tiameds.com.tiameds.entity.VisitEntity;
 import tiameds.com.tiameds.repository.LabRepository;
 import tiameds.com.tiameds.repository.PatientRepository;
+import tiameds.com.tiameds.repository.VisitRepository;
 import tiameds.com.tiameds.services.lab.PatientService;
 import tiameds.com.tiameds.services.lab.UpdatePatientService;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
 import tiameds.com.tiameds.utils.UserAuthService;
 
+import jakarta.servlet.http.HttpServletRequest;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 @Transactional
@@ -35,16 +45,23 @@ public class PatientController {
     private final LabAccessableFilter labAccessableFilter;
     private final PatientRepository patientRepository;
     private final UpdatePatientService updatePatientService;
+    private final AuditLogService auditLogService;
+    private final FieldChangeTracker fieldChangeTracker;
+    private final VisitRepository visitRepository;
 
-    public PatientController(PatientService patientService, UserAuthService userAuthService, LabRepository labRepository, LabAccessableFilter labAccessableFilter, PatientRepository patientRepository, UpdatePatientService updatePatientService) {
+    public PatientController(PatientService patientService, UserAuthService userAuthService, LabRepository labRepository, LabAccessableFilter labAccessableFilter, PatientRepository patientRepository, UpdatePatientService updatePatientService, AuditLogService auditLogService, FieldChangeTracker fieldChangeTracker, VisitRepository visitRepository) {
         this.patientService = patientService;
         this.userAuthService = userAuthService;
         this.labRepository = labRepository;
         this.labAccessableFilter = labAccessableFilter;
         this.patientRepository = patientRepository;
         this.updatePatientService = updatePatientService;
+        this.auditLogService = auditLogService;
+        this.fieldChangeTracker = fieldChangeTracker;
+        this.visitRepository = visitRepository;
     }
 
+    @Auditable(module = "Lab")
     @GetMapping("/{labId}/patients")
     public ResponseEntity<?> getAllPatients(@PathVariable Long labId, @RequestHeader("Authorization") String token) {
         try {
@@ -69,6 +86,7 @@ public class PatientController {
         }
     }
 
+    @Auditable(module = "Lab")
     @GetMapping("/{labId}/patient/{patientId}")
     public ResponseEntity<?> getPatientById(@PathVariable Long labId, @PathVariable Long patientId, @RequestHeader("Authorization") String token) {
         try {
@@ -102,6 +120,7 @@ public class PatientController {
         }
     }
 
+    @Auditable(module = "Lab")
     @PutMapping("/{labId}/update-patient/{patientId}")
     public ResponseEntity<?> updatePatient(
             @PathVariable Long labId,
@@ -143,6 +162,7 @@ public class PatientController {
         }
     }
 
+    @Auditable(module = "Lab")
     @DeleteMapping("/{labId}/delete-patient/{patientId}")
     public ResponseEntity<?> deletePatient(@PathVariable Long labId, @PathVariable Long patientId, @RequestHeader("Authorization") String token) {
         try {
@@ -216,6 +236,7 @@ public class PatientController {
 //        }
 //    }
 
+    @Auditable(module = "Lab")
     @Transactional
     @GetMapping("/{labId}/search-patient")
     public ResponseEntity<?> searchPatientByPhone(
@@ -249,6 +270,7 @@ public class PatientController {
     }
 
 
+    @Auditable(module = "Lab")
     @PostMapping("/{labId}/add-patient")
     public ResponseEntity<?> addPatient(@PathVariable Long labId,
                                         @RequestHeader("Authorization") String token,
@@ -334,7 +356,8 @@ public class PatientController {
             @PathVariable Long labId,
             @PathVariable Long visitId,
             @RequestBody CancellationDataDTO cancellationData,
-            @RequestHeader("Authorization") String token) {
+            @RequestHeader("Authorization") String token,
+            HttpServletRequest request) {
         try {
             Optional<User> currentUser = userAuthService.authenticateUser(token);
             if (currentUser.isEmpty()) {
@@ -352,6 +375,62 @@ public class PatientController {
                 return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
             }
             patientService.cancelVisit(visitId, labId, currentUser.get().getUsername(), cancellationData);
+            
+            // Fetch the visit after cancellation to get the patient data
+            Optional<VisitEntity> visitOptional = visitRepository.findById(visitId);
+            PatientDTO patientDTO = null;
+            if (visitOptional.isPresent() && visitOptional.get().getPatient() != null) {
+                PatientEntity patient = visitOptional.get().getPatient();
+                patientDTO = new PatientDTO(patient);
+            }
+            
+            // Create audit log entry with cancellation details
+            LabAuditLogs auditLog = new LabAuditLogs();
+            auditLog.setTimestamp(LocalDateTime.now());
+            auditLog.setUsername(currentUser.get().getUsername());
+            auditLog.setUserId(currentUser.get().getId());
+            auditLog.setLab_id(String.valueOf(labId));
+            auditLog.setModule("Lab");
+            auditLog.setEntityType("Visit");
+            auditLog.setEntityId(String.valueOf(visitId));
+            auditLog.setActionType("CANCEL");
+            auditLog.setChangeReason(cancellationData.getVisitCancellationReason() != null ? cancellationData.getVisitCancellationReason() : "");
+            
+            // Store complete patient data as JSON in newValue
+            if (patientDTO != null) {
+                String patientDataJson = fieldChangeTracker.objectToJson(patientDTO);
+                if (patientDataJson != null) {
+                    auditLog.setNewValue(patientDataJson);
+                } else {
+                    // Fallback if JSON serialization fails
+                    log.warn("Failed to serialize patient data to JSON for visit cancellation");
+                    auditLog.setNewValue("{\"status\": \"CANCELLED\", \"reason\": \"" + 
+                        (cancellationData.getVisitCancellationReason() != null ? cancellationData.getVisitCancellationReason() : "") + "\"}");
+                }
+            } else {
+                // Fallback if patient data not found
+                log.warn("Patient data not found for visit cancellation, visitId: {}", visitId);
+                auditLog.setNewValue("{\"status\": \"CANCELLED\", \"reason\": \"" + 
+                    (cancellationData.getVisitCancellationReason() != null ? cancellationData.getVisitCancellationReason() : "") + "\"}");
+            }
+            
+            auditLog.setSeverity(LabAuditLogs.Severity.MEDIUM);
+            
+            // Set request metadata if available
+            if (request != null) {
+                auditLog.setIpAddress(request.getHeader("X-Forwarded-For") != null ? request.getHeader("X-Forwarded-For") : request.getRemoteAddr());
+                auditLog.setDeviceInfo(request.getHeader("User-Agent"));
+                auditLog.setRequestId(request.getHeader("X-Request-ID"));
+            }
+            
+            // Set user role if available
+            if (currentUser.get().getRoles() != null && !currentUser.get().getRoles().isEmpty()) {
+                auditLog.setRole(currentUser.get().getRoles().iterator().next().getName());
+            }
+            
+            // Persist audit log
+            auditLogService.persistAsync(auditLog);
+            
             return ApiResponseHelper.successResponse("Visit cancelled successfully", HttpStatus.OK);
         } catch (Exception e) {
             return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
@@ -359,6 +438,7 @@ public class PatientController {
     }
 
 
+    @Auditable(module = "Lab")
     @PutMapping("/{labId}/update-patient-details/{patientId}")
     public ResponseEntity<?> updatePatientDetails(
             @PathVariable Long labId,
@@ -414,9 +494,11 @@ public class PatientController {
 
     @PostMapping("/{labId}/billing/{billingId}/partial-payment")
     public ResponseEntity<?> addPartialPayment(
+            @PathVariable Long labId,
             @PathVariable Long billingId,
             @RequestHeader("Authorization") String token,
-            @RequestBody BillDtoDue billDTO
+            @RequestBody BillDtoDue billDTO,
+            HttpServletRequest request
     ) {
         try {
             Optional<User> currentUser = userAuthService.authenticateUser(token);
@@ -429,12 +511,58 @@ public class PatientController {
             }
 
             BillingEntity billing = billingOptional.get();
-            Optional<Lab> labOptional = labRepository.findById(billing.getLabs().iterator().next().getId());
+            Optional<Lab> labOptional = labRepository.findById(labId);
             if (labOptional.isEmpty()) {
                 return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
             }
+            if (billing.getLabs() == null || billing.getLabs().stream().noneMatch(l -> Objects.equals(l.getId(), labId))) {
+                return ApiResponseHelper.errorResponse("Billing does not belong to this lab", HttpStatus.UNAUTHORIZED);
+            }
+
+            // Snapshot before update
+            BillDTO oldBillSnapshot = new BillDTO(billing);
 
             BillDTO updatedBill = patientService.addPartialPayment(billing, billDTO, currentUser.get().getUsername());
+
+            // Create audit log entry for the billing update
+            LabAuditLogs auditLog = new LabAuditLogs();
+            auditLog.setTimestamp(LocalDateTime.now());
+            auditLog.setUsername(currentUser.get().getUsername());
+            auditLog.setUserId(currentUser.get().getId());
+            auditLog.setLab_id(String.valueOf(labId));
+            auditLog.setModule("Billing");
+            auditLog.setEntityType("Billing");
+            auditLog.setEntityId(String.valueOf(billingId));
+            auditLog.setActionType("PARTIAL_PAYMENT");
+            auditLog.setChangeReason(billDTO.getTransaction() != null ?
+                    (billDTO.getTransaction().getRemarks() != null ? billDTO.getTransaction().getRemarks() : "") : "");
+
+            // Set request metadata if available
+            if (request != null) {
+                String ipAddress = request.getHeader("X-Forwarded-For");
+                auditLog.setIpAddress(ipAddress != null ? ipAddress : request.getRemoteAddr());
+                auditLog.setDeviceInfo(request.getHeader("User-Agent"));
+                auditLog.setRequestId(request.getHeader("X-Request-ID"));
+            }
+
+            // Set user role if available
+            if (currentUser.get().getRoles() != null && !currentUser.get().getRoles().isEmpty()) {
+                auditLog.setRole(currentUser.get().getRoles().iterator().next().getName());
+            }
+
+            // Store old and new billing data
+            auditLog.setOldValue(fieldChangeTracker.objectToJson(oldBillSnapshot));
+            auditLog.setNewValue(fieldChangeTracker.objectToJson(updatedBill));
+
+            Map<String, Object> billingFieldChanges = fieldChangeTracker.compareBillFields(oldBillSnapshot, updatedBill);
+            String fieldChangedJson = fieldChangeTracker.fieldChangesToJson(billingFieldChanges);
+            if (fieldChangedJson != null) {
+                auditLog.setFieldChanged(fieldChangedJson);
+            }
+
+            auditLog.setSeverity(LabAuditLogs.Severity.MEDIUM);
+            auditLogService.persistAsync(auditLog);
+
             return ApiResponseHelper.successResponseWithDataAndMessage("Partial payment added successfully", HttpStatus.OK, updatedBill);
         } catch (Exception e) {
             return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);

@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import tiameds.com.tiameds.audit.Auditable;
 import tiameds.com.tiameds.dto.lab.PatientDetailsDto;
 import tiameds.com.tiameds.dto.lab.VisitDTO;
 import tiameds.com.tiameds.dto.visits.PatientVisitDTO;
@@ -35,6 +36,7 @@ public class VisitController {
         this.labAccessableFilter = labAccessableFilter;
     }
 
+    @Auditable(module = "Lab")
     @PostMapping("/{labId}/add-visit/{patientId}")
     public ResponseEntity<?> addVisit(
             @PathVariable Long labId,
@@ -59,6 +61,7 @@ public class VisitController {
         }
     }
 
+    @Auditable(module = "Lab")
     @GetMapping("/{labId}/visits")
     public ResponseEntity<?> getVisits(
             @PathVariable Long labId,
@@ -80,6 +83,7 @@ public class VisitController {
         }
     }
 
+    @Auditable(module = "Lab")
     @PutMapping("/{labId}/update-visit/{visitId}")
     public ResponseEntity<?> updateVisit(
             @PathVariable Long labId,
@@ -103,6 +107,7 @@ public class VisitController {
         }
     }
 
+    @Auditable(module = "Lab")
     @DeleteMapping("/{labId}/delete-visit/{visitId}")
     public ResponseEntity<?> deleteVisit(
             @PathVariable Long labId,
@@ -125,6 +130,7 @@ public class VisitController {
         }
     }
 
+    @Auditable(module = "Lab")
     @GetMapping("/{labId}/visit/{visitId}")
     public ResponseEntity<?> getVisit(
             @PathVariable Long labId,
@@ -146,6 +152,7 @@ public class VisitController {
         }
     }
 
+    @Auditable(module = "Lab")
     @GetMapping("/{labId}/patient/{patientId}/visit")
     public ResponseEntity<?> getVisitByPatient(
             @PathVariable Long labId,
@@ -168,6 +175,7 @@ public class VisitController {
     }
 
 
+    @Auditable(module = "Lab")
     @GetMapping("/{labId}/visitsdatewise")
     public ResponseEntity<?> getVisitsByDateRange(
             @PathVariable Long labId,
@@ -202,6 +210,7 @@ public class VisitController {
     }
 
 
+    @Auditable(module = "Lab")
     @GetMapping("/{labId}/datewise-lab-visits")
     public ResponseEntity<?> getVisits(
             @PathVariable Long labId,
@@ -227,6 +236,7 @@ public class VisitController {
     }
 
 
+    @Auditable(module = "Lab")
     @GetMapping("/{labId}/datewise-patient-visits")
     public ResponseEntity<?> getPatientVisits(
             @PathVariable Long labId,
@@ -252,6 +262,7 @@ public class VisitController {
     }
 
 
+    @Auditable(module = "Lab")
     @DeleteMapping("/{labId}/delete-patient-visit/{visitId}")
     public ResponseEntity<?> deletePatientVisit(
             @PathVariable Long labId,
@@ -281,6 +292,7 @@ public class VisitController {
 
 
     //delete all visits of lab 
+    @Auditable(module = "Lab")
     @DeleteMapping("/{labId}/delete-all-patient-visits")
     public ResponseEntity<?> deleteAllPatientVisits(
             @PathVariable Long labId,

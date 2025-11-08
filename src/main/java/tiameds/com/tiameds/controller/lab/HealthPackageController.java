@@ -1,13 +1,17 @@
 package tiameds.com.tiameds.controller.lab;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import tiameds.com.tiameds.audit.AuditLogService;
+import tiameds.com.tiameds.audit.helpers.FieldChangeTracker;
 import tiameds.com.tiameds.dto.lab.HealthPackageRequest;
 import tiameds.com.tiameds.entity.HealthPackage;
 import tiameds.com.tiameds.entity.Lab;
+import tiameds.com.tiameds.entity.LabAuditLogs;
 import tiameds.com.tiameds.entity.Test;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.repository.HealthPackageRepository;
@@ -17,9 +21,15 @@ import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
 import tiameds.com.tiameds.utils.UserAuthService;
 
+import java.time.LocalDateTime;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 
 @RestController
@@ -32,14 +42,24 @@ public class HealthPackageController {
     private final UserAuthService userAuthService;
     private final HealthPackageRepository healthPackageRepository;
     private final LabAccessableFilter labAccessableFilter;
+    private final AuditLogService auditLogService;
+    private final FieldChangeTracker fieldChangeTracker;
 
     //default constructor
-    public HealthPackageController(LabRepository labRepository, TestRepository testRepository, UserAuthService userAuthService, HealthPackageRepository healthPackageRepository, LabAccessableFilter labAccessableFilter) {
+    public HealthPackageController(LabRepository labRepository,
+                                   TestRepository testRepository,
+                                   UserAuthService userAuthService,
+                                   HealthPackageRepository healthPackageRepository,
+                                   LabAccessableFilter labAccessableFilter,
+                                   AuditLogService auditLogService,
+                                   FieldChangeTracker fieldChangeTracker) {
         this.labRepository = labRepository;
         this.testRepository = testRepository;
         this.userAuthService = userAuthService;
         this.healthPackageRepository = healthPackageRepository;
         this.labAccessableFilter = labAccessableFilter;
+        this.auditLogService = auditLogService;
+        this.fieldChangeTracker = fieldChangeTracker;
     }
 
 
@@ -88,7 +108,8 @@ public class HealthPackageController {
     public ResponseEntity<?> createHealthPackage(
             @PathVariable("labId") Long labId,
             @RequestBody HealthPackageRequest packageRequest, // Assuming a DTO is used to accept the data
-            @RequestHeader("Authorization") String token) {
+            @RequestHeader("Authorization") String token,
+            HttpServletRequest request) {
 
         // Authenticate the user
         User currentUser = userAuthService.authenticateUser(token)
@@ -131,13 +152,25 @@ public class HealthPackageController {
         lab.getHealthPackages().add(healthPackage); // Add healthPackage to lab
 
         // Save the health package to the database
-        healthPackageRepository.save(healthPackage);
+        HealthPackage savedPackage = healthPackageRepository.save(healthPackage);
         labRepository.save(lab); // Ensure the lab entity updates the relationship
+
+        Map<String, Object> newData = toAuditMap(savedPackage);
+        logHealthPackageAudit(
+                labId,
+                "PACKAGE_CREATE",
+                null,
+                newData,
+                resolveChangeReason("created", savedPackage.getPackageName()),
+                currentUser,
+                request,
+                savedPackage.getId()
+        );
 
         // Return the success response with the created health package
         return ApiResponseHelper.successResponse(
                 "Health package created successfully",
-                healthPackage
+                savedPackage
         );
     }
 
@@ -199,7 +232,8 @@ public class HealthPackageController {
             @PathVariable("labId") Long labId,
             @PathVariable("packageId") Long packageId,
             @RequestBody HealthPackageRequest packageRequest, // Assuming a DTO is used to accept the data
-            @RequestHeader("Authorization") String token
+            @RequestHeader("Authorization") String token,
+            HttpServletRequest request
     ) {
         // Authenticate the user
         User currentUser = userAuthService.authenticateUser(token)
@@ -236,6 +270,8 @@ public class HealthPackageController {
             return ApiResponseHelper.errorResponse("Health package not found", HttpStatus.NOT_FOUND);
         }
 
+        Map<String, Object> oldData = toAuditMap(healthPackage);
+
         // Fetch the health tests based on the provided test IDs
         List<Test> tests = testRepository.findAllById(packageRequest.getTestIds());  // Fetching tests by their IDs
 
@@ -244,19 +280,42 @@ public class HealthPackageController {
             return ApiResponseHelper.errorResponse("One or more test IDs do not exist", HttpStatus.BAD_REQUEST);
         }
 
+        // Clear existing associations
+        for (Test existingTest : new HashSet<>(healthPackage.getTests())) {
+            existingTest.getHealthPackages().remove(healthPackage);
+        }
+
         // Update the health package
         healthPackage.setPackageName(packageRequest.getPackageName());
         healthPackage.setPrice(packageRequest.getPrice());
         healthPackage.setDiscount(packageRequest.getDiscount());
-        healthPackage.setTests(new HashSet<>(tests));  // Convert List to Set before adding tests
+        HashSet<Test> updatedTests = new HashSet<>(tests);
+        healthPackage.setTests(updatedTests);  // Convert List to Set before adding tests
+        for (Test updatedTest : updatedTests) {
+            updatedTest.getHealthPackages().add(healthPackage);
+        }
 
         // Save the updated health package to the database
-        healthPackageRepository.save(healthPackage);
+        HealthPackage updatedPackage = healthPackageRepository.save(healthPackage);
+        labRepository.save(lab);
+
+        Map<String, Object> newData = toAuditMap(updatedPackage);
+
+        logHealthPackageAudit(
+                labId,
+                "PACKAGE_UPDATE",
+                oldData,
+                newData,
+                resolveChangeReason("updated", updatedPackage.getPackageName()),
+                currentUser,
+                request,
+                updatedPackage.getId()
+        );
 
         // Return the success response with the updated health package
         return ApiResponseHelper.successResponse(
                 "Health package updated successfully",
-                healthPackage
+                updatedPackage
         );
     }
 
@@ -267,7 +326,8 @@ public class HealthPackageController {
     public ResponseEntity<?> deleteHealthPackage(
             @PathVariable("labId") Long labId,
             @PathVariable("packageId") Long packageId,
-            @RequestHeader("Authorization") String token
+            @RequestHeader("Authorization") String token,
+            HttpServletRequest request
     ) {
         // Authenticate the user
         User currentUser = userAuthService.authenticateUser(token)
@@ -303,14 +363,34 @@ public class HealthPackageController {
             return ApiResponseHelper.errorResponse("Health package not associated with this lab", HttpStatus.NOT_FOUND);
         }
 
+        Map<String, Object> oldData = toAuditMap(healthPackage);
+        long packageIdValue = healthPackage.getId();
+
         // Remove the association of the health package with the lab
         lab.getHealthPackages().remove(healthPackage);
+
+        // Remove package from tests association
+        for (Test test : new HashSet<>(healthPackage.getTests())) {
+            test.getHealthPackages().remove(healthPackage);
+        }
+        healthPackage.getTests().clear();
 
         // Save the updated lab to ensure the association is removed
         labRepository.save(lab);
 
         // Delete the health package from the database
         healthPackageRepository.delete(healthPackage);
+
+        logHealthPackageAudit(
+                labId,
+                "PACKAGE_DELETE",
+                oldData,
+                null,
+                resolveChangeReason("deleted", (String) oldData.get("packageName")),
+                currentUser,
+                request,
+                packageIdValue
+        );
 
         // Return the success response
         return ApiResponseHelper.successResponse(
@@ -319,5 +399,81 @@ public class HealthPackageController {
         );
     }
 
+    private void logHealthPackageAudit(Long labId,
+                                       String action,
+                                       Map<String, Object> oldData,
+                                       Map<String, Object> newData,
+                                       String changeReason,
+                                       User currentUser,
+                                       HttpServletRequest request,
+                                       Long entityId) {
+        LabAuditLogs auditLog = new LabAuditLogs();
+        auditLog.setTimestamp(LocalDateTime.now());
+        auditLog.setModule("HealthPackage");
+        auditLog.setEntityType("HealthPackage");
+        auditLog.setLab_id(String.valueOf(labId));
+        auditLog.setActionType(action);
+        auditLog.setChangeReason(changeReason != null ? changeReason : "");
 
+        if (entityId != null) {
+            auditLog.setEntityId(String.valueOf(entityId));
+        }
+
+        if (currentUser != null) {
+            auditLog.setUsername(currentUser.getUsername());
+            auditLog.setUserId(currentUser.getId());
+            if (currentUser.getRoles() != null && !currentUser.getRoles().isEmpty()) {
+                auditLog.setRole(currentUser.getRoles().iterator().next().getName());
+            }
+        } else {
+            auditLog.setUsername("system");
+        }
+
+        if (request != null) {
+            String ipAddress = request.getHeader("X-Forwarded-For");
+            auditLog.setIpAddress(ipAddress != null ? ipAddress : request.getRemoteAddr());
+            auditLog.setDeviceInfo(request.getHeader("User-Agent"));
+            auditLog.setRequestId(request.getHeader("X-Request-ID"));
+        }
+
+        auditLog.setOldValue(fieldChangeTracker.objectToJson(oldData));
+        auditLog.setNewValue(fieldChangeTracker.objectToJson(newData));
+
+        if (oldData != null || newData != null) {
+            Map<String, Object> fieldChanges = fieldChangeTracker.compareMaps(oldData, newData);
+            String fieldChangedJson = fieldChangeTracker.fieldChangesToJson(fieldChanges);
+            if (fieldChangedJson != null) {
+                auditLog.setFieldChanged(fieldChangedJson);
+            }
+        }
+
+        auditLog.setSeverity(LabAuditLogs.Severity.MEDIUM);
+        auditLogService.persistAsync(auditLog);
+    }
+
+    private Map<String, Object> toAuditMap(HealthPackage healthPackage) {
+        if (healthPackage == null) {
+            return null;
+        }
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("id", healthPackage.getId());
+        data.put("packageName", healthPackage.getPackageName());
+        data.put("price", healthPackage.getPrice());
+        data.put("discount", healthPackage.getDiscount());
+        Set<Long> testIds = healthPackage.getTests().stream()
+                .map(Test::getId)
+                .collect(Collectors.toCollection(TreeSet::new));
+        data.put("testIds", testIds);
+        return data;
+    }
+
+    private String resolveChangeReason(String action, String packageName) {
+        String name = packageName != null ? packageName : "package";
+        return switch (action) {
+            case "created" -> "Created package " + name;
+            case "updated" -> "Updated package " + name;
+            case "deleted" -> "Deleted package " + name;
+            default -> name;
+        };
+    }
 }

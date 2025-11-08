@@ -7,7 +7,6 @@ import tiameds.com.tiameds.entity.Doctors;
 import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.repository.DoctorRepository;
 import tiameds.com.tiameds.repository.LabRepository;
-import tiameds.com.tiameds.utils.UserAuthService;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -17,16 +16,13 @@ public class DoctorService {
 
     private final DoctorRepository doctorRepository;
     private final LabRepository labRepository;
-    private final UserAuthService userAuthService;
-
-    public DoctorService(DoctorRepository doctorRepository, LabRepository labRepository, UserAuthService userAuthService) {
+    public DoctorService(DoctorRepository doctorRepository, LabRepository labRepository) {
         this.doctorRepository = doctorRepository;
         this.labRepository = labRepository;
-        this.userAuthService = userAuthService;
     }
 
     // Add doctor to lab
-    public void addDoctorToLab(Long labId, DoctorDTO doctorDTO, String username) {
+    public DoctorDTO addDoctorToLab(Long labId, DoctorDTO doctorDTO, String username) {
         // Retrieve the lab and authenticate the user
         Lab lab = labRepository.findById(labId)
                 .orElseThrow(() -> new RuntimeException("Lab not found"));
@@ -57,13 +53,14 @@ public class DoctorService {
         doctor.setCountry(doctorDTO.getCountry());
         doctor.getLabs().add(lab);
         doctor.setCreatedBy(username);
-        doctorRepository.save(doctor);
+        Doctors savedDoctor = doctorRepository.save(doctor);
         // Add the doctor to the lab
         lab.getDoctors().add(doctor);
         labRepository.save(lab);
+        return toDto(savedDoctor);
     }
 
-    public void updateDoctor(Long labId, Long doctorId, DoctorDTO doctorDTO, String username) {
+    public DoctorDTO updateDoctor(Long labId, Long doctorId, DoctorDTO doctorDTO, String username) {
         Lab lab = labRepository.findById(labId)
                 .orElseThrow(() -> new RuntimeException("Lab not found"));
         Doctors doctor = doctorRepository.findById(doctorId)
@@ -84,41 +81,27 @@ public class DoctorService {
         doctor.setState(doctorDTO.getState());
         doctor.setCountry(doctorDTO.getCountry());
         doctor.setUpdatedBy(username);
-        doctorRepository.save(doctor);
+        Doctors updatedDoctor = doctorRepository.save(doctor);
+        return toDto(updatedDoctor);
     }
 
-    public void deleteDoctor(Long labId, Long doctorId) {
+    public DoctorDTO deleteDoctor(Long labId, Long doctorId) {
         Lab lab = labRepository.findById(labId)
                 .orElseThrow(() -> new RuntimeException("Lab not found"));
         Doctors doctor = doctorRepository.findById(doctorId)
                 .orElseThrow(() -> new RuntimeException("Doctor not found"));
         lab.getDoctors().remove(doctor);
         labRepository.save(lab);
+        DoctorDTO snapshot = toDto(doctor);
         doctorRepository.delete(doctor);
+        return snapshot;
     }
 
     public Object getAllDoctors(Long labId) {
         Lab lab = labRepository.findById(labId)
                 .orElseThrow(() -> new RuntimeException("Lab not found"));
         return lab.getDoctors().stream()
-                .map(doctor -> {
-                    DoctorDTO doctorDTO = new DoctorDTO();
-                    doctorDTO.setId(doctor.getId());
-                    doctorDTO.setName(doctor.getName());
-                    doctorDTO.setEmail(doctor.getEmail());
-                    doctorDTO.setSpeciality(doctor.getSpeciality());
-                    doctorDTO.setQualification(doctor.getQualification());
-                    doctorDTO.setHospitalAffiliation(doctor.getHospitalAffiliation());
-                    doctorDTO.setLicenseNumber(doctor.getLicenseNumber());
-                    doctorDTO.setPhone(doctor.getPhone());
-                    doctorDTO.setAddress(doctor.getAddress());
-                    doctorDTO.setCity(doctor.getCity());
-                    doctorDTO.setState(doctor.getState());
-                    doctorDTO.setCountry(doctor.getCountry());
-                    doctorDTO.setCreatedAt(doctor.getCreatedAt());
-                    doctorDTO.setUpdatedAt(doctor.getUpdatedAt());
-                    return doctorDTO;
-                })
+                .map(this::toDto)
                 .collect(Collectors.toList());
     }
 
@@ -130,6 +113,10 @@ public class DoctorService {
         if (!lab.getDoctors().contains(doctor)) {
             throw new RuntimeException("Doctor not found in this lab");
         }
+        return toDto(doctor);
+    }
+
+    private DoctorDTO toDto(Doctors doctor) {
         DoctorDTO doctorDTO = new DoctorDTO();
         doctorDTO.setId(doctor.getId());
         doctorDTO.setName(doctor.getName());
@@ -143,6 +130,8 @@ public class DoctorService {
         doctorDTO.setCity(doctor.getCity());
         doctorDTO.setState(doctor.getState());
         doctorDTO.setCountry(doctor.getCountry());
+        doctorDTO.setCreatedBy(doctor.getCreatedBy());
+        doctorDTO.setUpdatedBy(doctor.getUpdatedBy());
         doctorDTO.setCreatedAt(doctor.getCreatedAt());
         doctorDTO.setUpdatedAt(doctor.getUpdatedAt());
         return doctorDTO;
