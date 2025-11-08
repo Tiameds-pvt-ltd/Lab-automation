@@ -135,4 +135,7 @@ public class VisitEntity {
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 
+    @Column(name = "visit_code", unique = true)
+    private String visitCode;
+
 }

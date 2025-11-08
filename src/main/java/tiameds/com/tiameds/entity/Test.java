@@ -58,6 +58,9 @@ public class Test {
     @JsonBackReference
     private Set<VisitEntity> visits = new HashSet<>();
 
+    @Column(name = "test_code", unique = true)
+    private String testCode;
+
     public Object getTestName() {
         return this.name;
     }

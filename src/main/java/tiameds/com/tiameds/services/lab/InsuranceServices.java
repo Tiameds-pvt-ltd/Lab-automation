@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import tiameds.com.tiameds.dto.lab.InsuranceDTO;
+import tiameds.com.tiameds.entity.EntityType;
 import tiameds.com.tiameds.entity.InsuranceEntity;
 import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.repository.InsuranceRepository;
@@ -18,10 +19,12 @@ public class InsuranceServices {
 
     private InsuranceRepository insuranceRepository;
     private LabRepository labRepository;
+    private SequenceGeneratorService sequenceGeneratorService;
 
-    public InsuranceServices(InsuranceRepository insuranceRepository, LabRepository labRepository) {
+    public InsuranceServices(InsuranceRepository insuranceRepository, LabRepository labRepository, SequenceGeneratorService sequenceGeneratorService) {
         this.insuranceRepository = insuranceRepository;
         this.labRepository = labRepository;
+        this.sequenceGeneratorService = sequenceGeneratorService;
     }
 
     public void addInsurance(Long labId, InsuranceDTO insuranceDTO) {
@@ -35,6 +38,11 @@ public class InsuranceServices {
         }
         //create a new insurance and add to lab
         InsuranceEntity insurance = new InsuranceEntity();
+        
+        // Generate unique insurance code using sequence generator
+        String insuranceCode = sequenceGeneratorService.generateCode(labId, EntityType.INSURANCE);
+        insurance.setInsuranceCode(insuranceCode);
+        
         insurance.setName(insuranceDTO.getName());
         insurance.setDescription(insuranceDTO.getDescription());
         insurance.setPrice(insuranceDTO.getPrice());

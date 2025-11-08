@@ -31,5 +31,7 @@ public class SampleEntity {
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 
+    @Column(name = "sample_code", unique = true)
+    private String sampleCode;
 
 }

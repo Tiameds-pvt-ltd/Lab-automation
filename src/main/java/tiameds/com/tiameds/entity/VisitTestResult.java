@@ -58,5 +58,7 @@ public class VisitTestResult {
     private String testStatus;
     // e.g. ACTIVE, CANCELLED, COMPLETED
 
+    @Column(name = "visit_test_result_code", unique = true)
+    private String visitTestResultCode;
 
 }

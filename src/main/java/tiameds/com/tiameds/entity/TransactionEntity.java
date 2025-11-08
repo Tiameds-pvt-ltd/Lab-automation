@@ -67,5 +67,7 @@ public class TransactionEntity {
     @Column(updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "transaction_code", unique = true)
+    private String transactionCode;
 
 }

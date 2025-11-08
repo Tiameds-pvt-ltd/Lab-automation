@@ -27,6 +27,7 @@ public class VisitService {
     private final VisitRepository visitRepository;
     private final TestDiscountRepository testDiscountRepository;
     private final VisitTestResultRepository visitTestResultRepository;
+    private final SequenceGeneratorService sequenceGeneratorService;
 
     public VisitService(PatientRepository patientRepository,
                         LabRepository labRepository,
@@ -37,7 +38,8 @@ public class VisitService {
                         BillingRepository billingRepository,
                         VisitRepository visitRepository, 
                         TestDiscountRepository testDiscountRepository,
-                        VisitTestResultRepository visitTestResultRepository) {
+                        VisitTestResultRepository visitTestResultRepository,
+                        SequenceGeneratorService sequenceGeneratorService) {
         this.patientRepository = patientRepository;
         this.labRepository = labRepository;
         this.testRepository = testRepository;
@@ -48,6 +50,7 @@ public class VisitService {
         this.visitRepository = visitRepository;
         this.testDiscountRepository = testDiscountRepository;
         this.visitTestResultRepository = visitTestResultRepository;
+        this.sequenceGeneratorService = sequenceGeneratorService;
     }
 
     @Transactional
@@ -71,6 +74,11 @@ public class VisitService {
             ApiResponseHelper.errorResponse("Doctor not found", HttpStatus.NOT_FOUND);
         }
         VisitEntity visit = new VisitEntity();
+        
+        // Generate unique visit code using sequence generator
+        String visitCode = sequenceGeneratorService.generateCode(labOptional.get().getId(), EntityType.VISIT);
+        visit.setVisitCode(visitCode);
+        
         visit.setPatient(patientEntity.get());
         visit.setVisitDate(visitDTO.getVisitDate());
         visit.setVisitType(visitDTO.getVisitType());
@@ -93,6 +101,11 @@ public class VisitService {
 
         // Handle billing information
         BillingEntity billingEntity = new BillingEntity();
+        
+        // Generate unique billing code using sequence generator
+        String billingCode = sequenceGeneratorService.generateCode(labOptional.get().getId(), EntityType.BILLING);
+        billingEntity.setBillingCode(billingCode);
+        
         billingEntity.setTotalAmount(visitDTO.getBilling().getTotalAmount());
         billingEntity.setPaymentStatus(visitDTO.getBilling().getPaymentStatus());
         billingEntity.setPaymentMethod(visitDTO.getBilling().getPaymentMethod());

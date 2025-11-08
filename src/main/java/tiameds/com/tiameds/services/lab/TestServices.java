@@ -8,6 +8,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import tiameds.com.tiameds.entity.EntityType;
 import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.entity.Test;
 import tiameds.com.tiameds.repository.TestRepository;
@@ -22,9 +23,11 @@ import java.util.List;
 public class TestServices {
 
     private final TestRepository testRepository;
+    private final SequenceGeneratorService sequenceGeneratorService;
 
-    public TestServices(TestRepository testRepository) {
+    public TestServices(TestRepository testRepository, SequenceGeneratorService sequenceGeneratorService) {
         this.testRepository = testRepository;
+        this.sequenceGeneratorService = sequenceGeneratorService;
     }
 
     @Transactional
@@ -56,11 +59,19 @@ public class TestServices {
 
                 // Create and populate Test entity
                 Test test = new Test();
+                
+                // Generate unique test code using sequence generator
+                String testCode = sequenceGeneratorService.generateCode(lab.getId(), EntityType.TEST);
+                test.setTestCode(testCode);
+                
                 test.setCategory(category);
                 test.setName(name);
                 test.setPrice(price);
                 test.getLabs().add(lab);  // Ensure the test is added to the correct lab
                 lab.addTest(test);
+                
+                // Add test to the list for batch saving
+                tests.add(test);
             }
 
             // Save all tests to the database, associating them with the specified lab

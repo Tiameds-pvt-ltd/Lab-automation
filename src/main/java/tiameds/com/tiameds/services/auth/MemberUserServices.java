@@ -5,11 +5,13 @@ import org.springframework.stereotype.Service;
 import tiameds.com.tiameds.dto.auth.MemberDetailsUpdate;
 import tiameds.com.tiameds.dto.auth.MemberRegisterDto;
 import tiameds.com.tiameds.dto.lab.UserInLabDTO;
+import tiameds.com.tiameds.entity.EntityType;
 import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.entity.Role;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.repository.RoleRepository;
 import tiameds.com.tiameds.repository.UserRepository;
+import tiameds.com.tiameds.services.lab.SequenceGeneratorService;
 
 import java.util.List;
 import java.util.Set;
@@ -21,11 +23,13 @@ public class MemberUserServices {
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final SequenceGeneratorService sequenceGeneratorService;
 
-    public MemberUserServices(PasswordEncoder passwordEncoder, UserRepository userRepository, RoleRepository roleRepository) {
+    public MemberUserServices(PasswordEncoder passwordEncoder, UserRepository userRepository, RoleRepository roleRepository, SequenceGeneratorService sequenceGeneratorService) {
         this.passwordEncoder = passwordEncoder;
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
+        this.sequenceGeneratorService = sequenceGeneratorService;
     }
 
     public static List<UserInLabDTO> getMembersInLab(Lab lab) {
@@ -78,6 +82,11 @@ public class MemberUserServices {
 
     public void createUserAndAddToLab(MemberRegisterDto registerRequest, Lab lab, User currentUser) {
         User user = new User();
+        
+        // Generate unique user code using sequence generator
+        String userCode = sequenceGeneratorService.generateCode(lab.getId(), EntityType.USER);
+        user.setUserCode(userCode);
+        
         user.setUsername(registerRequest.getUsername());
         user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
         user.setEmail(registerRequest.getEmail());

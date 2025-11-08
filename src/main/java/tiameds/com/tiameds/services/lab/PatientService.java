@@ -34,6 +34,7 @@ public class PatientService {
     private final TestDiscountRepository testDiscountRepository;
     private final VisitRepository visitRepository;
     private final BillingManagementService billingManagementService;
+    private final SequenceGeneratorService sequenceGeneratorService;
 
     public PatientService(LabRepository labRepository,
                           TestRepository testRepository,
@@ -45,7 +46,8 @@ public class PatientService {
                           BillingRepository billingRepository,
                           TestDiscountRepository testDiscountRepository,
                           VisitRepository visitRepository,
-                          BillingManagementService billingManagementService
+                          BillingManagementService billingManagementService,
+                          SequenceGeneratorService sequenceGeneratorService
     ) {
         this.labRepository = labRepository;
         this.testRepository = testRepository;
@@ -58,6 +60,7 @@ public class PatientService {
         this.testDiscountRepository = testDiscountRepository;
         this.visitRepository = visitRepository;
         this.billingManagementService = billingManagementService;
+        this.sequenceGeneratorService = sequenceGeneratorService;
     }
 
 
@@ -122,6 +125,12 @@ public class PatientService {
             }
 
             PatientEntity patient = mapPatientDTOToEntity(patientDTO, currentUser);
+            
+            // Generate unique patient code using sequence generator
+            // Example: PAT1-00001, PAT1-00002, etc. (includes lab ID for global uniqueness)
+            String patientCode = sequenceGeneratorService.generateCode(lab.getId(), EntityType.PATIENT);
+            patient.setPatientCode(patientCode);
+            
             Optional<PatientEntity> guardian = patientRepository.findFirstByPhoneOrderByPatientIdAsc(patientDTO.getPhone());
             guardian.ifPresent(patient::setGuardian);
             patient.getLabs().add(lab);
@@ -194,6 +203,11 @@ public class PatientService {
 
     private VisitEntity mapVisitDTOToEntity(VisitDTO visitDTO, Lab lab, String currentUser) {
         VisitEntity visit = new VisitEntity();
+        
+        // Generate unique visit code using sequence generator
+        String visitCode = sequenceGeneratorService.generateCode(lab.getId(), EntityType.VISIT);
+        visit.setVisitCode(visitCode);
+        
         visit.setVisitDate(visitDTO.getVisitDate());
         visit.setVisitType(visitDTO.getVisitType());
         visit.setVisitStatus(visitDTO.getVisitStatus());
@@ -249,6 +263,11 @@ public class PatientService {
                 Set<TestDiscountEntity> discountEntities = visitDTO.getListOfEachTestDiscount().stream()
                         .map(discountDTO -> {
                             TestDiscountEntity discountEntity = new TestDiscountEntity();
+                            
+                            // Generate unique test discount code
+                            String testDiscountCode = sequenceGeneratorService.generateCode(lab.getId(), EntityType.TEST_DISCOUNT);
+                            discountEntity.setTestDiscountCode(testDiscountCode);
+                            
                             discountEntity.setTestId(discountDTO.getTestId());
                             discountEntity.setDiscountAmount(discountDTO.getDiscountAmount());
                             discountEntity.setDiscountPercent(discountDTO.getDiscountPercent());
@@ -288,6 +307,10 @@ public class PatientService {
                         testResult.setCreatedBy(currentUser);
                         testResult.setUpdatedBy(currentUser);
                         testResult.setTestStatus("ACTIVE");
+                        
+                        // Generate unique visit test result code
+                        String visitTestResultCode = sequenceGeneratorService.generateCode(lab.getId(), EntityType.VISIT_TEST_RESULT);
+                        testResult.setVisitTestResultCode(visitTestResultCode);
 
                         return testResult;
                     })
@@ -348,6 +371,12 @@ public class PatientService {
         BillingEntity billing = billingDTO.getBillingId() != null ?
                 billingRepository.findById(billingDTO.getBillingId()).orElse(new BillingEntity()) :
                 new BillingEntity();
+        
+        // Generate unique billing code if it's a new billing
+        if (billingDTO.getBillingId() == null || billing.getBillingCode() == null) {
+            String billingCode = sequenceGeneratorService.generateCode(lab.getId(), EntityType.BILLING);
+            billing.setBillingCode(billingCode);
+        }
 
         // Map basic billing fields with null checks and defaults
         billing.setTotalAmount(billingDTO.getTotalAmount() != null ? billingDTO.getTotalAmount() : BigDecimal.ZERO);
@@ -429,6 +458,11 @@ public class PatientService {
                 // ✅ Payment transaction row
                 if (receivedAmount.compareTo(BigDecimal.ZERO) > 0) {
                     TransactionEntity paymentTransaction = new TransactionEntity();
+                    
+                    // Generate unique transaction code
+                    String transactionCode = sequenceGeneratorService.generateCode(lab.getId(), EntityType.TRANSACTION);
+                    paymentTransaction.setTransactionCode(transactionCode);
+                    
                     paymentTransaction.setPaymentMethod(transactionDTO.getPaymentMethod() != null ? transactionDTO.getPaymentMethod() : "CASH");
                     paymentTransaction.setUpiId(transactionDTO.getUpiId() != null ? transactionDTO.getUpiId() : "");
                     paymentTransaction.setUpiAmount(transactionDTO.getUpiAmount() != null ? transactionDTO.getUpiAmount() : BigDecimal.ZERO);
@@ -448,6 +482,11 @@ public class PatientService {
                 // ✅ Refund transaction row (Overpayment refund)
                 if (refundAmount.compareTo(BigDecimal.ZERO) > 0) {
                     TransactionEntity refundTransaction = new TransactionEntity();
+                    
+                    // Generate unique transaction code for refund
+                    String refundTransactionCode = sequenceGeneratorService.generateCode(lab.getId(), EntityType.TRANSACTION);
+                    refundTransaction.setTransactionCode(refundTransactionCode);
+                    
                     refundTransaction.setPaymentMethod("REFUND"); // always REFUND for overpayment
                     refundTransaction.setUpiId(""); // blank
                     refundTransaction.setUpiAmount(BigDecimal.ZERO);

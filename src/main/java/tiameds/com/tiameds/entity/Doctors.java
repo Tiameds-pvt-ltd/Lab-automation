@@ -105,4 +105,7 @@ public class Doctors {
     @Column(name = "updated_by")
     private String UpdatedBy;
 
+    @Column(name = "doctor_code", unique = true)
+    private String doctorCode;
+
 }

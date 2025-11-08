@@ -84,5 +84,8 @@ public class SuperAdminReferanceEntity {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    @Column(name = "super_admin_reference_code", unique = true)
+    private String superAdminReferenceCode;
 }
 

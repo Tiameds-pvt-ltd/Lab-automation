@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import tiameds.com.tiameds.dto.lab.DoctorDTO;
 import tiameds.com.tiameds.entity.Doctors;
+import tiameds.com.tiameds.entity.EntityType;
 import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.repository.DoctorRepository;
 import tiameds.com.tiameds.repository.LabRepository;
@@ -16,9 +17,12 @@ public class DoctorService {
 
     private final DoctorRepository doctorRepository;
     private final LabRepository labRepository;
-    public DoctorService(DoctorRepository doctorRepository, LabRepository labRepository) {
+    private final SequenceGeneratorService sequenceGeneratorService;
+    
+    public DoctorService(DoctorRepository doctorRepository, LabRepository labRepository, SequenceGeneratorService sequenceGeneratorService) {
         this.doctorRepository = doctorRepository;
         this.labRepository = labRepository;
+        this.sequenceGeneratorService = sequenceGeneratorService;
     }
 
     // Add doctor to lab
@@ -40,6 +44,11 @@ public class DoctorService {
         }
         // Create a new doctor and add to lab
         Doctors doctor = new Doctors();
+        
+        // Generate unique doctor code using sequence generator
+        String doctorCode = sequenceGeneratorService.generateCode(labId, EntityType.DOCTOR);
+        doctor.setDoctorCode(doctorCode);
+        
         doctor.setName(doctorDTO.getName());
         doctor.setEmail(doctorDTO.getEmail());
         doctor.setSpeciality(doctorDTO.getSpeciality());

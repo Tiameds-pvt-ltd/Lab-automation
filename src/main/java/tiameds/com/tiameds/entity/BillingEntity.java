@@ -113,6 +113,9 @@ public class BillingEntity {
 
     @OneToOne(mappedBy = "billing", fetch = FetchType.LAZY)
     private VisitEntity visit;
+
+    @Column(name = "billing_code", unique = true)
+    private String billingCode;
 //
 //    public void setRefundAmount(BigDecimal bigDecimal) {
 //        // Method implementation can be added here if needed

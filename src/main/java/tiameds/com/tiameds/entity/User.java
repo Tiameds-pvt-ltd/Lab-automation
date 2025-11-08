@@ -106,6 +106,7 @@ public class User {
     @Column(name = "token_version", nullable = false)
     private Integer tokenVersion = 0;
 
-
+    @Column(name = "user_code", unique = true)
+    private String userCode;
 
 }

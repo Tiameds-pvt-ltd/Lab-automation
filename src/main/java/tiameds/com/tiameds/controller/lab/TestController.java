@@ -10,12 +10,14 @@ import org.springframework.web.multipart.MultipartFile;
 import tiameds.com.tiameds.audit.AuditLogService;
 import tiameds.com.tiameds.audit.helpers.FieldChangeTracker;
 import tiameds.com.tiameds.dto.lab.TestDTO;
+import tiameds.com.tiameds.entity.EntityType;
 import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.entity.LabAuditLogs;
 import tiameds.com.tiameds.entity.Test;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.repository.LabRepository;
 import tiameds.com.tiameds.repository.TestRepository;
+import tiameds.com.tiameds.services.lab.SequenceGeneratorService;
 import tiameds.com.tiameds.services.lab.TestServices;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
@@ -41,6 +43,7 @@ public class TestController {
     private final TestServices testServices;
     private final AuditLogService auditLogService;
     private final FieldChangeTracker fieldChangeTracker;
+    private final SequenceGeneratorService sequenceGeneratorService;
 
     public TestController(LabRepository labRepository,
                           TestRepository testRepository,
@@ -48,7 +51,8 @@ public class TestController {
                           LabAccessableFilter labAccessableFilter,
                           TestServices testServices,
                           AuditLogService auditLogService,
-                          FieldChangeTracker fieldChangeTracker) {
+                          FieldChangeTracker fieldChangeTracker,
+                          SequenceGeneratorService sequenceGeneratorService) {
         this.labRepository = labRepository;
         this.testRepository = testRepository;
         this.userAuthService = userAuthService;
@@ -56,6 +60,7 @@ public class TestController {
         this.testServices = testServices;
         this.auditLogService = auditLogService;
         this.fieldChangeTracker = fieldChangeTracker;
+        this.sequenceGeneratorService = sequenceGeneratorService;
     }
     // 1. Get all tests in a lab
     @Transactional
@@ -144,6 +149,11 @@ public class TestController {
 
             // Create a new Test entity from the DTO
             Test test = new Test();
+            
+            // Generate unique test code using sequence generator
+            String testCode = sequenceGeneratorService.generateCode(labId, EntityType.TEST);
+            test.setTestCode(testCode);
+            
             test.setCategory(testDTO.getCategory());
             test.setName(testDTO.getName());
             test.setPrice(testDTO.getPrice());

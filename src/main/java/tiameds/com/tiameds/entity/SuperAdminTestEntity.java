@@ -40,4 +40,7 @@ public class SuperAdminTestEntity {
     @Column(nullable = false)
     private String updatedBy;
 
+    @Column(name = "super_admin_test_code", unique = true)
+    private String superAdminTestCode;
+
 }

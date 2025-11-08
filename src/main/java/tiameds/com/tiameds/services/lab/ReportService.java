@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tiameds.com.tiameds.dto.lab.ReportDto;
 import tiameds.com.tiameds.dto.lab.TestResultDto;
+import tiameds.com.tiameds.entity.EntityType;
 import tiameds.com.tiameds.entity.ReportEntity;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.entity.VisitEntity;
@@ -22,13 +23,15 @@ public class ReportService {
     private final TestRepository testRepository;
     private final LabRepository labRepository;
     private final VisitTestResultRepository visitTestResultRepository;
+    private final SequenceGeneratorService sequenceGeneratorService;
 
-    public ReportService(ReportRepository reportRepository, VisitRepository visitRepository, TestRepository testRepository, LabRepository labRepository, VisitTestResultRepository visitTestResultRepository) {
+    public ReportService(ReportRepository reportRepository, VisitRepository visitRepository, TestRepository testRepository, LabRepository labRepository, VisitTestResultRepository visitTestResultRepository, SequenceGeneratorService sequenceGeneratorService) {
         this.reportRepository = reportRepository;
         this.visitRepository = visitRepository;
         this.testRepository = testRepository;
         this.labRepository = labRepository;
         this.visitTestResultRepository = visitTestResultRepository;
+        this.sequenceGeneratorService = sequenceGeneratorService;
     }
 
 //    public ResponseEntity<?> createReports(List<ReportDto> reportDtoList, Long labId, User user) {
@@ -207,6 +210,11 @@ public class ReportService {
             visitRepository.save(visit);
 
             ReportEntity reportEntity = new ReportEntity();
+            
+            // Generate unique report code using sequence generator
+            String reportCode = sequenceGeneratorService.generateCode(labId, EntityType.REPORT);
+            reportEntity.setReportCode(reportCode);
+            
             reportEntity.setVisitId(reportDto.getVisitId());
             reportEntity.setTestName(reportDto.getTestName());
             reportEntity.setTestCategory(reportDto.getTestCategory());

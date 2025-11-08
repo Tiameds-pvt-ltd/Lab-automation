@@ -63,6 +63,8 @@ public class   HealthPackage {
     @JsonBackReference
     private Set<VisitEntity> visits = new HashSet<>();
 
+    @Column(name = "package_code", unique = true)
+    private String packageCode;
 
     public Object getPackageId() {
         return id;

@@ -74,5 +74,7 @@ public class InsuranceEntity {
         lab.getInsurance().add(this);
     }
 
+    @Column(name = "insurance_code", unique = true)
+    private String insuranceCode;
 
 }

@@ -17,11 +17,13 @@ import tiameds.com.tiameds.dto.auth.LoginRequest;
 import tiameds.com.tiameds.dto.auth.LoginResponse;
 import tiameds.com.tiameds.dto.auth.RegisterRequest;
 import tiameds.com.tiameds.dto.lab.ModuleDTO;
+import tiameds.com.tiameds.entity.EntityType;
 import tiameds.com.tiameds.entity.ModuleEntity;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.repository.ModuleRepository;
 import tiameds.com.tiameds.services.auth.UserDetailsServiceImpl;
 import tiameds.com.tiameds.services.auth.UserService;
+import tiameds.com.tiameds.services.lab.SequenceGeneratorService;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.JwtUtil;
 import tiameds.com.tiameds.entity.Role;
@@ -44,9 +46,10 @@ public class UserController {
     private final JwtUtil jwtUtils;
     private final ModuleRepository moduleRepository;
     private final RateLimitConfig.RateLimitService rateLimitService;
+    private final SequenceGeneratorService sequenceGeneratorService;
 
     @Autowired
-    public UserController(UserService userService, AuthenticationManager authenticationManager, UserDetailsServiceImpl userDetailsService, PasswordEncoder passwordEncoder, JwtUtil jwtUtils, ModuleRepository moduleRepository, RateLimitConfig.RateLimitService rateLimitService) {
+    public UserController(UserService userService, AuthenticationManager authenticationManager, UserDetailsServiceImpl userDetailsService, PasswordEncoder passwordEncoder, JwtUtil jwtUtils, ModuleRepository moduleRepository, RateLimitConfig.RateLimitService rateLimitService, SequenceGeneratorService sequenceGeneratorService) {
         this.userService = userService;
         this.authenticationManager = authenticationManager;
         this.userDetailsService = userDetailsService;
@@ -54,6 +57,7 @@ public class UserController {
         this.jwtUtils = jwtUtils;
         this.moduleRepository = moduleRepository;
         this.rateLimitService = rateLimitService;
+        this.sequenceGeneratorService = sequenceGeneratorService;
     }
 
     @GetMapping("/health-check")
@@ -221,6 +225,12 @@ public class UserController {
 //        }
         // Create a new User
         User user = new User();
+        
+        // Generate unique user code using sequence generator
+        // Use lab ID 0 for system-level users (users created without a lab)
+        String userCode = sequenceGeneratorService.generateCode(0L, EntityType.USER);
+        user.setUserCode(userCode);
+        
         user.setUsername(registerRequest.getUsername());
         user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));  // Encrypt password
         user.setEmail(registerRequest.getEmail());

@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import tiameds.com.tiameds.audit.AuditLogService;
 import tiameds.com.tiameds.audit.helpers.FieldChangeTracker;
 import tiameds.com.tiameds.dto.lab.HealthPackageRequest;
+import tiameds.com.tiameds.entity.EntityType;
 import tiameds.com.tiameds.entity.HealthPackage;
 import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.entity.LabAuditLogs;
@@ -17,6 +18,7 @@ import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.repository.HealthPackageRepository;
 import tiameds.com.tiameds.repository.LabRepository;
 import tiameds.com.tiameds.repository.TestRepository;
+import tiameds.com.tiameds.services.lab.SequenceGeneratorService;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
 import tiameds.com.tiameds.utils.UserAuthService;
@@ -44,6 +46,7 @@ public class HealthPackageController {
     private final LabAccessableFilter labAccessableFilter;
     private final AuditLogService auditLogService;
     private final FieldChangeTracker fieldChangeTracker;
+    private final SequenceGeneratorService sequenceGeneratorService;
 
     //default constructor
     public HealthPackageController(LabRepository labRepository,
@@ -52,7 +55,8 @@ public class HealthPackageController {
                                    HealthPackageRepository healthPackageRepository,
                                    LabAccessableFilter labAccessableFilter,
                                    AuditLogService auditLogService,
-                                   FieldChangeTracker fieldChangeTracker) {
+                                   FieldChangeTracker fieldChangeTracker,
+                                   SequenceGeneratorService sequenceGeneratorService) {
         this.labRepository = labRepository;
         this.testRepository = testRepository;
         this.userAuthService = userAuthService;
@@ -60,6 +64,7 @@ public class HealthPackageController {
         this.labAccessableFilter = labAccessableFilter;
         this.auditLogService = auditLogService;
         this.fieldChangeTracker = fieldChangeTracker;
+        this.sequenceGeneratorService = sequenceGeneratorService;
     }
 
 
@@ -142,6 +147,11 @@ public class HealthPackageController {
 
         // Create a new health package
         HealthPackage healthPackage = new HealthPackage();
+        
+        // Generate unique package code using sequence generator
+        String packageCode = sequenceGeneratorService.generateCode(labId, EntityType.HEALTH_PACKAGE);
+        healthPackage.setPackageCode(packageCode);
+        
         healthPackage.setPackageName(packageRequest.getPackageName());
         healthPackage.setPrice(packageRequest.getPrice());
         healthPackage.setDiscount(packageRequest.getDiscount());

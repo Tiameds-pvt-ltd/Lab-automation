@@ -53,4 +53,7 @@ public class TestDiscountEntity {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    @Column(name = "test_discount_code", unique = true)
+    private String testDiscountCode;
 }
