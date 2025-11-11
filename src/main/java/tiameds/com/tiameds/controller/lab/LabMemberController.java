@@ -866,4 +866,42 @@ public class LabMemberController {
         
         return data;
     }
+
+    @GetMapping("/me")
+    public ResponseEntity<?> getCurrentUserInfo(
+            @RequestHeader("Authorization") String token
+    ) {
+        User currentUser = userAuthService.authenticateUser(token).orElse(null);
+        if (currentUser == null)
+            return ApiResponseHelper.errorResponse("User not found or unauthorized", HttpStatus.UNAUTHORIZED);
+
+        Map<String, Object> userInfo = new LinkedHashMap<>();
+        userInfo.put("id", currentUser.getId());
+        userInfo.put("username", currentUser.getUsername());
+        userInfo.put("email", currentUser.getEmail());
+        userInfo.put("firstName", currentUser.getFirstName());
+        userInfo.put("lastName", currentUser.getLastName());
+        userInfo.put("phone", currentUser.getPhone());
+        userInfo.put("address", currentUser.getAddress());
+        userInfo.put("city", currentUser.getCity());
+        userInfo.put("state", currentUser.getState());
+        userInfo.put("zip", currentUser.getZip());
+        userInfo.put("country", currentUser.getCountry());
+        userInfo.put("enabled", currentUser.isEnabled());
+        userInfo.put("isVerified", currentUser.isVerified());
+        userInfo.put("createdAt", currentUser.getCreatedAt() != null ? currentUser.getCreatedAt().toString() : null);
+        userInfo.put("updatedAt", currentUser.getUpdatedAt() != null ? currentUser.getUpdatedAt().toString() : null);
+
+        // Include roles
+        if (currentUser.getRoles() != null) {
+            List<String> roleNames = currentUser.getRoles().stream()
+                    .map(Role::getName)
+                    .collect(Collectors.toList());
+            userInfo.put("roles", roleNames);
+        } else {
+            userInfo.put("roles", new ArrayList<>());
+        }
+
+        return ApiResponseHelper.successResponse("Current user info fetched successfully", userInfo);
+    }
 }

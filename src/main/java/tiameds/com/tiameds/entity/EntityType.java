@@ -20,6 +20,7 @@ public enum EntityType {
     SAMPLE("SAM"),
     SUPER_ADMIN_TEST("SAT"),
     VISIT_TEST_RESULT("VTR"),
+    VISIT_SAMPLE("VSM"),
     USER("USR");
 
     private final String prefix;

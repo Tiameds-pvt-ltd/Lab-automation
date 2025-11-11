@@ -3,8 +3,10 @@ package tiameds.com.tiameds.services.lab;
 
 import org.springframework.stereotype.Service;
 import tiameds.com.tiameds.dto.lab.SampleDto;
+import tiameds.com.tiameds.entity.EntityType;
 import tiameds.com.tiameds.entity.SampleEntity;
 import tiameds.com.tiameds.repository.SampleAssocationRepository;
+import tiameds.com.tiameds.services.lab.SequenceGeneratorService;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -14,9 +16,11 @@ import java.util.stream.Collectors;
 public class SampleAssociationService {
 
     private final SampleAssocationRepository sampleAssociationRepository;
+    private final SequenceGeneratorService sequenceGeneratorService;
 
-    public SampleAssociationService(SampleAssocationRepository sampleAssociationRepository) {
+    public SampleAssociationService(SampleAssocationRepository sampleAssociationRepository, SequenceGeneratorService sequenceGeneratorService) {
         this.sampleAssociationRepository = sampleAssociationRepository;
+        this.sequenceGeneratorService = sequenceGeneratorService;
     }
 
     //get all sample which is constant for all labs
@@ -39,6 +43,12 @@ public class SampleAssociationService {
         }
         //create the sample
         SampleEntity sampleEntity = new SampleEntity();
+        
+        // Generate unique sample code using sequence generator
+        // Use lab ID 0 for global samples (samples are shared across labs)
+        String sampleCode = sequenceGeneratorService.generateCode(0L, EntityType.SAMPLE);
+        sampleEntity.setSampleCode(sampleCode);
+        
         sampleEntity.setName(sampleDto.getName());
         SampleEntity saved = sampleAssociationRepository.save(sampleEntity);
         return toSampleDto(saved);

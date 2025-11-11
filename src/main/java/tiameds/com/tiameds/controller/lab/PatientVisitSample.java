@@ -12,13 +12,17 @@ import tiameds.com.tiameds.audit.helpers.FieldChangeTracker;
 import tiameds.com.tiameds.dto.lab.PatientVisitSampleDto;
 import tiameds.com.tiameds.dto.lab.VisitSampleDto;
 import tiameds.com.tiameds.dto.lab.VisitTestResultResponseDTO;
+import tiameds.com.tiameds.entity.EntityType;
 import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.entity.LabAuditLogs;
 import tiameds.com.tiameds.entity.SampleEntity;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.entity.VisitEntity;
+import tiameds.com.tiameds.entity.VisitSample;
 import tiameds.com.tiameds.repository.SampleAssocationRepository;
 import tiameds.com.tiameds.repository.VisitRepository;
+import tiameds.com.tiameds.repository.VisitSampleRepository;
+import tiameds.com.tiameds.services.lab.SequenceGeneratorService;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
 import tiameds.com.tiameds.utils.UserAuthService;
@@ -41,6 +45,8 @@ public class PatientVisitSample {
     private final LabRepository labRepository;
     private final AuditLogService auditLogService;
     private final FieldChangeTracker fieldChangeTracker;
+    private final VisitSampleRepository visitSampleRepository;
+    private final SequenceGeneratorService sequenceGeneratorService;
 
     public PatientVisitSample(VisitRepository visitRepository, 
                               SampleAssocationRepository sampleAssocationRepository, 
@@ -48,7 +54,9 @@ public class PatientVisitSample {
                               LabAccessableFilter labAccessableFilter, 
                               LabRepository labRepository,
                               AuditLogService auditLogService,
-                              FieldChangeTracker fieldChangeTracker) {
+                              FieldChangeTracker fieldChangeTracker,
+                              VisitSampleRepository visitSampleRepository,
+                              SequenceGeneratorService sequenceGeneratorService) {
         this.visitRepository = visitRepository;
         this.sampleAssocationRepository = sampleAssocationRepository;
         this.userAuthService = userAuthService;
@@ -56,6 +64,8 @@ public class PatientVisitSample {
         this.labRepository = labRepository;
         this.auditLogService = auditLogService;
         this.fieldChangeTracker = fieldChangeTracker;
+        this.visitSampleRepository = visitSampleRepository;
+        this.sequenceGeneratorService = sequenceGeneratorService;
     }
 
     @PostMapping("/add-samples")
@@ -76,20 +86,40 @@ public class PatientVisitSample {
         // Capture old state before modification
         Map<String, Object> oldData = toAuditMap(visit);
 
-        // 2. Fetch or create samples
-        Set<SampleEntity> samples = new HashSet<>();
+        // 2. Fetch or create samples and create VisitSample entities with timestamps and codes
+        Long labId = visit.getLabs() != null && !visit.getLabs().isEmpty() 
+                ? visit.getLabs().iterator().next().getId() 
+                : 0L;
+        
         for (String sampleName : request.getSampleNames()) {
             SampleEntity sample = sampleAssocationRepository.findByName(sampleName).orElseGet(() -> {
                 SampleEntity newSample = new SampleEntity();
+                // Generate unique sample code using sequence generator
+                String sampleCode = sequenceGeneratorService.generateCode(0L, EntityType.SAMPLE);
+                newSample.setSampleCode(sampleCode);
                 newSample.setName(sampleName);
                 return sampleAssocationRepository.save(newSample); // Save new sample
             });
 
-            samples.add(sample);
+            // Create VisitSample entity with timestamps and code
+            VisitSample visitSample = new VisitSample();
+            visitSample.setVisit(visit);
+            visitSample.setSample(sample);
+            
+            // Generate unique visit sample code
+            String visitSampleCode = sequenceGeneratorService.generateCode(labId, EntityType.VISIT_SAMPLE);
+            visitSample.setVisitSampleCode(visitSampleCode);
+            
+            // Set audit fields
+            if (currentUser.isPresent()) {
+                visitSample.setCreatedBy(currentUser.get().getUsername());
+                visitSample.setUpdatedBy(currentUser.get().getUsername());
+            }
+            
+            visit.getVisitSamples().add(visitSample);
         }
 
-        // 3. Associate samples with visit correctly
-        visit.getSamples().addAll(samples);
+        // 3. Save visit with associated VisitSample entities
         visitRepository.save(visit);
 
         //update the visit status
@@ -98,12 +128,6 @@ public class PatientVisitSample {
 
         // Capture new state after modification
         Map<String, Object> newData = toAuditMap(visit);
-
-        // Get lab ID from visit
-        Long labId = null;
-        if (visit.getLabs() != null && !visit.getLabs().isEmpty()) {
-            labId = Long.valueOf(visit.getLabs().iterator().next().getId());
-        }
 
         logVisitSampleAudit(
                 labId,
@@ -138,30 +162,47 @@ public class PatientVisitSample {
         // Capture old state before modification
         Map<String, Object> oldData = toAuditMap(visit);
 
-        // 2. update the samples
-        Set<SampleEntity> samples = new HashSet<>();
+        // 2. Clear existing visit samples and create new ones
+        visit.getVisitSamples().clear();
+        
+        Long labId = visit.getLabs() != null && !visit.getLabs().isEmpty() 
+                ? visit.getLabs().iterator().next().getId() 
+                : 0L;
+        
+        // 3. Create new VisitSample entities for each sample
         for (String sampleName : request.getSampleNames()) {
             SampleEntity sample = sampleAssocationRepository.findByName(sampleName).orElseGet(() -> {
                 SampleEntity newSample = new SampleEntity();
+                // Generate unique sample code
+                String sampleCode = sequenceGeneratorService.generateCode(0L, EntityType.SAMPLE);
+                newSample.setSampleCode(sampleCode);
                 newSample.setName(sampleName);
-                return sampleAssocationRepository.save(newSample); // Save new sample
+                return sampleAssocationRepository.save(newSample);
             });
 
-            samples.add(sample);
+            // Create VisitSample entity with timestamps and code
+            VisitSample visitSample = new VisitSample();
+            visitSample.setVisit(visit);
+            visitSample.setSample(sample);
+            
+            // Generate unique visit sample code
+            String visitSampleCode = sequenceGeneratorService.generateCode(labId, EntityType.VISIT_SAMPLE);
+            visitSample.setVisitSampleCode(visitSampleCode);
+            
+            // Set audit fields
+            if (currentUser.isPresent()) {
+                visitSample.setCreatedBy(currentUser.get().getUsername());
+                visitSample.setUpdatedBy(currentUser.get().getUsername());
+            }
+            
+            visit.getVisitSamples().add(visitSample);
         }
 
-        // 3. Associate samples with visit correctly
-        visit.setSamples(samples);
+        // 4. Save visit with updated VisitSample entities
         visitRepository.save(visit);
 
         // Capture new state after modification
         Map<String, Object> newData = toAuditMap(visit);
-
-        // Get lab ID from visit
-        Long labId = null;
-        if (visit.getLabs() != null && !visit.getLabs().isEmpty()) {
-            labId = Long.valueOf(visit.getLabs().iterator().next().getId());
-        }
 
         logVisitSampleAudit(
                 labId,
@@ -195,18 +236,23 @@ public class PatientVisitSample {
         // Capture old state before modification
         Map<String, Object> oldData = toAuditMap(visit);
 
-        // 2. Fetch or create samples
+        // 2. Remove VisitSample entities for the specified samples
         Set<SampleEntity> samplesToRemove = new HashSet<>();
         for (String sampleName : request.getSampleNames()) {
-            SampleEntity sample = sampleAssocationRepository.findByName(sampleName).orElseGet(() -> {
-                SampleEntity newSample = new SampleEntity();
-                newSample.setName(sampleName);
-                return sampleAssocationRepository.save(newSample); // Save new sample
-            });
-            samplesToRemove.add(sample);
+            SampleEntity sample = sampleAssocationRepository.findByName(sampleName)
+                    .orElse(null);
+            if (sample != null) {
+                samplesToRemove.add(sample);
+            }
         }
-        // 3. Remove samples from the visit
-        visit.getSamples().removeAll(samplesToRemove);
+        
+        // Get lab ID from visit before removing samples
+        Long labId = visit.getLabs() != null && !visit.getLabs().isEmpty() 
+                ? visit.getLabs().iterator().next().getId() 
+                : 0L;
+        
+        // 3. Remove VisitSample entities from the visit
+        visit.getVisitSamples().removeIf(vs -> samplesToRemove.contains(vs.getSample()));
         visitRepository.save(visit);
 
         //check if the visit has no samples
@@ -217,12 +263,6 @@ public class PatientVisitSample {
 
         // Capture new state after modification
         Map<String, Object> newData = toAuditMap(visit);
-
-        // Get lab ID from visit
-        Long labId = null;
-        if (visit.getLabs() != null && !visit.getLabs().isEmpty()) {
-            labId = Long.valueOf(visit.getLabs().iterator().next().getId());
-        }
 
         logVisitSampleAudit(
                 labId,

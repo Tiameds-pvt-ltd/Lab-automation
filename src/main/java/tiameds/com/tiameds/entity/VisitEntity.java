@@ -13,6 +13,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Getter
 @Setter
@@ -76,14 +77,29 @@ public class VisitEntity {
     private Set<InsuranceEntity> insurance = new HashSet<>();
 
 
-    @ManyToMany(fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
-    @JoinTable(
-            name = "patient_visit_sample",
-            joinColumns = @JoinColumn(name = "visit_id"),
-            inverseJoinColumns = @JoinColumn(name = "sample_id")
-    )
+    @OneToMany(mappedBy = "visit", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference
-    private Set<SampleEntity> samples = new HashSet<>();
+    private Set<VisitSample> visitSamples = new HashSet<>();
+
+    // Convenience method to get samples
+    public Set<SampleEntity> getSamples() {
+        return visitSamples.stream()
+                .map(VisitSample::getSample)
+                .collect(Collectors.toSet());
+    }
+
+    // Convenience method to add sample
+    public void addSample(SampleEntity sample) {
+        VisitSample visitSample = new VisitSample();
+        visitSample.setVisit(this);
+        visitSample.setSample(sample);
+        this.visitSamples.add(visitSample);
+    }
+
+    // Convenience method to remove sample
+    public void removeSample(SampleEntity sample) {
+        visitSamples.removeIf(vs -> vs.getSample().equals(sample));
+    }
 
 
     @ManyToMany(fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
