@@ -2,6 +2,9 @@ package tiameds.com.tiameds.controller.lab;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.*;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -10,10 +13,11 @@ import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.entity.TestReferenceEntity;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.repository.LabRepository;
+import tiameds.com.tiameds.services.auth.MyUserDetails;
+import tiameds.com.tiameds.services.auth.UserService;
 import tiameds.com.tiameds.services.lab.TestReferenceServices;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
-import tiameds.com.tiameds.utils.UserAuthService;
 
 import java.util.List;
 import java.util.Optional;
@@ -26,29 +30,28 @@ public class TestReferenceController {
 
     private final LabRepository labRepository;
     private final TestReferenceServices testReferenceServices;
-    private final UserAuthService userAuthService;
     private final LabAccessableFilter labAccessableFilter;
+    private final UserService userService;
     private static final Logger LOGGER = Logger.getLogger(TestReferenceController.class.getName());
 
     public TestReferenceController(
             LabRepository labRepository,
             TestReferenceServices testReferenceServices,
-            UserAuthService userAuthService,
-            LabAccessableFilter labAccessableFilter) {
+            LabAccessableFilter labAccessableFilter,
+            UserService userService) {
         this.labRepository = labRepository;
         this.testReferenceServices = testReferenceServices;
-        this.userAuthService = userAuthService;
         this.labAccessableFilter = labAccessableFilter;
+        this.userService = userService;
     }
 
     @Transactional
     @PostMapping("/{labId}/csv/upload")
     public ResponseEntity<?> uploadCsv(
             @PathVariable Long labId,
-            @RequestParam("file") MultipartFile file,
-            @RequestHeader("Authorization") String token) {
+            @RequestParam("file") MultipartFile file) {
         try {
-            Optional<User> userOptional = userAuthService.authenticateUser(token);
+            Optional<User> userOptional = getAuthenticatedUser();
             if (userOptional.isEmpty()) {
                 return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
             }
@@ -79,10 +82,9 @@ public class TestReferenceController {
     @Transactional
     @DeleteMapping("/{labId}/delete-all")
     public ResponseEntity<?> deleteAllTestReferences(
-            @PathVariable Long labId,
-            @RequestHeader("Authorization") String token) {
+            @PathVariable Long labId) {
         try {
-            Optional<User> userOptional = userAuthService.authenticateUser(token);
+            Optional<User> userOptional = getAuthenticatedUser();
             if (userOptional.isEmpty()) {
                 return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
             }
@@ -114,9 +116,9 @@ public class TestReferenceController {
     //get all test references
     @Transactional
     @GetMapping("/{labId}")
-    public ResponseEntity<?> getAllTestReferences(@PathVariable Long labId, @RequestHeader("Authorization") String token) {
+    public ResponseEntity<?> getAllTestReferences(@PathVariable Long labId) {
         try {
-            Optional<User> userOptional = userAuthService.authenticateUser(token);
+            Optional<User> userOptional = getAuthenticatedUser();
             if (userOptional.isEmpty()) {
                 return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
             }
@@ -152,10 +154,9 @@ public class TestReferenceController {
     public ResponseEntity<?> updateTestReference(
             @PathVariable Long labId,
             @PathVariable Long testReferenceId,
-            @RequestBody TestReferenceDTO testReferenceDTO,
-            @RequestHeader("Authorization") String token) {
+            @RequestBody TestReferenceDTO testReferenceDTO) {
         try {
-            Optional<User> userOptional = userAuthService.authenticateUser(token);
+            Optional<User> userOptional = getAuthenticatedUser();
             if (userOptional.isEmpty()) {
                 return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
             }
@@ -190,10 +191,9 @@ public class TestReferenceController {
     @DeleteMapping("/{labId}/{testReferenceId}")
     public ResponseEntity<?> deleteTestReference(
             @PathVariable Long labId,
-            @PathVariable Long testReferenceId,
-            @RequestHeader("Authorization") String token) {
+            @PathVariable Long testReferenceId) {
         try {
-            Optional<User> userOptional = userAuthService.authenticateUser(token);
+            Optional<User> userOptional = getAuthenticatedUser();
             if (userOptional.isEmpty()) {
                 return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
             }
@@ -228,10 +228,9 @@ public class TestReferenceController {
     @PostMapping("/{labId}/add")
     public ResponseEntity<?> addTestReference(
             @PathVariable Long labId,
-            @RequestBody TestReferenceDTO testReferenceDTO,
-            @RequestHeader("Authorization") String token) {
+            @RequestBody TestReferenceDTO testReferenceDTO) {
         try {
-            Optional<User> userOptional = userAuthService.authenticateUser(token);
+            Optional<User> userOptional = getAuthenticatedUser();
             if (userOptional.isEmpty()) {
                 return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
             }
@@ -265,11 +264,10 @@ public class TestReferenceController {
     @Transactional
     @GetMapping("/{labId}/download")
     public ResponseEntity<?> downloadTestReference(
-            @PathVariable Long labId,
-            @RequestHeader("Authorization") String token) {
+            @PathVariable Long labId) {
 
         try {
-            Optional<User> userOptional = userAuthService.authenticateUser(token);
+            Optional<User> userOptional = getAuthenticatedUser();
             if (userOptional.isEmpty()) {
                 return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
             }
@@ -345,10 +343,9 @@ public class TestReferenceController {
     @GetMapping("/{labId}/test")
     public ResponseEntity<?> getTestReferenceByTestName(
             @PathVariable Long labId,
-            @RequestParam String testName,
-            @RequestHeader("Authorization") String token) {
+            @RequestParam String testName) {
         try {
-            Optional<User> userOptional = userAuthService.authenticateUser(token);
+            Optional<User> userOptional = getAuthenticatedUser();
             if (userOptional.isEmpty()) {
                 return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
             }
@@ -376,8 +373,21 @@ public class TestReferenceController {
             return ApiResponseHelper.errorResponse("Error processing request: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
-
-
-
-
+    private Optional<User> getAuthenticatedUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return Optional.empty();
+        }
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof MyUserDetails myUserDetails) {
+            return userService.findByUsername(myUserDetails.getUsername());
+        }
+        if (principal instanceof UserDetails userDetails) {
+            return userService.findByUsername(userDetails.getUsername());
+        }
+        if (principal instanceof String username && !"anonymousUser".equalsIgnoreCase(username)) {
+            return userService.findByUsername(username);
+        }
+        return Optional.empty();
+    }
 }

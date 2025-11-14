@@ -5,6 +5,9 @@ import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import tiameds.com.tiameds.audit.AuditLogService;
@@ -21,11 +24,11 @@ import tiameds.com.tiameds.repository.LabRepository;
 import tiameds.com.tiameds.repository.ModuleRepository;
 import tiameds.com.tiameds.repository.UserRepository;
 import tiameds.com.tiameds.services.auth.MemberUserServices;
+import tiameds.com.tiameds.services.auth.MyUserDetails;
 import tiameds.com.tiameds.services.auth.UserService;
 import tiameds.com.tiameds.services.lab.UserLabService;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
-import tiameds.com.tiameds.utils.UserAuthService;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -37,7 +40,6 @@ import java.util.stream.Collectors;
 public class LabAdminController {
     private final UserRepository userRepository;
     private UserLabService userLabService;
-    private UserAuthService userAuthService;
     private LabRepository labRepository;
     private final UserService userService;
     private final PasswordEncoder passwordEncoder;
@@ -50,7 +52,6 @@ public class LabAdminController {
     @Autowired
     public LabAdminController(
             UserLabService userLabService,
-            UserAuthService userAuthService,
             LabRepository labRepository, UserService userService,
             PasswordEncoder passwordEncoder,
             ModuleRepository moduleRepository,
@@ -59,7 +60,6 @@ public class LabAdminController {
             AuditLogService auditLogService,
             FieldChangeTracker fieldChangeTracker) {
         this.userLabService = userLabService;
-        this.userAuthService = userAuthService;
         this.labRepository = labRepository;
         this.userService = userService;
         this.passwordEncoder = passwordEncoder;
@@ -78,12 +78,29 @@ public class LabAdminController {
         this.memberUserServices = memberUserServices;
     }
 
+    private Optional<User> getAuthenticatedUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return Optional.empty();
+        }
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof MyUserDetails myUserDetails) {
+            return userService.findByUsername(myUserDetails.getUsername());
+        }
+        if (principal instanceof UserDetails userDetails) {
+            return userService.findByUsername(userDetails.getUsername());
+        }
+        if (principal instanceof String username && !"anonymousUser".equalsIgnoreCase(username)) {
+            return userService.findByUsername(username);
+        }
+        return Optional.empty();
+    }
+
     @Transactional
     @GetMapping("/get-members/{labId}")
     public ResponseEntity<?> getLabMembers(
-            @PathVariable Long labId,
-            @RequestHeader("Authorization") String token) {
-        User currentUser = userAuthService.authenticateUser(token).orElse(null);
+            @PathVariable Long labId) {
+        User currentUser = getAuthenticatedUser().orElse(null);
         if (currentUser == null) {
             return ApiResponseHelper.errorResponse("User not found or unauthorized", HttpStatus.UNAUTHORIZED);
         }
@@ -111,10 +128,9 @@ public class LabAdminController {
     public ResponseEntity<?> createUserInLab(
             @RequestBody MemberRegisterDto registerRequest,
             @PathVariable Long labId,
-            @RequestHeader("Authorization") String token,
             HttpServletRequest request) {
 
-        User currentUser = userAuthService.authenticateUser(token).orElse(null);
+        User currentUser = getAuthenticatedUser().orElse(null);
         if (currentUser == null)
             return ApiResponseHelper.errorResponse("User not found or unauthorized", HttpStatus.UNAUTHORIZED);
 
@@ -213,10 +229,9 @@ public class LabAdminController {
             @PathVariable Long labId,
             @PathVariable Long userId,
             @RequestBody MemberDetailsUpdate registerRequest,
-            @RequestHeader("Authorization") String token,
             HttpServletRequest request) {
 
-        User currentUser = userAuthService.authenticateUser(token).orElse(null);
+        User currentUser = getAuthenticatedUser().orElse(null);
         if (currentUser == null) {
             return ApiResponseHelper.errorResponse("User not found or unauthorized", HttpStatus.UNAUTHORIZED);
         }
@@ -274,9 +289,8 @@ public class LabAdminController {
             @PathVariable Long labId,
             @PathVariable Long userId,
             @RequestBody Map<String, String> passwordRequest, // Change to accept JSON object
-            @RequestHeader("Authorization") String token,
             HttpServletRequest request) {
-        User currentUser = userAuthService.authenticateUser(token).orElse(null);
+        User currentUser = getAuthenticatedUser().orElse(null);
         if (currentUser == null) {
             return ApiResponseHelper.errorResponse("User not found or unauthorized", HttpStatus.UNAUTHORIZED);
         }

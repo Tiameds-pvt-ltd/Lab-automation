@@ -23,9 +23,6 @@ spring:
       max-file-size: 10MB  # Maximum size for a single file
       max-request-size: 10MB  # Maximum total request size, should be >= max-file-size
 
-  jwt:
-    secret: "TaK+HaV^uvCHEFsEVfypW#7g9^k*Z8$V"
-
 springdoc:
   api-docs:
     path: /v3/api-docs
@@ -45,5 +42,19 @@ server:
   servlet:
     context-path: /api/v1
 
+security:
+  jwt:
+    issuer: ${JWT_ISSUER:tiameds-lab-automation}
+    audience: ${JWT_AUDIENCE:tiameds-clients}
+    access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:PT2M}
+    refresh-token-ttl: ${JWT_REFRESH_TOKEN_TTL:P1D}
+    private-key-location: classpath:keys/private_key.pem
+    public-key-location: classpath:keys/public_key.pem
+    access-cookie-name: ${JWT_ACCESS_COOKIE_NAME:accessToken}
+    refresh-cookie-name: ${JWT_REFRESH_COOKIE_NAME:refreshToken}
+    cookie-domain: ${JWT_COOKIE_DOMAIN:}
+    cookie-path: ${JWT_COOKIE_PATH:/}
+    cookie-secure: ${JWT_COOKIE_SECURE:true}
+    same-site: ${JWT_COOKIE_SAMESITE:Strict}
 
 

@@ -1,8 +1,12 @@
 package tiameds.com.tiameds.controller.sampleassociation;
+
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import tiameds.com.tiameds.audit.AuditLogService;
@@ -18,10 +22,12 @@ import tiameds.com.tiameds.entity.VisitEntity;
 import tiameds.com.tiameds.repository.LabRepository;
 import tiameds.com.tiameds.repository.ReportRepository;
 import tiameds.com.tiameds.repository.VisitRepository;
+import tiameds.com.tiameds.services.auth.MyUserDetails;
+import tiameds.com.tiameds.services.auth.UserService;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
-import tiameds.com.tiameds.utils.UserAuthService;
 import tiameds.com.tiameds.services.lab.ReportService;
+
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -31,7 +37,6 @@ import java.util.*;
 @Tag(name = "Report Generation", description = "manage the report generation in the lab")
 public class ReportGeneration {
 
-    private final UserAuthService userAuthService;
     private final ReportService reportService;
     private final LabAccessableFilter labAccessableFilter;
     private final LabRepository labRepository;
@@ -39,16 +44,17 @@ public class ReportGeneration {
     private final FieldChangeTracker fieldChangeTracker;
     private final VisitRepository visitRepository;
     private final ReportRepository reportRepository;
+    private final UserService userService;
 
-    public ReportGeneration(UserAuthService userAuthService, 
-                           ReportService reportService, 
-                           LabAccessableFilter labAccessableFilter, 
-                           LabRepository labRepository,
-                           AuditLogService auditLogService,
-                           FieldChangeTracker fieldChangeTracker,
-                           VisitRepository visitRepository,
-                           ReportRepository reportRepository) {
-        this.userAuthService = userAuthService;
+    public ReportGeneration(ReportService reportService,
+                            LabAccessableFilter labAccessableFilter,
+                            LabRepository labRepository,
+                            AuditLogService auditLogService,
+                            FieldChangeTracker fieldChangeTracker,
+                            VisitRepository visitRepository,
+                            ReportRepository reportRepository,
+                            UserService userService
+    ) {
         this.reportService = reportService;
         this.labAccessableFilter = labAccessableFilter;
         this.labRepository = labRepository;
@@ -56,42 +62,15 @@ public class ReportGeneration {
         this.fieldChangeTracker = fieldChangeTracker;
         this.visitRepository = visitRepository;
         this.reportRepository = reportRepository;
+        this.userService = userService;
     }
-
-//    @Transactional
-//    @PostMapping("{labId}/report")
-//    public ResponseEntity<?> createReport(
-//            @PathVariable Long labId,
-//            @RequestBody List<ReportDto> reportDtoList,
-//            @RequestHeader("Authorization") String token) {
-//
-//        Optional<User> currentUser = userAuthService.authenticateUser(token);
-//        if (currentUser.isEmpty()) {
-//            return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
-//        }
-//        Optional<Lab> lab = labRepository.findById(labId);
-//        if (lab.isEmpty()) {
-//            return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
-//        }
-//        boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
-//        if (!isAccessible) {
-//            return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
-//        }
-//        // Check if the user is a member of the lab
-//        if (!currentUser.get().getLabs().contains(lab.get())) {
-//            return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
-//        }
-//        return reportService.createReports(reportDtoList, labId, currentUser.get());
-//    }
-
 
     @PutMapping("{labId}/complete-visit/{visitId}")
     public ResponseEntity<?> completeVisit(
             @PathVariable Long labId,
             @PathVariable Long visitId,
-            @RequestHeader("Authorization") String token,
             HttpServletRequest request) {
-        Optional<User> currentUser = userAuthService.authenticateUser(token);
+        Optional<User> currentUser = getAuthenticatedUser();
         if (currentUser.isEmpty()) {
             return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
         }
@@ -149,9 +128,8 @@ public class ReportGeneration {
     public ResponseEntity<?> canceldVisit(
             @PathVariable Long labId,
             @PathVariable Long visitId,
-            @RequestHeader("Authorization") String token,
             HttpServletRequest request) {
-        Optional<User> currentUser = userAuthService.authenticateUser(token);
+        Optional<User> currentUser = getAuthenticatedUser();
         if (currentUser.isEmpty()) {
             return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
         }
@@ -200,15 +178,13 @@ public class ReportGeneration {
     }
 
 
-
     @Transactional
     @GetMapping("{labId}/report/{visitId}")
     public ResponseEntity<?> getReport(
             @PathVariable Long labId,
-            @PathVariable Long visitId,
-            @RequestHeader("Authorization") String token) {
+            @PathVariable Long visitId) {
 
-        Optional<User> currentUser = userAuthService.authenticateUser(token);
+        Optional<User> currentUser = getAuthenticatedUser();
         if (currentUser.isEmpty()) {
             return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
         }
@@ -237,10 +213,9 @@ public class ReportGeneration {
     public ResponseEntity<?> updateReports(
             @PathVariable Long labId,
             @RequestBody List<ReportDto> reportDtoList,
-            @RequestHeader("Authorization") String token,
             HttpServletRequest request) {
 
-        Optional<User> currentUser = userAuthService.authenticateUser(token);
+        Optional<User> currentUser = getAuthenticatedUser();
         if (currentUser.isEmpty()) {
             return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
         }
@@ -305,16 +280,14 @@ public class ReportGeneration {
     }
 
 
-
     @Transactional
     @PostMapping("{labId}/report")
     public ResponseEntity<?> createReport(
             @PathVariable Long labId,
             @RequestBody ReportRequestDto reportRequestDto,
-            @RequestHeader("Authorization") String token,
             HttpServletRequest request) {
 
-        Optional<User> currentUser = userAuthService.authenticateUser(token);
+        Optional<User> currentUser = getAuthenticatedUser();
         if (currentUser.isEmpty()) {
             return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
         }
@@ -397,13 +370,13 @@ public class ReportGeneration {
     }
 
     private void logReportAudit(Long labId,
-                               String action,
-                               Map<String, Object> oldData,
-                               Map<String, Object> newData,
-                               String changeReason,
-                               User currentUser,
-                               HttpServletRequest request,
-                               String entityId) {
+                                String action,
+                                Map<String, Object> oldData,
+                                Map<String, Object> newData,
+                                String changeReason,
+                                User currentUser,
+                                HttpServletRequest request,
+                                String entityId) {
         LabAuditLogs auditLog = new LabAuditLogs();
         auditLog.setTimestamp(LocalDateTime.now());
         auditLog.setModule("ReportGeneration");
@@ -470,7 +443,7 @@ public class ReportGeneration {
             return null;
         }
         Map<String, Object> data = new LinkedHashMap<>();
-        
+
         // Report details
         data.put("reportId", report.getReportId());
         data.put("visitId", report.getVisitId());
@@ -492,7 +465,7 @@ public class ReportGeneration {
         data.put("updatedBy", report.getUpdatedBy());
         data.put("createdAt", report.getCreatedAt() != null ? report.getCreatedAt().toString() : null);
         data.put("updatedAt", report.getUpdatedAt() != null ? report.getUpdatedAt().toString() : null);
-        
+
         // Fetch and include full patient details from visit
         if (report.getVisitId() != null) {
             Optional<VisitEntity> visitOpt = visitRepository.findById(report.getVisitId());
@@ -516,7 +489,26 @@ public class ReportGeneration {
                 data.put("patient", patientDetails);
             }
         }
-        
+
         return data;
     }
+
+    private Optional<User> getAuthenticatedUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return Optional.empty();
+        }
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof MyUserDetails myUserDetails) {
+            return userService.findByUsername(myUserDetails.getUsername());
+        }
+        if (principal instanceof UserDetails userDetails) {
+            return userService.findByUsername(userDetails.getUsername());
+        }
+        if (principal instanceof String username && !"anonymousUser".equalsIgnoreCase(username)) {
+            return userService.findByUsername(username);
+        }
+        return Optional.empty();
+    }
+
 }

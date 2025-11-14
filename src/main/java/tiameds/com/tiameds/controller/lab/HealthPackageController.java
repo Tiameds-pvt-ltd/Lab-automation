@@ -4,6 +4,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import tiameds.com.tiameds.audit.AuditLogService;
@@ -18,10 +21,11 @@ import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.repository.HealthPackageRepository;
 import tiameds.com.tiameds.repository.LabRepository;
 import tiameds.com.tiameds.repository.TestRepository;
+import tiameds.com.tiameds.services.auth.MyUserDetails;
+import tiameds.com.tiameds.services.auth.UserService;
 import tiameds.com.tiameds.services.lab.SequenceGeneratorService;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
-import tiameds.com.tiameds.utils.UserAuthService;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -41,7 +45,7 @@ public class HealthPackageController {
 
     private final LabRepository labRepository;
     private final TestRepository testRepository;
-    private final UserAuthService userAuthService;
+    private final UserService userService;
     private final HealthPackageRepository healthPackageRepository;
     private final LabAccessableFilter labAccessableFilter;
     private final AuditLogService auditLogService;
@@ -51,7 +55,7 @@ public class HealthPackageController {
     //default constructor
     public HealthPackageController(LabRepository labRepository,
                                    TestRepository testRepository,
-                                   UserAuthService userAuthService,
+                                   UserService userService,
                                    HealthPackageRepository healthPackageRepository,
                                    LabAccessableFilter labAccessableFilter,
                                    AuditLogService auditLogService,
@@ -59,7 +63,7 @@ public class HealthPackageController {
                                    SequenceGeneratorService sequenceGeneratorService) {
         this.labRepository = labRepository;
         this.testRepository = testRepository;
-        this.userAuthService = userAuthService;
+        this.userService = userService;
         this.healthPackageRepository = healthPackageRepository;
         this.labAccessableFilter = labAccessableFilter;
         this.auditLogService = auditLogService;
@@ -72,12 +76,13 @@ public class HealthPackageController {
     @Transactional
     @GetMapping("{labId}/packages")
     public ResponseEntity<?> getHealthPackages(
-            @PathVariable("labId") Long labId,
-            @RequestHeader("Authorization") String token) {
+            @PathVariable("labId") Long labId) {
 
         // Authenticate the user
-        User currentUser = userAuthService.authenticateUser(token)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        User currentUser = getAuthenticatedUser().orElse(null);
+        if (currentUser == null) {
+            return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+        }
 
 
         // Fetch the lab and check if it exists
@@ -113,12 +118,13 @@ public class HealthPackageController {
     public ResponseEntity<?> createHealthPackage(
             @PathVariable("labId") Long labId,
             @RequestBody HealthPackageRequest packageRequest, // Assuming a DTO is used to accept the data
-            @RequestHeader("Authorization") String token,
             HttpServletRequest request) {
 
         // Authenticate the user
-        User currentUser = userAuthService.authenticateUser(token)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        User currentUser = getAuthenticatedUser().orElse(null);
+        if (currentUser == null) {
+            return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+        }
 
         // Fetch the lab and check if it exists
         Optional<Lab> labOptional = labRepository.findById(labId);
@@ -189,12 +195,13 @@ public class HealthPackageController {
     @GetMapping("{labId}/package/{packageId}")
     public ResponseEntity<?> getHealthPackage(
             @PathVariable("labId") Long labId,
-            @PathVariable("packageId") Long packageId,
-            @RequestHeader("Authorization") String token
+            @PathVariable("packageId") Long packageId
     ) {
         // Authenticate the user
-        User currentUser = userAuthService.authenticateUser(token)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        User currentUser = getAuthenticatedUser().orElse(null);
+        if (currentUser == null) {
+            return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+        }
 
         // Fetch the lab and check if it exists
         Lab lab = labRepository.findById(labId)
@@ -242,12 +249,13 @@ public class HealthPackageController {
             @PathVariable("labId") Long labId,
             @PathVariable("packageId") Long packageId,
             @RequestBody HealthPackageRequest packageRequest, // Assuming a DTO is used to accept the data
-            @RequestHeader("Authorization") String token,
             HttpServletRequest request
     ) {
         // Authenticate the user
-        User currentUser = userAuthService.authenticateUser(token)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        User currentUser = getAuthenticatedUser().orElse(null);
+        if (currentUser == null) {
+            return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+        }
 
         // Fetch the lab and check if it exists
         Lab lab = labRepository.findById(labId)
@@ -336,12 +344,13 @@ public class HealthPackageController {
     public ResponseEntity<?> deleteHealthPackage(
             @PathVariable("labId") Long labId,
             @PathVariable("packageId") Long packageId,
-            @RequestHeader("Authorization") String token,
             HttpServletRequest request
     ) {
         // Authenticate the user
-        User currentUser = userAuthService.authenticateUser(token)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        User currentUser = getAuthenticatedUser().orElse(null);
+        if (currentUser == null) {
+            return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+        }
 
         // Fetch the lab and check if it exists
         Lab lab = labRepository.findById(labId)
@@ -407,6 +416,24 @@ public class HealthPackageController {
                 "Health package deleted successfully",
                 null
         );
+    }
+
+    private Optional<User> getAuthenticatedUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return Optional.empty();
+        }
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof MyUserDetails myUserDetails) {
+            return userService.findByUsername(myUserDetails.getUsername());
+        }
+        if (principal instanceof UserDetails userDetails) {
+            return userService.findByUsername(userDetails.getUsername());
+        }
+        if (principal instanceof String username && !"anonymousUser".equalsIgnoreCase(username)) {
+            return userService.findByUsername(username);
+        }
+        return Optional.empty();
     }
 
     private void logHealthPackageAudit(Long labId,

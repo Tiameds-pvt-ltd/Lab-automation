@@ -5,6 +5,9 @@ import jakarta.transaction.Transactional;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import tiameds.com.tiameds.dto.lab.LabListDTO;
@@ -14,17 +17,20 @@ import tiameds.com.tiameds.dto.lab.UserResponseDTO;
 import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.repository.LabRepository;
+import tiameds.com.tiameds.services.auth.MyUserDetails;
+import tiameds.com.tiameds.services.auth.UserService;
 import tiameds.com.tiameds.services.lab.TestReferenceServices;
 import tiameds.com.tiameds.services.lab.TestServices;
 import tiameds.com.tiameds.services.lab.UserLabService;
-import tiameds.com.tiameds.utils.*;
+import tiameds.com.tiameds.utils.ApiResponse;
+import tiameds.com.tiameds.utils.ApiResponseHelper;
+import tiameds.com.tiameds.utils.CustomMockMultipartFile;
+import tiameds.com.tiameds.utils.LabAccessableFilter;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.logging.Logger;
 
 
 @Transactional
@@ -32,30 +38,31 @@ import java.util.logging.Logger;
 @RequestMapping("/lab/admin")
 @Tag(name = "Lab Admin", description = "Endpoints for Lab Admin where lab admin can manage labs, add members, and handle lab-related operations")
 public class LabController {
-    private final UserLabService userService;
+    private final UserLabService userLabService;
     private final LabRepository labRepository;
-    private final UserAuthService userAuthService;
     private final LabAccessableFilter labAccessableFilter;
-    private UserLabService userLabService;
     private final TestServices testServices;
     private final TestReferenceServices testReferenceServices;
-    private static final Logger LOGGER = Logger.getLogger(LabController.class.getName());
+    private final UserService userService;
 
-    public LabController(UserLabService userService, LabRepository labRepository, UserAuthService userAuthService, LabAccessableFilter labAccessableFilter, UserLabService userLabService, TestServices testServices, TestReferenceServices testReferenceServices) {
-        this.userService = userService;
-        this.labRepository = labRepository;
-        this.userAuthService = userAuthService;
-        this.labAccessableFilter = labAccessableFilter;
+    public LabController(UserLabService userLabService,
+                         LabRepository labRepository,
+                         LabAccessableFilter labAccessableFilter,
+                         TestServices testServices,
+                         TestReferenceServices testReferenceServices,
+                         UserService userService) {
         this.userLabService = userLabService;
+        this.labRepository = labRepository;
+        this.labAccessableFilter = labAccessableFilter;
         this.testServices = testServices;
         this.testReferenceServices = testReferenceServices;
+        this.userService = userService;
     }
 
     // ---------- Get all labs created by the user ----------
     @GetMapping("/get-labs")
-    public ResponseEntity<?> getLabsCreatedByUser(
-            @RequestHeader("Authorization") String token) {
-        Optional<User> currentUserOptional = userAuthService.authenticateUser(token);
+    public ResponseEntity<?> getLabsCreatedByUser() {
+        Optional<User> currentUserOptional = getAuthenticatedUser();
         if (currentUserOptional.isEmpty()) {
             return ApiResponseHelper.successResponseWithDataAndMessage("User not found", HttpStatus.UNAUTHORIZED, null);
         }
@@ -82,9 +89,8 @@ public class LabController {
 
     @DeleteMapping("/delete-lab/{labId}")
     public ResponseEntity<?> deleteLab(
-            @PathVariable Long labId,
-            @RequestHeader("Authorization") String token) {
-        Optional<User> currentUserOptional = userAuthService.authenticateUser(token);
+            @PathVariable Long labId) {
+        Optional<User> currentUserOptional = getAuthenticatedUser();
         if (currentUserOptional.isEmpty()) {
             ApiResponse<String> errorResponse = new ApiResponse<>("error", "User not found", null);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
@@ -108,9 +114,8 @@ public class LabController {
     @PutMapping("/update-lab/{labId}")
     public ResponseEntity<?> updateLab(
             @PathVariable Long labId,
-            @RequestBody LabRequestDTO labRequestDTO,
-            @RequestHeader("Authorization") String token) {
-        Optional<User> currentUserOptional = userAuthService.authenticateUser(token);
+            @RequestBody LabRequestDTO labRequestDTO) {
+        Optional<User> currentUserOptional = getAuthenticatedUser();
         if (currentUserOptional.isEmpty()) {
             ApiResponse<String> errorResponse = new ApiResponse<>("error", "User not found", null);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
@@ -138,21 +143,20 @@ public class LabController {
 
     @Transactional
     @PostMapping("/add-lab")
-    public ResponseEntity<Map<String, Object>> addLab(
-            @RequestBody LabRequestDTO labRequestDTO,
-            @RequestHeader("Authorization") String token) {
+    public ResponseEntity<?> addLab(
+            @RequestBody LabRequestDTO labRequestDTO) {
 
-        Optional<User> currentUserOptional = userAuthService.authenticateUser(token);
+        Optional<User> currentUserOptional = getAuthenticatedUser();
         if (currentUserOptional.isEmpty()) {
             ApiResponse<String> response = new ApiResponse<>("error", "User not found", null);
-            return new ResponseEntity(response, HttpStatus.UNAUTHORIZED);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
         }
         User currentUser = currentUserOptional.get();
 
         // Check if the lab already exists
-        if (userService.existsLabByName(labRequestDTO.getName())) {
+        if (userLabService.existsLabByName(labRequestDTO.getName())) {
             ApiResponse<String> response = new ApiResponse<>("error", "Lab already exists", null);
-            return new ResponseEntity(response, HttpStatus.BAD_REQUEST);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
         }
         Lab lab = new Lab();
         lab.setName(labRequestDTO.getName());
@@ -184,10 +188,10 @@ public class LabController {
         lab.setDataPrivacyAgreement(labRequestDTO.getDataPrivacyAgreement());
         Lab savedLab = labRepository.save(lab);
         try {
-            addMemberToLab(savedLab.getId(), currentUser.getId(), token);
+            addMemberToLab(savedLab.getId(), currentUser.getId());
         } catch (Exception e) {
             ApiResponse<String> response = new ApiResponse<>("error", "Failed to add user as member", null);
-            return new ResponseEntity(response, HttpStatus.INTERNAL_SERVER_ERROR);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
         // Return success response
         try {
@@ -250,8 +254,8 @@ public class LabController {
         return ApiResponseHelper.successResponseWithDataAndMessage("Lab created successfully and user added as a member", HttpStatus.OK, labResponseDTO);
     }
 
-    private void addMemberToLab(Long labId, Long userId, String token) {
-        User currentUser = userAuthService.authenticateUser(token).orElse(null);
+    private void addMemberToLab(Long labId, Long userId) {
+        User currentUser = getAuthenticatedUser().orElse(null);
         if (currentUser == null) {
             throw new IllegalStateException("User not found or unauthorized");
         }
@@ -276,5 +280,21 @@ public class LabController {
         lab.getMembers().add(userToAdd);
         labRepository.save(lab);
     }
+    private Optional<User> getAuthenticatedUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return Optional.empty();
+        }
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof MyUserDetails myUserDetails) {
+            return userService.findByUsername(myUserDetails.getUsername());
+        }
+        if (principal instanceof UserDetails userDetails) {
+            return userService.findByUsername(userDetails.getUsername());
+        }
+        if (principal instanceof String username && !"anonymousUser".equalsIgnoreCase(username)) {
+            return userService.findByUsername(username);
+        }
+        return Optional.empty();
+    }
 }
-

@@ -6,26 +6,23 @@ import jakarta.transaction.Transactional;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import tiameds.com.tiameds.audit.AuditLogService;
 import tiameds.com.tiameds.audit.helpers.FieldChangeTracker;
 import tiameds.com.tiameds.dto.lab.PatientVisitSampleDto;
 import tiameds.com.tiameds.dto.lab.VisitSampleDto;
 import tiameds.com.tiameds.dto.lab.VisitTestResultResponseDTO;
-import tiameds.com.tiameds.entity.EntityType;
-import tiameds.com.tiameds.entity.Lab;
-import tiameds.com.tiameds.entity.LabAuditLogs;
-import tiameds.com.tiameds.entity.SampleEntity;
-import tiameds.com.tiameds.entity.User;
-import tiameds.com.tiameds.entity.VisitEntity;
-import tiameds.com.tiameds.entity.VisitSample;
+import tiameds.com.tiameds.entity.*;
 import tiameds.com.tiameds.repository.SampleAssocationRepository;
 import tiameds.com.tiameds.repository.VisitRepository;
-import tiameds.com.tiameds.repository.VisitSampleRepository;
+import tiameds.com.tiameds.services.auth.MyUserDetails;
+import tiameds.com.tiameds.services.auth.UserService;
 import tiameds.com.tiameds.services.lab.SequenceGeneratorService;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
-import tiameds.com.tiameds.utils.UserAuthService;
 import tiameds.com.tiameds.repository.LabRepository;
 
 import java.time.LocalDate;
@@ -40,41 +37,37 @@ import java.util.stream.Collectors;
 public class PatientVisitSample {
     private final VisitRepository visitRepository;
     private final SampleAssocationRepository sampleAssocationRepository;
-    private final UserAuthService userAuthService;
     private final LabAccessableFilter labAccessableFilter;
     private final LabRepository labRepository;
     private final AuditLogService auditLogService;
     private final FieldChangeTracker fieldChangeTracker;
-    private final VisitSampleRepository visitSampleRepository;
     private final SequenceGeneratorService sequenceGeneratorService;
+    private final UserService userService;
 
-    public PatientVisitSample(VisitRepository visitRepository, 
-                              SampleAssocationRepository sampleAssocationRepository, 
-                              UserAuthService userAuthService, 
-                              LabAccessableFilter labAccessableFilter, 
+    public PatientVisitSample(VisitRepository visitRepository,
+                              SampleAssocationRepository sampleAssocationRepository,
+                              LabAccessableFilter labAccessableFilter,
                               LabRepository labRepository,
                               AuditLogService auditLogService,
                               FieldChangeTracker fieldChangeTracker,
-                              VisitSampleRepository visitSampleRepository,
-                              SequenceGeneratorService sequenceGeneratorService) {
+                              SequenceGeneratorService sequenceGeneratorService,
+                              UserService userService) {
         this.visitRepository = visitRepository;
         this.sampleAssocationRepository = sampleAssocationRepository;
-        this.userAuthService = userAuthService;
         this.labAccessableFilter = labAccessableFilter;
         this.labRepository = labRepository;
         this.auditLogService = auditLogService;
         this.fieldChangeTracker = fieldChangeTracker;
-        this.visitSampleRepository = visitSampleRepository;
         this.sequenceGeneratorService = sequenceGeneratorService;
+        this.userService = userService;
     }
 
     @PostMapping("/add-samples")
     @Transactional
-    public ResponseEntity<?> createSampleWithPatientVisit(@RequestBody PatientVisitSampleDto request, 
-                                                           @RequestHeader("Authorization") String token,
+    public ResponseEntity<?> createSampleWithPatientVisit(@RequestBody PatientVisitSampleDto request,
                                                            HttpServletRequest httpRequest) {
-        Optional<User> currentUser = userAuthService.authenticateUser(token);
-        if (currentUser.isEmpty()) {
+        User currentUser = getAuthenticatedUser().orElse(null);
+        if (currentUser == null) {
             return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
         }
         // 1. Find the visit by ID
@@ -111,10 +104,8 @@ public class PatientVisitSample {
             visitSample.setVisitSampleCode(visitSampleCode);
             
             // Set audit fields
-            if (currentUser.isPresent()) {
-                visitSample.setCreatedBy(currentUser.get().getUsername());
-                visitSample.setUpdatedBy(currentUser.get().getUsername());
-            }
+            visitSample.setCreatedBy(currentUser.getUsername());
+            visitSample.setUpdatedBy(currentUser.getUsername());
             
             visit.getVisitSamples().add(visitSample);
         }
@@ -135,7 +126,7 @@ public class PatientVisitSample {
                 oldData,
                 newData,
                 resolveChangeReason("added", request.getSampleNames(), visit.getVisitId()),
-                currentUser.get(),
+                currentUser,
                 httpRequest,
                 visit.getVisitId()
         );
@@ -145,11 +136,10 @@ public class PatientVisitSample {
 
     @PutMapping("/update-samples")
     @Transactional
-    public ResponseEntity<?> updateSampleWithPatientVisit(@RequestBody PatientVisitSampleDto request, 
-                                                          @RequestHeader("Authorization") String token,
+    public ResponseEntity<?> updateSampleWithPatientVisit(@RequestBody PatientVisitSampleDto request,
                                                           HttpServletRequest httpRequest) {
-        Optional<User> currentUser = userAuthService.authenticateUser(token);
-        if (currentUser.isEmpty()) {
+        User currentUser = getAuthenticatedUser().orElse(null);
+        if (currentUser == null) {
             return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
         }
 
@@ -190,10 +180,8 @@ public class PatientVisitSample {
             visitSample.setVisitSampleCode(visitSampleCode);
             
             // Set audit fields
-            if (currentUser.isPresent()) {
-                visitSample.setCreatedBy(currentUser.get().getUsername());
-                visitSample.setUpdatedBy(currentUser.get().getUsername());
-            }
+            visitSample.setCreatedBy(currentUser.getUsername());
+            visitSample.setUpdatedBy(currentUser.getUsername());
             
             visit.getVisitSamples().add(visitSample);
         }
@@ -210,7 +198,7 @@ public class PatientVisitSample {
                 oldData,
                 newData,
                 resolveChangeReason("updated", request.getSampleNames(), visit.getVisitId()),
-                currentUser.get(),
+                currentUser,
                 httpRequest,
                 visit.getVisitId()
         );
@@ -220,11 +208,10 @@ public class PatientVisitSample {
 
     @DeleteMapping("/delete-samples")
     @Transactional
-    public ResponseEntity<?> deleteSampleWithPatientVisit(@RequestBody PatientVisitSampleDto request, 
-                                                          @RequestHeader("Authorization") String token,
+    public ResponseEntity<?> deleteSampleWithPatientVisit(@RequestBody PatientVisitSampleDto request,
                                                           HttpServletRequest httpRequest) {
-        Optional<User> currentUser = userAuthService.authenticateUser(token);
-        if (currentUser.isEmpty()) {
+        User currentUser = getAuthenticatedUser().orElse(null);
+        if (currentUser == null) {
             return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
         }
         // 1. Find the visit by ID
@@ -270,7 +257,7 @@ public class PatientVisitSample {
                 oldData,
                 newData,
                 resolveChangeReason("deleted", request.getSampleNames(), visit.getVisitId()),
-                currentUser.get(),
+                currentUser,
                 httpRequest,
                 visit.getVisitId()
         );
@@ -283,12 +270,11 @@ public class PatientVisitSample {
     @Transactional
     public ResponseEntity<?> getCollectedAndCompletedPatientData(
             @PathVariable("labId") Long labId,
-            @RequestHeader("Authorization") String token,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
 
-        Optional<User> currentUser = userAuthService.authenticateUser(token);
-        if (currentUser.isEmpty()) {
+        User currentUser = getAuthenticatedUser().orElse(null);
+        if (currentUser == null) {
             return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
         }
 
@@ -337,6 +323,24 @@ public class PatientVisitSample {
                 .collect(Collectors.toList());
 
         return ApiResponseHelper.successResponse("Visits filtered by date and status", visitSamples);
+    }
+
+    private Optional<User> getAuthenticatedUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return Optional.empty();
+        }
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof MyUserDetails myUserDetails) {
+            return userService.findByUsername(myUserDetails.getUsername());
+        }
+        if (principal instanceof UserDetails userDetails) {
+            return userService.findByUsername(userDetails.getUsername());
+        }
+        if (principal instanceof String username && !"anonymousUser".equalsIgnoreCase(username)) {
+            return userService.findByUsername(username);
+        }
+        return Optional.empty();
     }
 
     private void logVisitSampleAudit(Long labId,

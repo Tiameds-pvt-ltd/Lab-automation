@@ -19,10 +19,6 @@ logging:
 spring:
   profiles:
     active: default
-
-  jwt:
-    secret: ${JWT_SECRET}
-
   servlet:
     multipart:
       max-file-size: 10MB
@@ -83,6 +79,19 @@ rate:
 
 # Security configuration
 security:
+  jwt:
+    issuer: ${JWT_ISSUER:tiameds-lab-automation}
+    audience: ${JWT_AUDIENCE:tiameds-clients}
+    access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:PT15M}
+    refresh-token-ttl: ${JWT_REFRESH_TOKEN_TTL:P1D}
+    private-key-location: ${JWT_PRIVATE_KEY_LOCATION}
+    public-key-location: ${JWT_PUBLIC_KEY_LOCATION}
+    access-cookie-name: ${JWT_ACCESS_COOKIE_NAME:accessToken}
+    refresh-cookie-name: ${JWT_REFRESH_COOKIE_NAME:refreshToken}
+    cookie-domain: ${JWT_COOKIE_DOMAIN:}
+    cookie-path: ${JWT_COOKIE_PATH:/}
+    cookie-secure: ${JWT_COOKIE_SECURE:true}
+    same-site: ${JWT_COOKIE_SAMESITE:Strict}
   ip:
     whitelist:
       enabled: false  # Set to true to enable IP whitelisting

@@ -7,7 +7,6 @@ import org.springframework.web.bind.annotation.*;
 import tiameds.com.tiameds.dto.lab.LabListDTO;
 import tiameds.com.tiameds.services.superAdmin.LabSuperAdminService;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
-import tiameds.com.tiameds.utils.UserAuthService;
 
 import java.util.List;
 
@@ -17,14 +16,12 @@ import java.util.List;
 public class LabSuperAdminController {
 
     private final LabSuperAdminService labSuperAdminService;
-    private final UserAuthService userAuthService;
 
-    public LabSuperAdminController(LabSuperAdminService labSuperAdminService, UserAuthService userAuthService) {
+    public LabSuperAdminController(LabSuperAdminService labSuperAdminService) {
         this.labSuperAdminService = labSuperAdminService;
-        this.userAuthService = userAuthService;
     }
     @GetMapping("/labs")
-    public ResponseEntity<?> getLabs(@RequestHeader("Authorization") String token) {
+    public ResponseEntity<?> getLabs() {
         try {
             // Retrieve the list of labs
             List<LabListDTO> labs = labSuperAdminService.getLabs();

@@ -3,6 +3,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -11,11 +14,12 @@ import tiameds.com.tiameds.dto.lab.PatientDetailsDto;
 import tiameds.com.tiameds.dto.lab.VisitDTO;
 import tiameds.com.tiameds.dto.visits.PatientVisitDTO;
 import tiameds.com.tiameds.entity.User;
+import tiameds.com.tiameds.services.auth.MyUserDetails;
+import tiameds.com.tiameds.services.auth.UserService;
 import tiameds.com.tiameds.services.lab.BillingService;
 import tiameds.com.tiameds.services.lab.VisitService;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
-import tiameds.com.tiameds.utils.UserAuthService;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -27,13 +31,13 @@ import java.util.Optional;
 @Tag(name = "Visit Controller", description = "mannage the patient visit in the repective controller")
 public class VisitController {
     private final VisitService visitService;
-    private final UserAuthService userAuthService;
     private final LabAccessableFilter labAccessableFilter;
+    private final UserService userService;
 
-    public VisitController(VisitService visitService, BillingService billingService, UserAuthService userAuthService, LabAccessableFilter labAccessableFilter) {
+    public VisitController(VisitService visitService, BillingService billingService, LabAccessableFilter labAccessableFilter, UserService userService) {
         this.visitService = visitService;
-        this.userAuthService = userAuthService;
         this.labAccessableFilter = labAccessableFilter;
+        this.userService = userService;
     }
 
     @Auditable(module = "Lab")
@@ -41,12 +45,10 @@ public class VisitController {
     public ResponseEntity<?> addVisit(
             @PathVariable Long labId,
             @PathVariable Long patientId,
-            @RequestBody VisitDTO visitDTO,
-            @RequestHeader("Authorization") String token
+            @RequestBody VisitDTO visitDTO
     ) {
         try {
-            // Validate token format
-            Optional<User> currentUser = userAuthService.authenticateUser(token);
+            Optional<User> currentUser = getAuthenticatedUser();
             if (currentUser.isEmpty()) {
                 return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
             }
@@ -64,11 +66,10 @@ public class VisitController {
     @Auditable(module = "Lab")
     @GetMapping("/{labId}/visits")
     public ResponseEntity<?> getVisits(
-            @PathVariable Long labId,
-            @RequestHeader("Authorization") String token
+            @PathVariable Long labId
     ) {
         try {
-            Optional<User> currentUser = userAuthService.authenticateUser(token);
+            Optional<User> currentUser = getAuthenticatedUser();
             if (currentUser.isEmpty()) {
                 return ApiResponseHelper.successResponseWithDataAndMessage("User not found", HttpStatus.UNAUTHORIZED, null);
             }
@@ -88,11 +89,10 @@ public class VisitController {
     public ResponseEntity<?> updateVisit(
             @PathVariable Long labId,
             @PathVariable Long visitId,
-            @RequestBody VisitDTO visitDTO,
-            @RequestHeader("Authorization") String token
+            @RequestBody VisitDTO visitDTO
     ) {
         try {
-            Optional<User> currentUser = userAuthService.authenticateUser(token);
+            Optional<User> currentUser = getAuthenticatedUser();
             if (currentUser.isEmpty()) {
                 return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
             }
@@ -111,11 +111,10 @@ public class VisitController {
     @DeleteMapping("/{labId}/delete-visit/{visitId}")
     public ResponseEntity<?> deleteVisit(
             @PathVariable Long labId,
-            @PathVariable Long visitId,
-            @RequestHeader("Authorization") String token
+            @PathVariable Long visitId
     ) {
         try {
-            Optional<User> currentUser = userAuthService.authenticateUser(token);
+            Optional<User> currentUser = getAuthenticatedUser();
             if (currentUser.isEmpty()) {
                 return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
             }
@@ -134,11 +133,10 @@ public class VisitController {
     @GetMapping("/{labId}/visit/{visitId}")
     public ResponseEntity<?> getVisit(
             @PathVariable Long labId,
-            @PathVariable Long visitId,
-            @RequestHeader("Authorization") String token
+            @PathVariable Long visitId
     ) {
         try {
-            Optional<User> currentUser = userAuthService.authenticateUser(token);
+            Optional<User> currentUser = getAuthenticatedUser();
             if (currentUser.isEmpty()) {
                 return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
             }
@@ -156,11 +154,10 @@ public class VisitController {
     @GetMapping("/{labId}/patient/{patientId}/visit")
     public ResponseEntity<?> getVisitByPatient(
             @PathVariable Long labId,
-            @PathVariable Long patientId,
-            @RequestHeader("Authorization") String token
+            @PathVariable Long patientId
     ) {
         try {
-            Optional<User> currentUser = userAuthService.authenticateUser(token);
+            Optional<User> currentUser = getAuthenticatedUser();
             if (currentUser.isEmpty()) {
                 return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
             }
@@ -179,12 +176,11 @@ public class VisitController {
     @GetMapping("/{labId}/visitsdatewise")
     public ResponseEntity<?> getVisitsByDateRange(
             @PathVariable Long labId,
-            @RequestHeader("Authorization") String token,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
     ) {
         try {
-            Optional<User> currentUser = userAuthService.authenticateUser(token);
+            Optional<User> currentUser = getAuthenticatedUser();
             if (currentUser.isEmpty()) {
                 return ApiResponseHelper.successResponseWithDataAndMessage("User not found", HttpStatus.UNAUTHORIZED, null);
             }
@@ -215,11 +211,10 @@ public class VisitController {
     public ResponseEntity<?> getVisits(
             @PathVariable Long labId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-            @RequestHeader("Authorization") String token
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
     ) {
         try {
-            Optional<User> currentUser = userAuthService.authenticateUser(token);
+            Optional<User> currentUser = getAuthenticatedUser();
             if (currentUser.isEmpty()) {
                 return ApiResponseHelper.successResponseWithDataAndMessage("User not found", HttpStatus.UNAUTHORIZED, null);
             }
@@ -241,11 +236,10 @@ public class VisitController {
     public ResponseEntity<?> getPatientVisits(
             @PathVariable Long labId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-            @RequestHeader("Authorization") String token
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
     ) {
         try {
-            Optional<User> currentUser = userAuthService.authenticateUser(token);
+            Optional<User> currentUser = getAuthenticatedUser();
             if (currentUser.isEmpty()) {
                 return ApiResponseHelper.successResponseWithDataAndMessage("User not found", HttpStatus.UNAUTHORIZED, null);
             }
@@ -266,12 +260,11 @@ public class VisitController {
     @DeleteMapping("/{labId}/delete-patient-visit/{visitId}")
     public ResponseEntity<?> deletePatientVisit(
             @PathVariable Long labId,
-            @PathVariable Long visitId,
-            @RequestHeader("Authorization") String token
+            @PathVariable Long visitId
     ) {
         try {
             // Authenticate user
-            Optional<User> currentUser = userAuthService.authenticateUser(token);
+            Optional<User> currentUser = getAuthenticatedUser();
             if (currentUser.isEmpty()) {
                 return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
             }
@@ -295,12 +288,11 @@ public class VisitController {
     @Auditable(module = "Lab")
     @DeleteMapping("/{labId}/delete-all-patient-visits")
     public ResponseEntity<?> deleteAllPatientVisits(
-            @PathVariable Long labId,
-            @RequestHeader("Authorization") String token
+            @PathVariable Long labId
     ) {
         try {
             // Authenticate user
-            Optional<User> currentUser = userAuthService.authenticateUser(token);
+            Optional<User> currentUser = getAuthenticatedUser();
             if (currentUser.isEmpty()) {
                 return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
             }
@@ -317,5 +309,23 @@ public class VisitController {
         } catch (Exception e) {
             return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    private Optional<User> getAuthenticatedUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return Optional.empty();
+        }
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof MyUserDetails myUserDetails) {
+            return userService.findByUsername(myUserDetails.getUsername());
+        }
+        if (principal instanceof UserDetails userDetails) {
+            return userService.findByUsername(userDetails.getUsername());
+        }
+        if (principal instanceof String username && !"anonymousUser".equalsIgnoreCase(username)) {
+            return userService.findByUsername(username);
+        }
+        return Optional.empty();
     }
 }

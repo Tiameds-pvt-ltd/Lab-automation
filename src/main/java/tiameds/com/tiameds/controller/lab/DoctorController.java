@@ -4,6 +4,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import tiameds.com.tiameds.audit.AuditLogService;
@@ -13,10 +16,11 @@ import tiameds.com.tiameds.entity.Doctors;
 import tiameds.com.tiameds.entity.LabAuditLogs;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.repository.DoctorRepository;
+import tiameds.com.tiameds.services.auth.MyUserDetails;
+import tiameds.com.tiameds.services.auth.UserService;
 import tiameds.com.tiameds.services.lab.DoctorService;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
-import tiameds.com.tiameds.utils.UserAuthService;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -30,24 +34,24 @@ import java.util.Optional;
 public class DoctorController {
 
     private final DoctorService doctorService;
-    private final UserAuthService userAuthService;
     private final LabAccessableFilter labAccessableFilter;
     private final AuditLogService auditLogService;
     private final FieldChangeTracker fieldChangeTracker;
     private final DoctorRepository doctorRepository;
+    private final UserService userService;
 
     public DoctorController(DoctorService doctorService,
-                            UserAuthService userAuthService,
                             LabAccessableFilter labAccessableFilter,
                             AuditLogService auditLogService,
                             FieldChangeTracker fieldChangeTracker,
-                            DoctorRepository doctorRepository) {
+                            DoctorRepository doctorRepository,
+                            UserService userService) {
         this.doctorService = doctorService;
-        this.userAuthService = userAuthService;
         this.labAccessableFilter = labAccessableFilter;
         this.auditLogService = auditLogService;
         this.fieldChangeTracker = fieldChangeTracker;
         this.doctorRepository = doctorRepository;
+        this.userService = userService;
     }
 
     // create doctor or add doctor to lab
@@ -55,10 +59,9 @@ public class DoctorController {
     public ResponseEntity<?> addDoctorToLab(
             @PathVariable("labId") Long labId,
             @RequestBody DoctorDTO doctorDTO,
-            @RequestHeader("Authorization") String token,
             HttpServletRequest request) {
         try {
-            Optional<User> currentUser = userAuthService.authenticateUser(token);
+            Optional<User> currentUser = getAuthenticatedUser();
             if (currentUser.isEmpty()) {
                 return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
             }
@@ -90,11 +93,10 @@ public class DoctorController {
             @PathVariable("labId") Long labId,
             @PathVariable("doctorId") Long doctorId,
             @RequestBody DoctorDTO doctorDTO,
-            @RequestHeader("Authorization") String token,
             HttpServletRequest request) {
 
         try {
-            Optional<User> currentUser = userAuthService.authenticateUser(token);
+            Optional<User> currentUser = getAuthenticatedUser();
             if (currentUser.isEmpty()) {
                 return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
             }
@@ -127,10 +129,9 @@ public class DoctorController {
     public ResponseEntity<?> deleteDoctor(
             @PathVariable("labId") Long labId,
             @PathVariable("doctorId") Long doctorId,
-            @RequestHeader("Authorization") String token,
             HttpServletRequest request) {
         try {
-            Optional<User> currentUser = userAuthService.authenticateUser(token);
+            Optional<User> currentUser = getAuthenticatedUser();
             if (currentUser.isEmpty()) {
                 return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
             }
@@ -158,11 +159,10 @@ public class DoctorController {
     // get all doctors
     @GetMapping("{labId}/doctors")
     public ResponseEntity<?> getAllDoctors(
-            @PathVariable("labId") Long labId,
-            @RequestHeader("Authorization") String token) {
+            @PathVariable("labId") Long labId) {
         try {
-            // Authenticate user
-            if (userAuthService.authenticateUser(token).isEmpty()) {
+            Optional<User> currentUser = getAuthenticatedUser();
+            if (currentUser.isEmpty()) {
                 return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
             }
             // Check if the lab is active
@@ -179,10 +179,10 @@ public class DoctorController {
     @GetMapping("{labId}/doctors/{doctorId}")
     public ResponseEntity<?> getDoctorById(
             @PathVariable("labId") Long labId,
-            @PathVariable("doctorId") Long doctorId,
-            @RequestHeader("Authorization") String token) {
+            @PathVariable("doctorId") Long doctorId) {
         try {
-            if (userAuthService.authenticateUser(token).isEmpty()) {
+            Optional<User> currentUser = getAuthenticatedUser();
+            if (currentUser.isEmpty()) {
                 return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
             }
             boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
@@ -194,6 +194,24 @@ public class DoctorController {
         } catch (Exception e) {
             return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
         }
+    }
+
+    private Optional<User> getAuthenticatedUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return Optional.empty();
+        }
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof MyUserDetails myUserDetails) {
+            return userService.findByUsername(myUserDetails.getUsername());
+        }
+        if (principal instanceof UserDetails userDetails) {
+            return userService.findByUsername(userDetails.getUsername());
+        }
+        if (principal instanceof String username && !"anonymousUser".equalsIgnoreCase(username)) {
+            return userService.findByUsername(username);
+        }
+        return Optional.empty();
     }
 
     private void logDoctorAudit(Long labId,

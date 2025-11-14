@@ -4,6 +4,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -17,17 +20,19 @@ import tiameds.com.tiameds.entity.Test;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.repository.LabRepository;
 import tiameds.com.tiameds.repository.TestRepository;
+import tiameds.com.tiameds.services.auth.MyUserDetails;
+import tiameds.com.tiameds.services.auth.UserService;
 import tiameds.com.tiameds.services.lab.SequenceGeneratorService;
 import tiameds.com.tiameds.services.lab.TestServices;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
-import tiameds.com.tiameds.utils.UserAuthService;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -38,39 +43,37 @@ public class TestController {
 
     private final LabRepository labRepository;
     private final TestRepository testRepository;
-    private final UserAuthService userAuthService;
     private final LabAccessableFilter labAccessableFilter;
     private final TestServices testServices;
     private final AuditLogService auditLogService;
     private final FieldChangeTracker fieldChangeTracker;
     private final SequenceGeneratorService sequenceGeneratorService;
+    private final UserService userService;
 
     public TestController(LabRepository labRepository,
                           TestRepository testRepository,
-                          UserAuthService userAuthService,
                           LabAccessableFilter labAccessableFilter,
                           TestServices testServices,
                           AuditLogService auditLogService,
                           FieldChangeTracker fieldChangeTracker,
-                          SequenceGeneratorService sequenceGeneratorService) {
+                          SequenceGeneratorService sequenceGeneratorService,
+                          UserService userService) {
         this.labRepository = labRepository;
         this.testRepository = testRepository;
-        this.userAuthService = userAuthService;
         this.labAccessableFilter = labAccessableFilter;
         this.testServices = testServices;
         this.auditLogService = auditLogService;
         this.fieldChangeTracker = fieldChangeTracker;
         this.sequenceGeneratorService = sequenceGeneratorService;
+        this.userService = userService;
     }
     // 1. Get all tests in a lab
     @Transactional
     @GetMapping("/{labId}/tests")
     public ResponseEntity<?> getAllTests(
-            @PathVariable Long labId,
-            @RequestHeader("Authorization") String token) {
+            @PathVariable Long labId) {
         try {
-            // Authenticate the user using the provided token
-            User currentUser = userAuthService.authenticateUser(token)
+            User currentUser = getAuthenticatedUser()
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
             // Check if the lab exists in the repository
@@ -115,11 +118,9 @@ public class TestController {
     public ResponseEntity<?> addTest(
             @PathVariable Long labId,
             @RequestBody TestDTO testDTO,
-            @RequestHeader("Authorization") String token,
             HttpServletRequest request) {
         try {
-            // Authenticate the user using the provided token
-            User currentUser = userAuthService.authenticateUser(token)
+            User currentUser = getAuthenticatedUser()
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
             // Check if the lab exists in the repository
@@ -191,11 +192,9 @@ public class TestController {
             @PathVariable Long labId,
             @PathVariable Long testId,
             @RequestBody TestDTO testDTO,
-            @RequestHeader("Authorization") String token,
             HttpServletRequest request) {
         try {
-            // Authenticate the user using the provided token
-            User currentUser = userAuthService.authenticateUser(token)
+            User currentUser = getAuthenticatedUser()
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
             // Check if the lab exists in the repository
@@ -258,11 +257,9 @@ public class TestController {
     @GetMapping("/{labId}/test/{testId}")
     public ResponseEntity<?> getTest(
             @PathVariable Long labId,
-            @PathVariable Long testId,
-            @RequestHeader("Authorization") String token) {
+            @PathVariable Long testId) {
         try {
-            // Authenticate the user using the provided token
-            User currentUser = userAuthService.authenticateUser(token)
+            User currentUser = getAuthenticatedUser()
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
             // Check if the lab exists in the repository
@@ -316,11 +313,9 @@ public class TestController {
     public ResponseEntity<?> removeTest(
             @PathVariable Long labId,
             @PathVariable Long testId,
-            @RequestHeader("Authorization") String token,
             HttpServletRequest request) {
         try {
-            // Authenticate the user using the provided token
-            User currentUser = userAuthService.authenticateUser(token)
+            User currentUser = getAuthenticatedUser()
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
             // Check if the lab exists in the repository
@@ -380,11 +375,9 @@ public class TestController {
     public ResponseEntity<?> uploadCSV(
             @PathVariable Long labId,
             @RequestParam("file") MultipartFile file,
-            @RequestHeader("Authorization") String token,
             HttpServletRequest request) {
         try {
-            // Authenticate the user
-            User currentUser = userAuthService.authenticateUser(token)
+            User currentUser = getAuthenticatedUser()
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
             // Verify lab existence and user association
@@ -434,11 +427,9 @@ public class TestController {
     @Transactional
     @GetMapping("/{labId}/download")
     public ResponseEntity<?> downloadCSV(
-            @PathVariable Long labId,
-            @RequestHeader("Authorization") String token) {
+            @PathVariable Long labId) {
         try {
-            // Authenticate the user
-            User currentUser = userAuthService.authenticateUser(token)
+            User currentUser = getAuthenticatedUser()
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
             // Verify lab existence and user association
@@ -460,6 +451,24 @@ public class TestController {
         } catch (Exception e) {
             return ApiResponseHelper.errorResponse("An unexpected error occurred: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    private Optional<User> getAuthenticatedUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return Optional.empty();
+        }
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof MyUserDetails myUserDetails) {
+            return userService.findByUsername(myUserDetails.getUsername());
+        }
+        if (principal instanceof UserDetails userDetails) {
+            return userService.findByUsername(userDetails.getUsername());
+        }
+        if (principal instanceof String username && !"anonymousUser".equalsIgnoreCase(username)) {
+            return userService.findByUsername(username);
+        }
+        return Optional.empty();
     }
 
     private void logTestAudit(Long labId,
