@@ -52,6 +52,24 @@ public class SpringSecurityConfig {
         return http
                 .csrf(csrf -> csrf.disable())  // Disable CSRF for stateless JWT authentication
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
+                .headers(headers -> headers
+                        // Clickjacking Protection
+                        .frameOptions(frameOptions -> frameOptions.sameOrigin())
+                        // XSS Protection - Content Security Policy
+                        .contentSecurityPolicy(csp -> csp
+                                .policyDirectives("default-src 'self'; " +
+                                        "script-src 'self'; " +
+                                        "object-src 'none'; " +
+                                        "style-src 'self' 'unsafe-inline'; " +
+                                        "img-src 'self' data:; " +
+                                        "frame-ancestors 'self'; " +
+                                        "base-uri 'self';"))
+                        // HSTS - Prevent HTTP Downgrade
+                        .httpStrictTransportSecurity(hsts -> hsts
+                                .maxAgeInSeconds(31536000)
+                                .includeSubDomains(true)
+                                .preload(true))
+                )
                 .authorizeHttpRequests(auth -> auth
                                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()  // Permit CORS preflight requests
 
