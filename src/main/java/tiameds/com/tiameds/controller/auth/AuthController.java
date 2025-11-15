@@ -18,10 +18,13 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.transaction.annotation.Transactional;
 import tiameds.com.tiameds.config.JwtProperties;
 import tiameds.com.tiameds.config.RateLimitConfig;
 import tiameds.com.tiameds.dto.auth.LoginRequest;
@@ -38,9 +41,19 @@ import tiameds.com.tiameds.services.auth.RefreshTokenException;
 import tiameds.com.tiameds.services.auth.RefreshTokenService;
 import tiameds.com.tiameds.services.auth.UserDetailsServiceImpl;
 import tiameds.com.tiameds.services.auth.OtpService;
+import tiameds.com.tiameds.services.auth.PasswordResetRateLimitService;
+import tiameds.com.tiameds.services.auth.PasswordResetService;
 import tiameds.com.tiameds.services.email.EmailService;
+import tiameds.com.tiameds.dto.auth.ForgotPasswordRequest;
+import tiameds.com.tiameds.dto.auth.ResetPasswordRequest;
+import tiameds.com.tiameds.entity.PasswordResetToken;
+import tiameds.com.tiameds.entity.LabAuditLogs;
+import tiameds.com.tiameds.audit.AuditLogService;
 import tiameds.com.tiameds.utils.ApiResponse;
 import tiameds.com.tiameds.utils.JwtUtil;
+import tiameds.com.tiameds.utils.PasswordValidator;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -65,6 +78,16 @@ public class  AuthController {
     private final JwtProperties jwtProperties;
     private final OtpService otpService;
     private final EmailService emailService;
+    private final PasswordResetService passwordResetService;
+    private final PasswordResetRateLimitService passwordResetRateLimitService;
+    private final PasswordEncoder passwordEncoder;
+    private final AuditLogService auditLogService;
+
+    @Value("${password.reset.url:https://app.com/reset-password}")
+    private String passwordResetUrl;
+    
+    @Value("${server.base-url:http://localhost:8080/api/v1}")
+    private String backendBaseUrl;
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<Map<String, Object>>> login(@Valid @RequestBody LoginRequest loginRequest,
@@ -460,6 +483,254 @@ public class  AuthController {
             log.error("Unexpected error verifying OTP: {}", e.getMessage(), e);
             return errorResponse(HttpStatus.INTERNAL_SERVER_ERROR, 
                 "An error occurred while verifying OTP. Please try again later.");
+        }
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request,
+            HttpServletRequest httpRequest) {
+        
+        String email = request.getEmail().toLowerCase().trim();
+        String clientIp = getClientIpAddress(httpRequest);
+        String userAgent = httpRequest.getHeader("User-Agent");
+
+        // Validate email format (already validated by @Email annotation, but double-check)
+        if (!email.matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
+            log.warn("Invalid email format in forgot password request: {}", email);
+            // Return generic success to prevent enumeration
+            return successResponse(HttpStatus.OK, 
+                "If an account exists with this email, a password reset link has been sent.", 
+                new HashMap<>());
+        }
+
+        // Rate limiting: check both email and IP
+        if (!passwordResetRateLimitService.isAllowed(email, clientIp)) {
+            log.warn("Rate limit exceeded for forgot password: email={}, ip={}", email, clientIp);
+            auditPasswordResetAction(null, "FORGOT_PASSWORD_RATE_LIMITED", clientIp, userAgent, email);
+            return errorResponse(HttpStatus.TOO_MANY_REQUESTS, 
+                "Too many password reset requests. Please try again later.");
+        }
+
+        // Check if user exists
+        Optional<User> userOpt = userRepository.findByEmail(email);
+        
+        // Always return generic success message to prevent user enumeration
+        // This is a security best practice
+        Map<String, Object> responseData = new HashMap<>();
+        responseData.put("message", "If an account exists with this email, a password reset link has been sent.");
+
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            
+            try {
+                // Generate and save password reset token
+                String resetToken = passwordResetService.createPasswordResetToken(user);
+                
+                // Send password reset email
+                emailService.sendPasswordResetEmail(user.getEmail(), resetToken, passwordResetUrl, backendBaseUrl);
+                
+                log.info("Password reset token generated and email sent for user: {}", email);
+                
+                // Audit log
+                auditPasswordResetAction(user.getId(), "FORGOT_PASSWORD_REQUESTED", clientIp, userAgent, email);
+                
+            } catch (EmailService.EmailException e) {
+                log.error("Failed to send password reset email to {}: {}", email, e.getMessage());
+                // Still return generic success to prevent enumeration
+                auditPasswordResetAction(user.getId(), "FORGOT_PASSWORD_EMAIL_FAILED", clientIp, userAgent, email);
+            } catch (Exception e) {
+                log.error("Unexpected error processing forgot password for {}: {}", email, e.getMessage(), e);
+                auditPasswordResetAction(user.getId(), "FORGOT_PASSWORD_ERROR", clientIp, userAgent, email);
+            }
+        } else {
+            // User doesn't exist - still return generic success
+            log.debug("Forgot password request for non-existent email: {}", email);
+            auditPasswordResetAction(null, "FORGOT_PASSWORD_NON_EXISTENT", clientIp, userAgent, email);
+        }
+
+        return successResponse(HttpStatus.OK, 
+            "If an account exists with this email, a password reset link has been sent.", 
+            responseData);
+    }
+
+    /**
+     * Validates password reset token from email link
+     * This endpoint can be called by frontend to validate token before showing reset form
+     * Always returns JSON response for frontend consumption
+     */
+    @GetMapping("/validate-reset-token")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> validateResetToken(
+            @RequestParam("token") String token,
+            HttpServletRequest httpRequest) {
+        String clientIp = getClientIpAddress(httpRequest);
+        String userAgent = httpRequest.getHeader("User-Agent");
+        
+        try {
+            // URL decode the token in case it was encoded (handle + signs and special chars)
+            String decodedToken;
+            try {
+                decodedToken = java.net.URLDecoder.decode(token, java.nio.charset.StandardCharsets.UTF_8);
+            } catch (Exception e) {
+                // If decoding fails, use token as-is (might already be decoded)
+                log.debug("Token URL decoding failed, using token as-is: {}", e.getMessage());
+                decodedToken = token;
+            }
+            
+            // Validate token
+            PasswordResetToken resetToken = passwordResetService.validateToken(decodedToken);
+            
+            log.info("Valid password reset token validated for user: {}", resetToken.getUser().getEmail());
+            auditPasswordResetAction(resetToken.getUser().getId(), "VALIDATE_RESET_TOKEN_SUCCESS", 
+                clientIp, userAgent, resetToken.getUser().getEmail());
+            
+            // Return JSON response with token validity
+            Map<String, Object> responseData = new HashMap<>();
+            responseData.put("valid", true);
+            responseData.put("message", "Token is valid");
+            responseData.put("email", resetToken.getUser().getEmail()); // Optional: return email for display
+            return successResponse(HttpStatus.OK, "Token is valid", responseData);
+            
+        } catch (PasswordResetService.PasswordResetException e) {
+            // Token is invalid/expired
+            log.warn("Invalid password reset token validation attempt from IP: {} - {}", clientIp, e.getMessage());
+            auditPasswordResetAction(null, "VALIDATE_RESET_TOKEN_INVALID", clientIp, userAgent, null);
+            
+            Map<String, Object> responseData = new HashMap<>();
+            responseData.put("valid", false);
+            responseData.put("message", e.getMessage());
+            return successResponse(HttpStatus.OK, e.getMessage(), responseData);
+            
+        } catch (IllegalArgumentException e) {
+            // Invalid token format
+            log.warn("Invalid token format from IP: {} - {}", clientIp, e.getMessage());
+            auditPasswordResetAction(null, "VALIDATE_RESET_TOKEN_INVALID_FORMAT", clientIp, userAgent, null);
+            
+            Map<String, Object> responseData = new HashMap<>();
+            responseData.put("valid", false);
+            responseData.put("message", "Invalid token format");
+            return successResponse(HttpStatus.OK, "Invalid token format", responseData);
+            
+        } catch (Exception e) {
+            log.error("Unexpected error validating reset token: {}", e.getMessage(), e);
+            auditPasswordResetAction(null, "VALIDATE_RESET_TOKEN_ERROR", clientIp, userAgent, null);
+            
+            Map<String, Object> responseData = new HashMap<>();
+            responseData.put("valid", false);
+            responseData.put("message", "An error occurred while validating the token");
+            return successResponse(HttpStatus.OK, "An error occurred while validating the token. Please try again later.", responseData);
+        }
+    }
+
+    @PostMapping("/reset-password")
+    @Transactional
+    public ResponseEntity<ApiResponse<Map<String, Object>>> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request,
+            HttpServletRequest httpRequest) {
+        
+        String token = request.getToken();
+        String newPassword = request.getNewPassword();
+        String confirmPassword = request.getConfirmPassword();
+        String clientIp = getClientIpAddress(httpRequest);
+        String userAgent = httpRequest.getHeader("User-Agent");
+
+        // Validate passwords match
+        if (!newPassword.equals(confirmPassword)) {
+            return errorResponse(HttpStatus.BAD_REQUEST, "Passwords do not match");
+        }
+
+        // Validate password strength
+        PasswordValidator.ValidationResult validationResult = PasswordValidator.validate(newPassword);
+        if (!validationResult.isValid()) {
+            return errorResponse(HttpStatus.BAD_REQUEST, validationResult.getErrorMessage());
+        }
+
+        // Validate and get token
+        PasswordResetToken resetToken;
+        try {
+            resetToken = passwordResetService.validateToken(token);
+        } catch (PasswordResetService.PasswordResetException e) {
+            log.warn("Invalid password reset token attempt from IP: {}", clientIp);
+            auditPasswordResetAction(null, "RESET_PASSWORD_INVALID_TOKEN", clientIp, userAgent, null);
+            return errorResponse(HttpStatus.BAD_REQUEST, "Invalid or expired token");
+        }
+
+        User user = resetToken.getUser();
+
+        // Check if password is the same as current password (optional: prevent reuse)
+        // This is optional but recommended for security
+        if (passwordEncoder.matches(newPassword, user.getPassword())) {
+            return errorResponse(HttpStatus.BAD_REQUEST, 
+                "New password must be different from your current password");
+        }
+
+        try {
+            // Update password
+            String hashedPassword = passwordEncoder.encode(newPassword);
+            user.setPassword(hashedPassword);
+            
+            // Increment token version to invalidate all existing sessions
+            user.setTokenVersion(user.getTokenVersion() + 1);
+            userRepository.save(user);
+
+            // Mark token as used
+            passwordResetService.markTokenAsUsed(resetToken);
+
+            // Send confirmation email
+            try {
+                emailService.sendPasswordResetConfirmationEmail(user.getEmail());
+            } catch (EmailService.EmailException e) {
+                log.warn("Failed to send password reset confirmation email to {}: {}", 
+                    user.getEmail(), e.getMessage());
+                // Don't fail the request if email fails
+            }
+
+            log.info("Password reset successful for user: {}", user.getEmail());
+            
+            // Audit log
+            auditPasswordResetAction(user.getId(), "RESET_PASSWORD_SUCCESS", clientIp, userAgent, user.getEmail());
+
+            Map<String, Object> responseData = new HashMap<>();
+            responseData.put("message", "Password has been reset successfully");
+            
+            return successResponse(HttpStatus.OK, "Password has been reset successfully", responseData);
+
+        } catch (Exception e) {
+            log.error("Unexpected error resetting password for user {}: {}", 
+                user.getEmail(), e.getMessage(), e);
+            auditPasswordResetAction(user.getId(), "RESET_PASSWORD_ERROR", clientIp, userAgent, user.getEmail());
+            return errorResponse(HttpStatus.INTERNAL_SERVER_ERROR, 
+                "An error occurred while resetting password. Please try again later.");
+        }
+    }
+
+    /**
+     * Helper method to create audit logs for password reset actions
+     */
+    private void auditPasswordResetAction(Long userId, String action, String ipAddress, 
+                                         String userAgent, String email) {
+        try {
+            LabAuditLogs auditLog = new LabAuditLogs();
+            auditLog.setModule("Authentication");
+            auditLog.setEntityType("PasswordReset");
+            auditLog.setLab_id("GLOBAL");
+            auditLog.setActionType(action);
+            auditLog.setUserId(userId);
+            auditLog.setUsername(email != null ? email : "unknown");
+            auditLog.setIpAddress(ipAddress != null ? ipAddress : "");
+            auditLog.setDeviceInfo(userAgent != null ? userAgent : "");
+            auditLog.setSeverity(LabAuditLogs.Severity.MEDIUM);
+            
+            if (email != null) {
+                // Create simple JSON string for audit log
+                String jsonValue = String.format("{\"email\":\"%s\",\"action\":\"%s\"}", email, action);
+                auditLog.setNewValue(jsonValue);
+            }
+            
+            auditLogService.persistAsync(auditLog);
+        } catch (Exception e) {
+            log.error("Failed to create audit log for password reset action: {}", e.getMessage());
+            // Don't fail the request if audit logging fails
         }
     }
 }

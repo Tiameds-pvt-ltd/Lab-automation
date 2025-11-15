@@ -14,9 +14,6 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         default_batch_fetch_size: 10
 
-  server:
-    port: 8080
-
   servlet:
     multipart:
       max-file-size: 10MB
@@ -48,10 +45,14 @@ logging:
       fasterxml:
         jackson: DEBUG
 
+# Server configuration
 server:
+  port: 8080
   servlet:
     context-path: /api/v1
+  base-url: ${SERVER_BASE_URL:http://localhost:8080/api/v1}  # Backend base URL for email links
 
+# Security configuration
 security:
   jwt:
     issuer: ${JWT_ISSUER:tiameds-lab-automation}
@@ -66,3 +67,23 @@ security:
     cookie-path: ${JWT_COOKIE_PATH:/}
     cookie-secure: ${JWT_COOKIE_SECURE:false}
     same-site: ${JWT_COOKIE_SAMESITE:Strict}
+
+# Password reset configuration
+# Database-backed rate limiting (shared across all instances)
+password:
+  reset:
+    token:
+      expiry:
+        minutes: ${PASSWORD_RESET_TOKEN_EXPIRY_MINUTES:15}  # Default 15 minutes, optional 30
+      length: ${PASSWORD_RESET_TOKEN_LENGTH:32}  # Token length in bytes (32+ recommended)
+    url: ${PASSWORD_RESET_URL:http://localhost:3000/reset-password}  # Frontend reset password URL
+    rate:
+      limit:
+        email:
+          max: ${PASSWORD_RESET_RATE_LIMIT_EMAIL_MAX:3}  # Max requests per email per window
+          window:
+            minutes: ${PASSWORD_RESET_RATE_LIMIT_EMAIL_WINDOW:1}  # Time window in minutes
+        ip:
+          max: ${PASSWORD_RESET_RATE_LIMIT_IP_MAX:3}  # Max requests per IP per window
+          window:
+            minutes: ${PASSWORD_RESET_RATE_LIMIT_IP_WINDOW:1}  # Time window in minutes

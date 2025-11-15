@@ -130,7 +130,7 @@
             <version>1.8</version>
         </dependency>
 
-        <!-- Bucket4j for rate limiting -->
+        <!-- Bucket4j for login rate limiting (password reset uses database) -->
         <dependency>
             <groupId>com.github.vladimir-bukhtoyarov</groupId>
             <artifactId>bucket4j-core</artifactId>

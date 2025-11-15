@@ -156,7 +156,7 @@ public class SpringSecurityConfig {
 //                                .requestMatchers("/lab/**").hasRole("ADMIN")
                                 .requestMatchers("/lab-super-admin/**").hasRole("SUPERADMIN")
                                 .requestMatchers("/error").permitAll()
-                                .requestMatchers("/auth/login", "/auth/register", "/auth/send-otp", "/auth/verify-otp", "/auth/refresh").permitAll()
+                                .requestMatchers("/auth/login", "/auth/register", "/auth/send-otp", "/auth/verify-otp", "/auth/refresh", "/auth/forgot-password", "/auth/reset-password", "/auth/validate-reset-token").permitAll()
                                 .requestMatchers("/public/login", "/public/register").permitAll()
                                 .requestMatchers("/auth/logout").authenticated()
                                 .requestMatchers("/login/**", "/register/**").permitAll()
