@@ -36,6 +36,9 @@ public class JwtFilter extends OncePerRequestFilter {
 
     private static final Set<String> PUBLIC_PATHS = Set.of(
             "/auth/login",
+            "/auth/register",
+            "/auth/send-otp",
+            "/auth/verify-otp",
             "/auth/refresh",
             "/public/login",
             "/public/register"

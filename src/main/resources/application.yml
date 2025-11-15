@@ -61,6 +61,18 @@ spring:
         default_batch_fetch_size: 10
     show-sql: false
 
+  mail:
+    host: ${SPRING_MAIL_HOST:smtp.gmail.com}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME:yourgmail@gmail.com}
+    password: ${SPRING_MAIL_PASSWORD:your_app_password}
+    properties:
+      mail:
+        smtp:
+          auth: ${SPRING_MAIL_SMTP_AUTH:true}
+          starttls:
+            enable: ${SPRING_MAIL_SMTP_STARTTLS_ENABLE:true}
+
 springdoc:
   api-docs:
     path: /v3/api-docs
@@ -96,5 +108,4 @@ security:
     whitelist:
       enabled: false  # Set to true to enable IP whitelisting
       ips: ""  # Comma-separated list of allowed IPs (e.g., "192.168.1.1,10.0.0.1")
-
 

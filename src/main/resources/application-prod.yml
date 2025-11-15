@@ -93,3 +93,17 @@ security:
     cookie-path: ${JWT_COOKIE_PATH:/}
     cookie-secure: ${JWT_COOKIE_SECURE:true}
     same-site: ${JWT_COOKIE_SAMESITE:Strict}
+
+# Spring Mail configuration for OTP email delivery (Gmail SMTP) - Production
+spring:
+  mail:
+    host: ${SPRING_MAIL_HOST:smtp.gmail.com}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME}
+    password: ${SPRING_MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: ${SPRING_MAIL_SMTP_AUTH:true}
+          starttls:
+            enable: ${SPRING_MAIL_SMTP_STARTTLS_ENABLE:true}

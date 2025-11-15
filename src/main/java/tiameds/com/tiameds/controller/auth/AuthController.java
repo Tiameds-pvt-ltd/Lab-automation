@@ -26,6 +26,8 @@ import tiameds.com.tiameds.config.JwtProperties;
 import tiameds.com.tiameds.config.RateLimitConfig;
 import tiameds.com.tiameds.dto.auth.LoginRequest;
 import tiameds.com.tiameds.dto.auth.LoginResponse;
+import tiameds.com.tiameds.dto.auth.SendOtpRequest;
+import tiameds.com.tiameds.dto.auth.VerifyOtpRequest;
 import tiameds.com.tiameds.dto.lab.ModuleDTO;
 import tiameds.com.tiameds.entity.ModuleEntity;
 import tiameds.com.tiameds.entity.RefreshToken;
@@ -35,12 +37,13 @@ import tiameds.com.tiameds.repository.UserRepository;
 import tiameds.com.tiameds.services.auth.RefreshTokenException;
 import tiameds.com.tiameds.services.auth.RefreshTokenService;
 import tiameds.com.tiameds.services.auth.UserDetailsServiceImpl;
+import tiameds.com.tiameds.services.auth.OtpService;
+import tiameds.com.tiameds.services.email.EmailService;
 import tiameds.com.tiameds.utils.ApiResponse;
 import tiameds.com.tiameds.utils.JwtUtil;
 
 import java.time.Instant;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -60,10 +63,12 @@ public class  AuthController {
     private final RefreshTokenService refreshTokenService;
     private final RateLimitConfig.RateLimitService rateLimitService;
     private final JwtProperties jwtProperties;
+    private final OtpService otpService;
+    private final EmailService emailService;
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest loginRequest,
-                                                            HttpServletRequest request) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> login(@Valid @RequestBody LoginRequest loginRequest,
+                                                                    HttpServletRequest request) {
         String usernameOrEmail = loginRequest.getUsername();
         String clientIp = getClientIpAddress(request);
 
@@ -85,18 +90,44 @@ public class  AuthController {
         User user = findByUsernameOrEmail(usernameOrEmail)
                 .orElseThrow(() -> new IllegalStateException("Authenticated user not found"));
 
-        UserDetails userDetails = userDetailsService.loadUserByUsername(user.getUsername());
+        // Extract email from database (not from client input)
+        String email = user.getEmail();
+        if (email == null || email.isEmpty()) {
+            return errorResponse(HttpStatus.BAD_REQUEST, "User email not found. Please contact support.");
+        }
 
-        LoginResponse loginResponse = buildLoginResponse(user);
-        JwtUtil.JwtToken accessToken = jwtUtil.generateAccessToken(userDetails.getUsername(), user.getTokenVersion());
-        JwtUtil.RefreshJwtToken refreshToken = jwtUtil.generateRefreshToken(userDetails.getUsername(), user.getTokenVersion());
+        // Check rate limiting for OTP requests
+        if (otpService.isRateLimited(email)) {
+            return errorResponse(HttpStatus.TOO_MANY_REQUESTS, 
+                "Too many OTP requests. Please try again after 5 minutes.");
+        }
 
-        refreshTokenService.saveRefreshToken(user, refreshToken.id(), refreshToken.value(), refreshToken.expiresAt());
-
-        ResponseCookie accessCookie = createTokenCookie(jwtProperties.getAccessCookieName(), accessToken.value(), accessToken.expiresAt());
-        ResponseCookie refreshCookie = createTokenCookie(jwtProperties.getRefreshCookieName(), refreshToken.value(), refreshToken.expiresAt());
-
-        return successResponse(HttpStatus.OK, "Login successful", loginResponse, accessCookie, refreshCookie);
+        try {
+            // Generate OTP
+            String otp = otpService.generateOtp();
+            
+            // Save hashed OTP to database
+            otpService.saveOtp(email, otp);
+            
+            // Send OTP via email (SMTP)
+            emailService.sendOtpEmail(email, otp);
+            
+            log.info("OTP sent successfully to email: {} after successful password authentication", email);
+            
+            Map<String, Object> data = new HashMap<>();
+            data.put("email", email);
+            data.put("message", "OTP sent to your registered email address");
+            
+            return successResponse(HttpStatus.OK, "OTP sent to your registered email", data);
+        } catch (EmailService.EmailException e) {
+            log.error("Failed to send OTP email: {}", e.getMessage());
+            return errorResponse(HttpStatus.INTERNAL_SERVER_ERROR, 
+                "Failed to send OTP email. Please try again later.");
+        } catch (Exception e) {
+            log.error("Unexpected error sending OTP: {}", e.getMessage(), e);
+            return errorResponse(HttpStatus.INTERNAL_SERVER_ERROR, 
+                "An error occurred while sending OTP. Please try again later.");
+        }
     }
 
     @PostMapping("/refresh")
@@ -348,6 +379,89 @@ public class  AuthController {
         }
 
         return request.getRemoteAddr();
+    }
+
+    @PostMapping("/send-otp")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> sendOtp(@Valid @RequestBody SendOtpRequest request) {
+        String email = request.getEmail().toLowerCase().trim();
+
+        // Check if user exists
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user == null) {
+            return errorResponse(HttpStatus.NOT_FOUND, "User with this email does not exist");
+        }
+
+        // Check rate limiting
+        if (otpService.isRateLimited(email)) {
+            return errorResponse(HttpStatus.TOO_MANY_REQUESTS, 
+                "Too many OTP requests. Please try again after 5 minutes.");
+        }
+
+        try {
+            // Generate OTP
+            String otp = otpService.generateOtp();
+            
+            // Save hashed OTP to database
+            otpService.saveOtp(email, otp);
+            
+            // Send OTP via email (SMTP)
+            emailService.sendOtpEmail(email, otp);
+            
+            log.info("OTP sent successfully to email: {}", email);
+            
+            Map<String, Object> data = new HashMap<>();
+            data.put("email", email);
+            
+            return successResponse(HttpStatus.OK, "OTP sent successfully", data);
+        } catch (EmailService.EmailException e) {
+            log.error("Failed to send OTP email: {}", e.getMessage());
+            return errorResponse(HttpStatus.INTERNAL_SERVER_ERROR, 
+                "Failed to send OTP email. Please try again later.");
+        } catch (Exception e) {
+            log.error("Unexpected error sending OTP: {}", e.getMessage(), e);
+            return errorResponse(HttpStatus.INTERNAL_SERVER_ERROR, 
+                "An error occurred while sending OTP. Please try again later.");
+        }
+    }
+
+    @PostMapping("/verify-otp")
+    public ResponseEntity<ApiResponse<LoginResponse>> verifyOtp(@Valid @RequestBody VerifyOtpRequest request) {
+        String email = request.getEmail().toLowerCase().trim();
+        String otp = request.getOtp();
+
+        // Find user by email
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user == null) {
+            return errorResponse(HttpStatus.NOT_FOUND, "User with this email does not exist");
+        }
+
+        try {
+            // Validate OTP
+            otpService.validateOtp(email, otp);
+            
+            // OTP is valid, generate JWT tokens using existing logic
+            UserDetails userDetails = userDetailsService.loadUserByUsername(user.getUsername());
+            LoginResponse loginResponse = buildLoginResponse(user);
+            
+            JwtUtil.JwtToken accessToken = jwtUtil.generateAccessToken(userDetails.getUsername(), user.getTokenVersion());
+            JwtUtil.RefreshJwtToken refreshToken = jwtUtil.generateRefreshToken(userDetails.getUsername(), user.getTokenVersion());
+
+            refreshTokenService.saveRefreshToken(user, refreshToken.id(), refreshToken.value(), refreshToken.expiresAt());
+
+            ResponseCookie accessCookie = createTokenCookie(jwtProperties.getAccessCookieName(), accessToken.value(), accessToken.expiresAt());
+            ResponseCookie refreshCookie = createTokenCookie(jwtProperties.getRefreshCookieName(), refreshToken.value(), refreshToken.expiresAt());
+
+            log.info("OTP verified successfully for email: {}", email);
+            
+            return successResponse(HttpStatus.OK, "OTP verified successfully", loginResponse, accessCookie, refreshCookie);
+        } catch (OtpService.OtpException e) {
+            log.warn("OTP validation failed for email {}: {}", email, e.getMessage());
+            return errorResponse(HttpStatus.UNAUTHORIZED, e.getMessage());
+        } catch (Exception e) {
+            log.error("Unexpected error verifying OTP: {}", e.getMessage(), e);
+            return errorResponse(HttpStatus.INTERNAL_SERVER_ERROR, 
+                "An error occurred while verifying OTP. Please try again later.");
+        }
     }
 }
 

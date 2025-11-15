@@ -7,36 +7,46 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update  # 'create' for development; 'update' or 'none' for production
-    show-sql: true  # Optional: Shows SQL queries in logs
+      ddl-auto: update
+    show-sql: true
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        default_batch_fetch_size: 10  # Batch size for collection loading
+        default_batch_fetch_size: 10
 
   server:
-    port: 8080  # Port on which the application runs
-
+    port: 8080
 
   servlet:
     multipart:
-      max-file-size: 10MB  # Maximum size for a single file
-      max-request-size: 10MB  # Maximum total request size, should be >= max-file-size
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+  mail:
+    host: ${SPRING_MAIL_HOST:smtp.gmail.com}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME:itadmin@tiameds.ai}
+    password: ${SPRING_MAIL_PASSWORD:fpkpxeiacxuqncjm}
+    properties:
+      mail:
+        smtp:
+          auth: ${SPRING_MAIL_SMTP_AUTH:true}
+          starttls:
+            enable: ${SPRING_MAIL_SMTP_STARTTLS_ENABLE:true}
 
 springdoc:
   api-docs:
     path: /v3/api-docs
   swagger-ui:
-    path: /doc  # Swagger UI path
+    path: /doc
 
 logging:
   level:
-    org.springframework: INFO  # General logging level
-    org.springframework.security: DEBUG  # Detailed logging for Spring Security (optional)
+    org.springframework: INFO
+    org.springframework.security: DEBUG
     com:
       fasterxml:
-        jackson: DEBUG  # Enable detailed logging for Jackson
-
+        jackson: DEBUG
 
 server:
   servlet:
@@ -54,7 +64,5 @@ security:
     refresh-cookie-name: ${JWT_REFRESH_COOKIE_NAME:refreshToken}
     cookie-domain: ${JWT_COOKIE_DOMAIN:}
     cookie-path: ${JWT_COOKIE_PATH:/}
-    cookie-secure: ${JWT_COOKIE_SECURE:true}
+    cookie-secure: ${JWT_COOKIE_SECURE:false}
     same-site: ${JWT_COOKIE_SAMESITE:Strict}
-
-
