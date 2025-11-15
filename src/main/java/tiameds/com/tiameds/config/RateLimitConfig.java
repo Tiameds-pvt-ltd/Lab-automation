@@ -20,86 +20,92 @@ public class RateLimitConfig {
     @Value("${rate.limit.login.window:10}")
     private int loginWindowMinutes;
 
-    @Value("${rate.limit.ip.attempts:10}")
-    private int maxIpAttempts;
-
-    @Value("${rate.limit.ip.window:10}")
-    private int ipWindowMinutes;
-
-    // In-memory storage for rate limiting (can be replaced with Redis for distributed systems)
-    private final Map<String, Bucket> ipBuckets = new ConcurrentHashMap<>();
+    // In-memory storage for user-based rate limiting (can be replaced with Redis for distributed systems)
     private final Map<String, Bucket> userBuckets = new ConcurrentHashMap<>();
 
     @Bean
     public RateLimitService rateLimitService() {
-        return new RateLimitService(ipBuckets, userBuckets, maxLoginAttempts, loginWindowMinutes, maxIpAttempts, ipWindowMinutes);
+        return new RateLimitService(userBuckets, maxLoginAttempts, loginWindowMinutes);
     }
 
     public static class RateLimitService {
-        private final Map<String, Bucket> ipBuckets;
         private final Map<String, Bucket> userBuckets;
         private final int maxLoginAttempts;
         private final int loginWindowMinutes;
-        private final int maxIpAttempts;
-        private final int ipWindowMinutes;
 
-        public RateLimitService(Map<String, Bucket> ipBuckets, Map<String, Bucket> userBuckets, 
-                              int maxLoginAttempts, int loginWindowMinutes, 
-                              int maxIpAttempts, int ipWindowMinutes) {
-            this.ipBuckets = ipBuckets;
+        public RateLimitService(Map<String, Bucket> userBuckets, 
+                              int maxLoginAttempts, int loginWindowMinutes) {
             this.userBuckets = userBuckets;
             this.maxLoginAttempts = maxLoginAttempts;
             this.loginWindowMinutes = loginWindowMinutes;
-            this.maxIpAttempts = maxIpAttempts;
-            this.ipWindowMinutes = ipWindowMinutes;
         }
 
-        public boolean isIpAllowed(String ipAddress) {
-            Bucket bucket = ipBuckets.computeIfAbsent(ipAddress, this::createIpBucket);
-            return bucket.tryConsume(1);
-        }
-
+        /**
+         * Checks if the user is allowed to make a login attempt.
+         * Blocks the user for the configured time window (default 10 minutes) if limit is exceeded.
+         * 
+         * @param username The username or email to check
+         * @return true if user is allowed, false if rate limit exceeded
+         */
         public boolean isUserAllowed(String username) {
-            Bucket bucket = userBuckets.computeIfAbsent(username, this::createUserBucket);
+            if (username == null || username.trim().isEmpty()) {
+                return true; // Allow if username is not provided (will fail authentication anyway)
+            }
+            String normalizedUsername = username.toLowerCase().trim();
+            Bucket bucket = userBuckets.computeIfAbsent(normalizedUsername, this::createUserBucket);
             return bucket.tryConsume(1);
         }
 
-        public void resetIpLimit(String ipAddress) {
-            ipBuckets.remove(ipAddress);
-        }
-
+        /**
+         * Resets the rate limit for a specific user.
+         * 
+         * @param username The username to reset
+         */
         public void resetUserLimit(String username) {
-            userBuckets.remove(username);
-        }
-
-        private Bucket createIpBucket(String ipAddress) {
-            Bandwidth limit = Bandwidth.classic(maxIpAttempts, Refill.intervally(maxIpAttempts, Duration.ofMinutes(ipWindowMinutes)));
-            return Bucket.builder()
-                    .addLimit(limit)
-                    .build();
-        }
-
-        private Bucket createUserBucket(String username) {
-            Bandwidth limit = Bandwidth.classic(maxLoginAttempts, Refill.intervally(maxLoginAttempts, Duration.ofMinutes(loginWindowMinutes)));
-            return Bucket.builder()
-                    .addLimit(limit)
-                    .build();
-        }
-
-        public int getRemainingIpAttempts(String ipAddress) {
-            Bucket bucket = ipBuckets.get(ipAddress);
-            if (bucket == null) {
-                return maxIpAttempts;
+            if (username != null) {
+                userBuckets.remove(username.toLowerCase().trim());
             }
-            return (int) bucket.getAvailableTokens();
         }
 
+        /**
+         * Creates a rate limit bucket for a user.
+         * The bucket allows maxLoginAttempts attempts within loginWindowMinutes window.
+         */
+        private Bucket createUserBucket(String username) {
+            Bandwidth limit = Bandwidth.classic(
+                maxLoginAttempts, 
+                Refill.intervally(maxLoginAttempts, Duration.ofMinutes(loginWindowMinutes))
+            );
+            return Bucket.builder()
+                    .addLimit(limit)
+                    .build();
+        }
+
+        /**
+         * Gets the remaining login attempts for a user.
+         * 
+         * @param username The username to check
+         * @return Number of remaining attempts
+         */
         public int getRemainingUserAttempts(String username) {
-            Bucket bucket = userBuckets.get(username);
+            if (username == null || username.trim().isEmpty()) {
+                return maxLoginAttempts;
+            }
+            String normalizedUsername = username.toLowerCase().trim();
+            Bucket bucket = userBuckets.get(normalizedUsername);
             if (bucket == null) {
                 return maxLoginAttempts;
             }
             return (int) bucket.getAvailableTokens();
+        }
+
+        /**
+         * Gets the configured time window in minutes.
+         * 
+         * @return Time window in minutes
+         */
+        public int getWindowMinutes() {
+            return loginWindowMinutes;
         }
     }
 }

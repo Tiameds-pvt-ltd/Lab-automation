@@ -70,13 +70,12 @@ public class  AuthController {
     public ResponseEntity<ApiResponse<Map<String, Object>>> login(@Valid @RequestBody LoginRequest loginRequest,
                                                                     HttpServletRequest request) {
         String usernameOrEmail = loginRequest.getUsername();
-        String clientIp = getClientIpAddress(request);
 
-        if (!rateLimitService.isIpAllowed(clientIp)) {
-            return errorResponse(HttpStatus.TOO_MANY_REQUESTS, "Too many login attempts from this IP address. Please try again later.");
-        }
+        // Check user-based rate limiting (blocks user for 10 minutes if limit exceeded)
         if (!rateLimitService.isUserAllowed(usernameOrEmail)) {
-            return errorResponse(HttpStatus.TOO_MANY_REQUESTS, "Too many login attempts for this user. Please try again later.");
+            int windowMinutes = rateLimitService.getWindowMinutes();
+            return errorResponse(HttpStatus.TOO_MANY_REQUESTS, 
+                String.format("Too many login attempts for this user. Please try again after %d minutes.", windowMinutes));
         }
 
         try {

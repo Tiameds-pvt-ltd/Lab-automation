@@ -79,15 +79,12 @@ springdoc:
   swagger-ui:
     path: /doc  # Consider restricting Swagger UI in production
 
-# Rate limiting configuration
+# Rate limiting configuration (user-based only)
 rate:
   limit:
     login:
       attempts: 5  # Max login attempts per user
-      window: 3   # Time window in minutes
-    ip:
-      attempts: 10  # Max login attempts per IP
-      window: 3    # Time window in minutes
+      window: 10   # Time window in minutes (user is blocked for this duration if limit exceeded)
 
 # Security configuration
 security:

@@ -78,21 +78,16 @@ public class UserController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest loginRequest, HttpServletRequest request) {
         String token = null;
-        String clientIp = getClientIpAddress(request);
         String username = loginRequest.getUsername();
         
-        // Check rate limiting for IP
-        if (!rateLimitService.isIpAllowed(clientIp)) {
-            log.warn("Rate limit exceeded for IP: {}", clientIp);
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                    .body(new AuthResponse(HttpStatus.TOO_MANY_REQUESTS, "Too many login attempts from this IP. Please try again later.", null, null));
-        }
-        
-        // Check rate limiting for user
+        // Check user-based rate limiting (blocks user for configured time window if limit exceeded)
         if (!rateLimitService.isUserAllowed(username)) {
-            log.warn("Rate limit exceeded for user: {} from IP: {}", username, clientIp);
+            int windowMinutes = rateLimitService.getWindowMinutes();
+            log.warn("Rate limit exceeded for user: {}", username);
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                    .body(new AuthResponse(HttpStatus.TOO_MANY_REQUESTS, "Too many login attempts for this user. Please try again later.", null, null));
+                    .body(new AuthResponse(HttpStatus.TOO_MANY_REQUESTS, 
+                        String.format("Too many login attempts for this user. Please try again after %d minutes.", windowMinutes), 
+                        null, null));
         }
         
         try {
@@ -264,35 +259,27 @@ public class UserController {
     }
 
     @PostMapping("/reset-rate-limit")
-    public ResponseEntity<Map<String, Object>> resetRateLimit(@RequestParam(required = false) String ipAddress, 
-                                                             @RequestParam(required = false) String username) {
-        if (ipAddress != null) {
-            rateLimitService.resetIpLimit(ipAddress);
-            return ApiResponseHelper.successResponseWithDataAndMessage("Rate limit reset for IP: " + ipAddress, HttpStatus.OK, null);
+    public ResponseEntity<Map<String, Object>> resetRateLimit(@RequestParam String username) {
+        if (username == null || username.trim().isEmpty()) {
+            return ApiResponseHelper.successResponseWithDataAndMessage("Username is required", HttpStatus.BAD_REQUEST, null);
         }
-        if (username != null) {
-            rateLimitService.resetUserLimit(username);
-            return ApiResponseHelper.successResponseWithDataAndMessage("Rate limit reset for user: " + username, HttpStatus.OK, null);
-        }
-        return ApiResponseHelper.successResponseWithDataAndMessage("Please provide either IP address or username", HttpStatus.BAD_REQUEST, null);
+        rateLimitService.resetUserLimit(username);
+        return ApiResponseHelper.successResponseWithDataAndMessage("Rate limit reset for user: " + username, HttpStatus.OK, null);
     }
 
     @GetMapping("/rate-limit-status")
-    public ResponseEntity<Map<String, Object>> getRateLimitStatus(@RequestParam(required = false) String ipAddress, 
-                                                                 @RequestParam(required = false) String username) {
+    public ResponseEntity<Map<String, Object>> getRateLimitStatus(@RequestParam String username) {
+        if (username == null || username.trim().isEmpty()) {
+            return ApiResponseHelper.successResponseWithDataAndMessage("Username is required", HttpStatus.BAD_REQUEST, null);
+        }
+        
         Map<String, Object> status = new HashMap<>();
+        int remainingUserAttempts = rateLimitService.getRemainingUserAttempts(username);
+        int windowMinutes = rateLimitService.getWindowMinutes();
         
-        if (ipAddress != null) {
-            int remainingIpAttempts = rateLimitService.getRemainingIpAttempts(ipAddress);
-            status.put("ipAddress", ipAddress);
-            status.put("remainingIpAttempts", remainingIpAttempts);
-        }
-        
-        if (username != null) {
-            int remainingUserAttempts = rateLimitService.getRemainingUserAttempts(username);
-            status.put("username", username);
-            status.put("remainingUserAttempts", remainingUserAttempts);
-        }
+        status.put("username", username);
+        status.put("remainingAttempts", remainingUserAttempts);
+        status.put("windowMinutes", windowMinutes);
         
         return ApiResponseHelper.successResponseWithDataAndMessage("Rate limit status retrieved", HttpStatus.OK, status);
     }

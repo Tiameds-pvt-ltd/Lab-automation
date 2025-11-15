@@ -27,7 +27,7 @@ This document describes the OTP (One-Time Password) based authentication system 
 - **Gmail SMTP Integration**: Uses Gmail SMTP via Spring Mail for reliable email delivery
 - **Secure Storage**: OTPs are hashed using SHA-256 before storage
 - **Automatic Expiration**: OTPs expire after 5 minutes
-- **Rate Limiting**: Prevents abuse with configurable limits
+- **User-Based Rate Limiting**: Blocks specific users for 10 minutes if login attempts exceed limit (prevents brute force attacks)
 - **Attempt Tracking**: Maximum 5 verification attempts per OTP
 - **JWT Token Generation**: Tokens are ONLY generated after successful OTP verification
 - **No Token Without OTP**: Login endpoint does NOT generate tokens - only sends OTP
@@ -35,7 +35,8 @@ This document describes the OTP (One-Time Password) based authentication system 
 ### Security Features
 
 - ✅ OTPs are never stored in plain text (SHA-256 hashed)
-- ✅ Rate limiting: Max 3 OTP requests per 5 minutes per email
+- ✅ User-based rate limiting: Blocks user for 10 minutes after 5 failed login attempts
+- ✅ OTP request rate limiting: Max 3 OTP requests per 5 minutes per email
 - ✅ Maximum 5 verification attempts per OTP
 - ✅ OTP expiration: 5 minutes
 - ✅ Single-use OTPs (marked as used after successful verification)
@@ -161,17 +162,16 @@ This document describes the OTP (One-Time Password) based authentication system 
 - `password` (required): User's password
 
 **Authentication Flow:**
-1. Checks IP-based rate limiting (prevents brute force from same IP)
-2. Checks user-based rate limiting (prevents brute force for same user)
-3. Validates username and password using Spring Security
-4. Fetches user from database (does not trust client input)
-5. Extracts email from database (not from client)
-6. Validates user has an email address
-7. Checks OTP rate limiting (maximum 3 OTP requests per 5 minutes per email)
-8. Generates 4-digit OTP
-9. Saves hashed OTP to database
-10. Sends OTP via Gmail SMTP to user's registered email
-11. Returns success message **WITHOUT generating tokens**
+1. Checks user-based rate limiting (prevents brute force for same user - blocks user for 10 minutes if limit exceeded)
+2. Validates username and password using Spring Security
+3. Fetches user from database (does not trust client input)
+4. Extracts email from database (not from client)
+5. Validates user has an email address
+6. Checks OTP rate limiting (maximum 3 OTP requests per 5 minutes per email)
+7. Generates 4-digit OTP
+8. Saves hashed OTP to database
+9. Sends OTP via Gmail SMTP to user's registered email
+10. Returns success message **WITHOUT generating tokens**
 
 **Response (Success - 200):**
 ```json
@@ -196,14 +196,13 @@ This document describes the OTP (One-Time Password) based authentication system 
 
 **Response (Error - 429):**
 Possible messages:
-- `"Too many login attempts from this IP address. Please try again later."` - IP rate limit exceeded
-- `"Too many login attempts for this user. Please try again later."` - User rate limit exceeded
+- `"Too many login attempts for this user. Please try again after 10 minutes."` - User rate limit exceeded (user blocked for 10 minutes)
 - `"Too many OTP requests. Please try again after 5 minutes."` - OTP rate limit exceeded
 
 ```json
 {
   "status": "error",
-  "message": "Too many OTP requests. Please try again after 5 minutes.",
+  "message": "Too many login attempts for this user. Please try again after 10 minutes.",
   "data": null
 }
 ```
@@ -227,10 +226,12 @@ Possible messages:
 ```
 
 **Security Features:**
-- **Multi-layer rate limiting:**
-  - IP-based rate limiting (prevents brute force from same IP)
-  - User-based rate limiting (prevents brute force for same user)
-  - OTP request rate limiting: Maximum 3 OTP requests per 5 minutes per email
+- **User-based rate limiting:**
+  - Blocks specific user (username/email) for 10 minutes if login attempts exceed limit
+  - Default: 5 login attempts per 10 minutes (configurable)
+  - Automatic reset after 10-minute window expires
+  - Case-insensitive username matching
+- **OTP request rate limiting:** Maximum 3 OTP requests per 5 minutes per email
 - Email is extracted from database, not from client input
 - User email validation (ensures user has valid email before sending OTP)
 - No tokens generated until OTP is verified
@@ -458,6 +459,31 @@ The following constants are defined in `OtpService`:
 | `OTP_REQUEST_WINDOW_MINUTES` | 5 | Time window for rate limiting (minutes) |
 | `MAX_VERIFICATION_ATTEMPTS` | 5 | Maximum verification attempts per OTP |
 
+### Rate Limiting Configuration
+
+Rate limiting is configured in `application.yml`:
+
+```yaml
+# Rate limiting configuration (user-based only)
+rate:
+  limit:
+    login:
+      attempts: 5  # Max login attempts per user
+      window: 10   # Time window in minutes (user is blocked for this duration if limit exceeded)
+```
+
+**Configuration Options:**
+- `rate.limit.login.attempts`: Maximum number of login attempts allowed per user (default: 5)
+- `rate.limit.login.window`: Time window in minutes for rate limiting (default: 10)
+  - If a user exceeds the attempt limit, they are blocked for this duration
+  - The block automatically expires after the window period
+
+**How It Works:**
+- Each login attempt consumes one token from the user's rate limit bucket
+- When tokens are exhausted, the user is blocked for the configured window (10 minutes)
+- After the window expires, the bucket refills and the user can attempt login again
+- Username matching is case-insensitive (e.g., "JohnDoe" and "johndoe" are treated as the same user)
+
 ---
 
 ## Security Features
@@ -471,9 +497,68 @@ The following constants are defined in `OtpService`:
 
 ### 2. Rate Limiting
 
+**User-Based Login Rate Limiting:**
+- **Limit**: Maximum 5 login attempts per 10 minutes per user
+- **Block Duration**: User is blocked for 10 minutes if limit exceeded
+- **Purpose**: Prevents brute force attacks on user accounts
+- **Implementation**: Uses Bucket4j token bucket algorithm
+- **Scope**: Applied to login attempts (username/password authentication)
+- **Automatic Reset**: Block automatically expires after 10 minutes
+
+**OTP Request Rate Limiting:**
 - **Limit**: Maximum 3 OTP requests per 5 minutes per email
 - **Purpose**: Prevents brute force attacks and email spam
 - **Implementation**: Checks recent OTP requests in the database
+
+### 2.1. How User Blocking Works
+
+The system uses a **Token Bucket Algorithm** (Bucket4j) to implement user-based rate limiting:
+
+**Token Bucket Mechanism:**
+- Each user has a virtual "bucket" that holds tokens
+- **Initial Capacity**: 5 tokens (configurable via `rate.limit.login.attempts`)
+- **Refill Rate**: 5 tokens every 10 minutes (configurable via `rate.limit.login.window`)
+
+**Blocking Process:**
+
+1. **First Login Attempt:**
+   - System creates a new bucket for the user with 5 tokens
+   - Consumes 1 token → ✅ **Allowed** (4 tokens remaining)
+
+2. **Subsequent Attempts:**
+   - Each login attempt consumes 1 token
+   - If tokens available → ✅ **Allowed**
+   - If no tokens → ❌ **BLOCKED**
+
+3. **When Blocked:**
+   - Login request is **rejected immediately** (HTTP 429)
+   - **No authentication** is performed
+   - **No OTP** is generated or sent
+   - User receives: *"Too many login attempts for this user. Please try again after 10 minutes."*
+
+4. **Automatic Unblocking:**
+   - After 10 minutes, the bucket **automatically refills** with 5 tokens
+   - User can attempt login again
+   - No manual intervention required
+
+**Example Timeline:**
+
+```
+Time 0:00 - Login attempt #1 → ✅ Allowed (4 tokens left)
+Time 0:01 - Login attempt #2 → ✅ Allowed (3 tokens left)
+Time 0:02 - Login attempt #3 → ✅ Allowed (2 tokens left)
+Time 0:03 - Login attempt #4 → ✅ Allowed (1 token left)
+Time 0:04 - Login attempt #5 → ✅ Allowed (0 tokens left)
+Time 0:05 - Login attempt #6 → ❌ BLOCKED (no tokens)
+Time 0:06-9:59 - All attempts → ❌ BLOCKED
+Time 10:00 - Bucket refills → ✅ User can login again (5 tokens restored)
+```
+
+**Key Features:**
+- **In-Memory Storage**: Buckets stored in `ConcurrentHashMap` (fast, thread-safe)
+- **Case-Insensitive**: "JohnDoe" and "johndoe" treated as same user
+- **Per-User Isolation**: Each username/email has independent bucket
+- **Automatic Management**: No manual cleanup needed - buckets refill automatically
 
 ### 3. Attempt Tracking
 
@@ -774,7 +859,7 @@ try {
   if (loginResponse.status === 'error') {
     // Handle errors:
     // - 401: Incorrect username or password
-    // - 429: Too many OTP requests
+    // - 429: Too many login attempts (user blocked for 10 minutes) or too many OTP requests
     // - 500: Email sending failed
     console.error('Login error:', loginResponse.message);
     return;
@@ -788,6 +873,7 @@ try {
     // Handle errors:
     // - 401: Invalid OTP, expired, or max attempts exceeded
     // - 404: User not found
+    // - 429: Rate limit exceeded (user blocked or OTP requests exceeded)
     console.error('OTP verification error:', verifyResponse.message);
     return;
   }
@@ -841,25 +927,31 @@ try {
 
 **Solution:** Ensure user exists before requesting OTP
 
-#### 4. "Too many OTP requests"
+#### 4. "Too many login attempts for this user"
 
-**Cause:** Rate limit exceeded (3 requests per 5 minutes)
+**Cause:** User rate limit exceeded (5 attempts per 10 minutes)
+
+**Solution:** Wait 10 minutes before attempting to login again. The user account is temporarily blocked.
+
+#### 5. "Too many OTP requests"
+
+**Cause:** OTP rate limit exceeded (3 requests per 5 minutes)
 
 **Solution:** Wait 5 minutes before requesting another OTP
 
-#### 5. "Maximum verification attempts exceeded"
+#### 6. "Maximum verification attempts exceeded"
 
 **Cause:** More than 5 failed verification attempts
 
 **Solution:** Request a new OTP
 
-#### 6. "OTP has expired"
+#### 7. "OTP has expired"
 
 **Cause:** OTP expired (5 minutes elapsed)
 
 **Solution:** Request a new OTP
 
-#### 7. Database Connection Issues
+#### 8. Database Connection Issues
 
 **Symptoms:** OTP not saved or validation fails
 
@@ -924,9 +1016,9 @@ telnet smtp.gmail.com 587
 - Never log raw OTPs
 - Rotate Gmail App Passwords regularly
 - Never commit App Passwords to version control
-- Monitor for suspicious OTP request patterns
-- Implement IP-based rate limiting (future enhancement)
+- Monitor for suspicious login and OTP request patterns
 - Use environment variables or secret management for credentials
+- Review rate limit logs to identify potential security threats
 
 ### 3. Performance
 
@@ -948,12 +1040,12 @@ telnet smtp.gmail.com 587
 ### Potential Improvements
 
 1. **SMS OTP Support**: Add SMS-based OTP delivery via AWS SNS
-2. **Redis Storage**: Use Redis for faster OTP storage/retrieval
-3. **IP-Based Rate Limiting**: Additional rate limiting by IP address
-4. **OTP Resend**: Allow resending OTP before expiration
-5. **OTP History**: Track OTP usage history for audit
-6. **Custom Email Templates**: Support for custom email templates
-7. **Multi-Factor Authentication**: Combine OTP with password for MFA
+2. **Redis Storage**: Use Redis for faster OTP storage/retrieval and distributed rate limiting
+3. **OTP Resend**: Allow resending OTP before expiration
+4. **OTP History**: Track OTP usage history for audit
+5. **Custom Email Templates**: Support for custom email templates
+6. **Multi-Factor Authentication**: Combine OTP with password for MFA
+7. **Rate Limit Analytics**: Dashboard to monitor rate limit violations and patterns
 
 ---
 

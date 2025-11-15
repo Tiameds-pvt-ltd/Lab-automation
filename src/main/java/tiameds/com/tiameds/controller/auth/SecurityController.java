@@ -76,38 +76,29 @@ public class SecurityController {
 
     @PostMapping("/rate-limit/reset")
     @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
-    public ResponseEntity<Map<String, Object>> resetRateLimit(@RequestParam(required = false) String ipAddress, 
-                                                             @RequestParam(required = false) String username) {
-        if (ipAddress != null) {
-            rateLimitService.resetIpLimit(ipAddress);
-            log.info("Rate limit reset for IP: {}", ipAddress);
-            return ApiResponseHelper.successResponseWithDataAndMessage("Rate limit reset for IP: " + ipAddress, HttpStatus.OK, null);
+    public ResponseEntity<Map<String, Object>> resetRateLimit(@RequestParam String username) {
+        if (username == null || username.trim().isEmpty()) {
+            return ApiResponseHelper.successResponseWithDataAndMessage("Username is required", HttpStatus.BAD_REQUEST, null);
         }
-        if (username != null) {
-            rateLimitService.resetUserLimit(username);
-            log.info("Rate limit reset for user: {}", username);
-            return ApiResponseHelper.successResponseWithDataAndMessage("Rate limit reset for user: " + username, HttpStatus.OK, null);
-        }
-        return ApiResponseHelper.successResponseWithDataAndMessage("Please provide either IP address or username", HttpStatus.BAD_REQUEST, null);
+        rateLimitService.resetUserLimit(username);
+        log.info("Rate limit reset for user: {}", username);
+        return ApiResponseHelper.successResponseWithDataAndMessage("Rate limit reset for user: " + username, HttpStatus.OK, null);
     }
 
     @GetMapping("/rate-limit/status")
     @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
-    public ResponseEntity<Map<String, Object>> getRateLimitStatus(@RequestParam(required = false) String ipAddress, 
-                                                                 @RequestParam(required = false) String username) {
+    public ResponseEntity<Map<String, Object>> getRateLimitStatus(@RequestParam String username) {
+        if (username == null || username.trim().isEmpty()) {
+            return ApiResponseHelper.successResponseWithDataAndMessage("Username is required", HttpStatus.BAD_REQUEST, null);
+        }
+        
         Map<String, Object> status = new HashMap<>();
+        int remainingUserAttempts = rateLimitService.getRemainingUserAttempts(username);
+        int windowMinutes = rateLimitService.getWindowMinutes();
         
-        if (ipAddress != null) {
-            int remainingIpAttempts = rateLimitService.getRemainingIpAttempts(ipAddress);
-            status.put("ipAddress", ipAddress);
-            status.put("remainingIpAttempts", remainingIpAttempts);
-        }
-        
-        if (username != null) {
-            int remainingUserAttempts = rateLimitService.getRemainingUserAttempts(username);
-            status.put("username", username);
-            status.put("remainingUserAttempts", remainingUserAttempts);
-        }
+        status.put("username", username);
+        status.put("remainingAttempts", remainingUserAttempts);
+        status.put("windowMinutes", windowMinutes);
         
         return ApiResponseHelper.successResponseWithDataAndMessage("Rate limit status retrieved", HttpStatus.OK, status);
     }
