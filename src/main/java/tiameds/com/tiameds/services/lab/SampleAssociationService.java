@@ -23,9 +23,9 @@ public class SampleAssociationService {
         this.sequenceGeneratorService = sequenceGeneratorService;
     }
 
-    //get all sample which is constant for all labs
-    public List<SampleDto> getSampleAssociationList() {
-        return sampleAssociationRepository.findAll().stream().map(sample -> {
+    //get all samples for a specific lab
+    public List<SampleDto> getSampleAssociationList(Long labId) {
+        return sampleAssociationRepository.findByLabId(labId).stream().map(sample -> {
             SampleDto sampleDto = new SampleDto();
             sampleDto.setId(sample.getId());
             sampleDto.setName(sample.getName());
@@ -36,46 +36,72 @@ public class SampleAssociationService {
     }
 
 
-    public SampleDto createSample(SampleDto sampleDto) {
-        //check if the sample exists on  db
-        if (sampleAssociationRepository.findByName(sampleDto.getName()).isPresent()) {
-            throw new RuntimeException("Sample already exists");
+    public SampleDto createSample(SampleDto sampleDto, Long labId) {
+        //check if the sample exists for this lab
+        if (sampleAssociationRepository.findByNameAndLabId(sampleDto.getName(), labId).isPresent()) {
+            throw new RuntimeException("Sample already exists for this lab");
         }
         //create the sample
         SampleEntity sampleEntity = new SampleEntity();
         
-        // Generate unique sample code using sequence generator
-        // Use lab ID 0 for global samples (samples are shared across labs)
-        String sampleCode = sequenceGeneratorService.generateCode(0L, EntityType.SAMPLE);
+        // Generate unique sample code using sequence generator for this lab
+        String sampleCode = sequenceGeneratorService.generateCode(labId, EntityType.SAMPLE);
         sampleEntity.setSampleCode(sampleCode);
+        
+        sampleEntity.setName(sampleDto.getName());
+        sampleEntity.setLabId(labId);
+        SampleEntity saved = sampleAssociationRepository.save(sampleEntity);
+        return toSampleDto(saved);
+    }
+
+
+    public SampleDto updateSample(Long sampleId, SampleDto sampleDto, Long labId) {
+        //check if the sample exists for this lab
+        SampleEntity sampleEntity = sampleAssociationRepository.findById(sampleId)
+                .orElseThrow(() -> new RuntimeException("Sample not found"));
+        
+        // Verify the sample belongs to the lab
+        if (!sampleEntity.getLabId().equals(labId)) {
+            throw new RuntimeException("Sample does not belong to this lab");
+        }
+        
+        // Check if another sample with the same name exists for this lab (excluding current sample)
+        sampleAssociationRepository.findByNameAndLabId(sampleDto.getName(), labId)
+                .ifPresent(existing -> {
+                    if (existing.getId() != sampleId) {
+                        throw new RuntimeException("A sample with this name already exists for this lab");
+                    }
+                });
         
         sampleEntity.setName(sampleDto.getName());
         SampleEntity saved = sampleAssociationRepository.save(sampleEntity);
         return toSampleDto(saved);
     }
 
-
-    public SampleDto updateSample(Long sampleId, SampleDto sampleDto) {
-        //check if the sample exists on  db
+    public SampleDto deleteSample(Long sampleId, Long labId) {
+        //check if the sample exists for this lab
         SampleEntity sampleEntity = sampleAssociationRepository.findById(sampleId)
                 .orElseThrow(() -> new RuntimeException("Sample not found"));
-        sampleEntity.setName(sampleDto.getName());
-        SampleEntity saved = sampleAssociationRepository.save(sampleEntity);
-        return toSampleDto(saved);
-    }
-
-    public SampleDto deleteSample(Long sampleId) {
-        //check if the sample exists on  db
-        SampleEntity sampleEntity = sampleAssociationRepository.findById(sampleId)
-                .orElseThrow(() -> new RuntimeException("Sample not found"));
+        
+        // Verify the sample belongs to the lab
+        if (!sampleEntity.getLabId().equals(labId)) {
+            throw new RuntimeException("Sample does not belong to this lab");
+        }
+        
         SampleDto snapshot = toSampleDto(sampleEntity);
         sampleAssociationRepository.delete(sampleEntity);
         return snapshot;
     }
 
-    public SampleDto getSampleSnapshot(Long sampleId) {
+    public SampleDto getSampleSnapshot(Long sampleId, Long labId) {
         return sampleAssociationRepository.findById(sampleId)
-                .map(this::toSampleDto)
+                .map(sample -> {
+                    // Verify the sample belongs to the lab
+                    if (!sample.getLabId().equals(labId)) {
+                        return null;
+                    }
+                    return toSampleDto(sample);
+                })
                 .orElse(null);
     }
 

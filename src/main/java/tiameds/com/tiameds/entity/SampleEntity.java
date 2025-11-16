@@ -34,4 +34,7 @@ public class SampleEntity {
     @Column(name = "sample_code", unique = true)
     private String sampleCode;
 
+    @Column(name = "lab_id", nullable = false)
+    private Long labId;
+
 }

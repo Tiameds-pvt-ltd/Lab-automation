@@ -17,6 +17,7 @@ import tiameds.com.tiameds.services.auth.MyUserDetails;
 import tiameds.com.tiameds.services.auth.UserService;
 import tiameds.com.tiameds.services.lab.SampleAssociationService;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
+import tiameds.com.tiameds.utils.LabAccessableFilter;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -32,21 +33,24 @@ public class SampleAssociation {
     private final SampleAssociationService sampleAssociationService;
     private final AuditLogService auditLogService;
     private final FieldChangeTracker fieldChangeTracker;
+    private final LabAccessableFilter labAccessableFilter;
 
 
     public SampleAssociation(UserService userService,
                              SampleAssociationService sampleAssociationService,
                              AuditLogService auditLogService,
-                             FieldChangeTracker fieldChangeTracker) {
+                             FieldChangeTracker fieldChangeTracker,
+                             LabAccessableFilter labAccessableFilter) {
         this.userService = userService;
         this.sampleAssociationService = sampleAssociationService;
         this.auditLogService = auditLogService;
         this.fieldChangeTracker = fieldChangeTracker;
+        this.labAccessableFilter = labAccessableFilter;
     }
 
     // Get all sample associations of a respective lab
-    @GetMapping("/sample-list")
-    public ResponseEntity<?> getSampleAssociationList(){
+    @GetMapping("/{labId}/sample-list")
+    public ResponseEntity<?> getSampleAssociationList(@PathVariable Long labId){
 
         //check if the user is authenticated
         Optional<User> currentUser = getAuthenticatedUser();
@@ -54,16 +58,22 @@ public class SampleAssociation {
             return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
         }
 
+        // Validate lab access
+        if (!labAccessableFilter.isLabAccessible(labId)) {
+            return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+        }
+
         // Delegate to the service layer
-        List<SampleDto> sampleAssociationList = sampleAssociationService.getSampleAssociationList();
+        List<SampleDto> sampleAssociationList = sampleAssociationService.getSampleAssociationList(labId);
 
         return ApiResponseHelper.successResponse("Sample associations retrieved successfully", sampleAssociationList);
     }
 
 
     // create sample
-    @PostMapping("/sample")
+    @PostMapping("/{labId}/sample")
     public ResponseEntity<?> createSample(
+            @PathVariable Long labId,
             @RequestBody SampleDto sampleDto,
             HttpServletRequest request) {
 
@@ -72,8 +82,13 @@ public class SampleAssociation {
             return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
         }
 
+        // Validate lab access
+        if (!labAccessableFilter.isLabAccessible(labId)) {
+            return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+        }
+
         try {
-            SampleDto createdSample = sampleAssociationService.createSample(sampleDto);
+            SampleDto createdSample = sampleAssociationService.createSample(sampleDto, labId);
 
             logSampleAudit(
                     "SAMPLE_CREATE",
@@ -82,7 +97,8 @@ public class SampleAssociation {
                     resolveChangeReason("created", createdSample.getName()),
                     currentUser.get(),
                     request,
-                    createdSample.getId()
+                    createdSample.getId(),
+                    labId
             );
 
             return ApiResponseHelper.successResponse("Sample created successfully", createdSample);
@@ -93,8 +109,9 @@ public class SampleAssociation {
 
 
     // update sample
-    @PutMapping("/sample/{sampleId}")
+    @PutMapping("/{labId}/sample/{sampleId}")
     public ResponseEntity<?> updateSample(
+            @PathVariable Long labId,
             @PathVariable("sampleId") Long sampleId,
             @RequestBody SampleDto sampleDto,
             HttpServletRequest request) {
@@ -106,13 +123,18 @@ public class SampleAssociation {
                 return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
             }
 
-            SampleDto oldSample = sampleAssociationService.getSampleSnapshot(sampleId);
+            // Validate lab access
+            if (!labAccessableFilter.isLabAccessible(labId)) {
+                return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+            }
+
+            SampleDto oldSample = sampleAssociationService.getSampleSnapshot(sampleId, labId);
             if (oldSample == null) {
                 return ApiResponseHelper.errorResponse("Sample not found", HttpStatus.NOT_FOUND);
             }
 
             // Delegate to the service layer
-            SampleDto updatedSample = sampleAssociationService.updateSample(sampleId, sampleDto);
+            SampleDto updatedSample = sampleAssociationService.updateSample(sampleId, sampleDto, labId);
 
             logSampleAudit(
                     "SAMPLE_UPDATE",
@@ -121,7 +143,8 @@ public class SampleAssociation {
                     resolveChangeReason("updated", updatedSample.getName()),
                     currentUser.get(),
                     request,
-                    updatedSample.getId()
+                    updatedSample.getId(),
+                    labId
             );
 
             return ApiResponseHelper.successResponse("Sample updated successfully", updatedSample);
@@ -133,8 +156,9 @@ public class SampleAssociation {
 
 
     // delete sample
-    @DeleteMapping("/sample/{sampleId}")
+    @DeleteMapping("/{labId}/sample/{sampleId}")
     public ResponseEntity<?> deleteSample(
+            @PathVariable Long labId,
             @PathVariable("sampleId") Long sampleId,
             HttpServletRequest request) {
 
@@ -145,13 +169,18 @@ public class SampleAssociation {
                 return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
             }
 
-            SampleDto oldSample = sampleAssociationService.getSampleSnapshot(sampleId);
+            // Validate lab access
+            if (!labAccessableFilter.isLabAccessible(labId)) {
+                return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+            }
+
+            SampleDto oldSample = sampleAssociationService.getSampleSnapshot(sampleId, labId);
             if (oldSample == null) {
                 return ApiResponseHelper.errorResponse("Sample not found", HttpStatus.NOT_FOUND);
             }
 
             // Delegate to the service layer
-            sampleAssociationService.deleteSample(sampleId);
+            sampleAssociationService.deleteSample(sampleId, labId);
 
             logSampleAudit(
                     "SAMPLE_DELETE",
@@ -160,7 +189,8 @@ public class SampleAssociation {
                     resolveChangeReason("deleted", oldSample.getName()),
                     currentUser.get(),
                     request,
-                    oldSample.getId()
+                    oldSample.getId(),
+                    labId
             );
 
             return ApiResponseHelper.successResponse("Sample deleted successfully", null);
@@ -178,12 +208,13 @@ public class SampleAssociation {
                                String changeReason,
                                User currentUser,
                                HttpServletRequest request,
-                               Long entityId) {
+                               Long entityId,
+                               Long labId) {
         LabAuditLogs auditLog = new LabAuditLogs();
         auditLog.setTimestamp(LocalDateTime.now());
         auditLog.setModule("SampleAssociation");
         auditLog.setEntityType("Sample");
-        auditLog.setLab_id("GLOBAL");
+        auditLog.setLab_id(String.valueOf(labId));
         auditLog.setActionType(action);
         auditLog.setChangeReason(changeReason != null ? changeReason : "");
 
