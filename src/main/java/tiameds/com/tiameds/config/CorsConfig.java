@@ -7,64 +7,6 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.cors.CorsConfigurationSource;
 
 import java.util.List;
-//
-//@Configuration
-//public class CorsConfig {
-//
-//    @Bean
-//    public CorsConfigurationSource corsConfigurationSource() {
-//        CorsConfiguration configuration = new CorsConfiguration();
-//
-//        // Allow these domains
-//        configuration.setAllowedOrigins(List.of(
-//            "https://lab-test-env.tiameds.ai",
-//            "http://localhost:3000"
-//        ));
-//
-//        // Allowed methods
-//        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-//
-//        // Allowed + exposed headers
-//        configuration.setAllowedHeaders(List.of(
-//            "Authorization",
-//            "Content-Type",
-//            "Accept",
-//            "X-Requested-With",
-//            "X-Forwarded-For",
-//            "X-Real-IP",
-//            "Origin",
-//            "Access-Control-Request-Method",
-//            "Access-Control-Request-Headers"
-//        ));
-//        configuration.setExposedHeaders(List.of(
-//            "Content-Disposition",
-//            "Access-Control-Allow-Origin",
-//            "Access-Control-Allow-Credentials"
-//        ));
-//
-//        // Credentials support
-//        configuration.setAllowCredentials(true);
-//
-//        // Cache preflight response
-//        configuration.setMaxAge(3600L);
-//
-//        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-//        source.registerCorsConfiguration("/**", configuration);
-//
-//        return source;
-//    }
-//}
-
-
-
-
-
-
-
-
-
-
-
 @Configuration
 public class CorsConfig {
 
@@ -72,25 +14,37 @@ public class CorsConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // For production static origins only
-        configuration.setAllowedOriginPatterns(List.of(
-                "https://lab-test-env.tiameds.ai",
-                "http://localhost:3000"
+        // Allow these domains
+        configuration.setAllowedOrigins(List.of(
+            "https://lab-test-env.tiameds.ai",
+            "http://localhost:3000"
         ));
 
-        configuration.setAllowedMethods(List.of(
-                "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"
-        ));
+        // Allowed methods
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
 
+        // Allowed + exposed headers
         configuration.setAllowedHeaders(List.of(
-                "*"
+            "Authorization",
+            "Content-Type",
+            "Accept",
+            "X-Requested-With",
+            "X-Forwarded-For",
+            "X-Real-IP",
+            "Origin",
+            "Access-Control-Request-Method",
+            "Access-Control-Request-Headers"
         ));
-
         configuration.setExposedHeaders(List.of(
-                "Content-Disposition"
+            "Content-Disposition",
+            "Access-Control-Allow-Origin",
+            "Access-Control-Allow-Credentials"
         ));
 
+        // Credentials support
         configuration.setAllowCredentials(true);
+
+        // Cache preflight response
         configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
@@ -99,3 +53,13 @@ public class CorsConfig {
         return source;
     }
 }
+
+
+
+
+
+
+
+
+
+

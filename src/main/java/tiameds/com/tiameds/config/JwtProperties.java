@@ -45,6 +45,9 @@ public class JwtProperties {
     private boolean cookieSecure = true;
     private String sameSite = "Strict";
     private String cookiePath = "/";
+
+    @NotBlank
+    private String subjectEncryptionKey;
 }
 
 

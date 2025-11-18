@@ -40,6 +40,7 @@ public class JwtUtil {
     }
 
     private final JwtProperties jwtProperties;
+    private final EncryptionUtil encryptionUtil;
 
     private PrivateKey privateKey;
     private PublicKey publicKey;
@@ -86,7 +87,9 @@ public class JwtUtil {
     }
 
     public String extractUsername(String token) {
-        return parseClaims(token).getSubject();
+        Claims claims = parseClaims(token);
+        decryptSubject(claims);
+        return claims.getSubject();
     }
 
     public Integer extractTokenVersion(String token) {
@@ -114,6 +117,7 @@ public class JwtUtil {
         Claims claims = parseClaims(token);
         ensureTokenType(claims, TokenType.ACCESS);
         ensureNotExpired(claims);
+        decryptSubject(claims);
         return claims;
     }
 
@@ -121,6 +125,7 @@ public class JwtUtil {
         Claims claims = parseClaims(token);
         ensureTokenType(claims, TokenType.REFRESH);
         ensureNotExpired(claims);
+        decryptSubject(claims);
         return claims;
     }
 
@@ -150,7 +155,7 @@ public class JwtUtil {
                                UUID tokenId) {
         var builder = Jwts.builder()
                 .setClaims(claims)
-                .setSubject(subject)
+                .setSubject(encryptionUtil.encryptSubject(subject))
                 .setIssuer(jwtProperties.getIssuer())
                 .setAudience(jwtProperties.getAudience())
                 .setIssuedAt(Date.from(issuedAt))
@@ -210,6 +215,12 @@ public class JwtUtil {
         TokenType(String value) {
             this.value = value;
         }
+    }
+
+    private void decryptSubject(Claims claims) {
+        String subject = claims.getSubject();
+        String decrypted = encryptionUtil.decryptSubject(subject);
+        claims.setSubject(decrypted);
     }
 }
 

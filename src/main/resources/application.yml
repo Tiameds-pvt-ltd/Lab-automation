@@ -113,6 +113,7 @@ security:
     cookie-path: ${JWT_COOKIE_PATH:/}
     cookie-secure: ${JWT_COOKIE_SECURE:true}
     same-site: ${JWT_COOKIE_SAMESITE:Strict}
+    subject-encryption-key: ${JWT_SUBJECT_ENCRYPTION_KEY:MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=}
   ip:
     whitelist:
       enabled: false  # Set to true to enable IP whitelisting
