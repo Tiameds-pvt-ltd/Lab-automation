@@ -2,14 +2,12 @@ package tiameds.com.tiameds.controller.lab;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.transaction.Transactional;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 import tiameds.com.tiameds.dto.lab.LabListDTO;
 import tiameds.com.tiameds.dto.lab.LabRequestDTO;
 import tiameds.com.tiameds.dto.lab.LabResponseDTO;
@@ -19,16 +17,12 @@ import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.repository.LabRepository;
 import tiameds.com.tiameds.services.auth.MyUserDetails;
 import tiameds.com.tiameds.services.auth.UserService;
-import tiameds.com.tiameds.services.lab.TestReferenceServices;
-import tiameds.com.tiameds.services.lab.TestServices;
+import tiameds.com.tiameds.services.lab.LabDefaultDataService;
 import tiameds.com.tiameds.services.lab.UserLabService;
 import tiameds.com.tiameds.utils.ApiResponse;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
-import tiameds.com.tiameds.utils.CustomMockMultipartFile;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
 import java.util.List;
 import java.util.Optional;
 
@@ -41,21 +35,18 @@ public class LabController {
     private final UserLabService userLabService;
     private final LabRepository labRepository;
     private final LabAccessableFilter labAccessableFilter;
-    private final TestServices testServices;
-    private final TestReferenceServices testReferenceServices;
+    private final LabDefaultDataService labDefaultDataService;
     private final UserService userService;
 
     public LabController(UserLabService userLabService,
                          LabRepository labRepository,
                          LabAccessableFilter labAccessableFilter,
-                         TestServices testServices,
-                         TestReferenceServices testReferenceServices,
+                         LabDefaultDataService labDefaultDataService,
                          UserService userService) {
         this.userLabService = userLabService;
         this.labRepository = labRepository;
         this.labAccessableFilter = labAccessableFilter;
-        this.testServices = testServices;
-        this.testReferenceServices = testReferenceServices;
+        this.labDefaultDataService = labDefaultDataService;
         this.userService = userService;
     }
 
@@ -194,47 +185,7 @@ public class LabController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
         // Return success response
-        try {
-            // Process price list file
-            ClassPathResource priceListResource = new ClassPathResource("tiamed_price_list.csv");
-            try (BufferedReader priceListReader = new BufferedReader(new InputStreamReader(((ClassPathResource) priceListResource).getInputStream()))) {
-                // Convert BufferedReader content to MultipartFile for the service
-                StringBuilder contentBuilder = new StringBuilder();
-                String line;
-                while ((line = priceListReader.readLine()) != null) {
-                    contentBuilder.append(line).append("\n");
-                }
-                byte[] contentBytes = contentBuilder.toString().getBytes();
-                MultipartFile priceListFile = new CustomMockMultipartFile(
-                        "tiamed_price_list.csv",
-                        "tiamed_price_list.csv",
-                        "text/csv",
-                        contentBytes
-                );
-                testServices.uploadCSV(priceListFile, savedLab);
-            }
-
-            ClassPathResource referencePointResource = new ClassPathResource("sample_test_references_with_reference_ranges.csv");
-            try (BufferedReader referencePointReader = new BufferedReader(new InputStreamReader(referencePointResource.getInputStream()))) {
-                // Convert BufferedReader content to MultipartFile for the service
-                StringBuilder contentBuilder = new StringBuilder();
-                String line;
-                while ((line = referencePointReader.readLine()) != null) {
-                    contentBuilder.append(line).append("\n");
-                }
-                byte[] contentBytes = contentBuilder.toString().getBytes();
-                MultipartFile referencePointFile = new CustomMockMultipartFile(
-                        "sample_test_references_with_reference_ranges.csv",
-                        "sample_test_references_with_reference_ranges.csv",
-                        "text/csv",
-                        contentBytes
-                );
-                testReferenceServices.uploadCsv(savedLab, referencePointFile, currentUser);
-            }
-        } catch (Exception e) {
-            // Log the error but don't fail the entire operation
-            System.err.println("Error processing default CSV files: " + e.getMessage());
-        }
+        labDefaultDataService.uploadDefaultData(savedLab.getId(), currentUser.getId());
         UserResponseDTO userResponseDTO = new UserResponseDTO(    // Create UserResponseDTO
                 currentUser.getId(),
                 currentUser.getUsername(),

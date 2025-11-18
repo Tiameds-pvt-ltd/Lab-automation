@@ -73,6 +73,18 @@ spring:
           starttls:
             enable: ${SPRING_MAIL_SMTP_STARTTLS_ENABLE:true}
 
+# Onboarding Configuration
+onboarding:
+  token:
+    expiry-minutes: 15  # Token expiration time in minutes (default: 15)
+  rate-limit:
+    max-emails-per-hour: 3  # Maximum verification emails per hour per email address
+    window-minutes: 60  # Rate limit window in minutes
+  frontend:
+    base-url: http://localhost:3000  # Frontend base URL
+    verification-url: http://localhost:3000/verify-email  # Email verification endpoint URL
+    onboarding-url: http://localhost:3000/onboarding  # Onboarding form URL
+
 springdoc:
   api-docs:
     path: /v3/api-docs

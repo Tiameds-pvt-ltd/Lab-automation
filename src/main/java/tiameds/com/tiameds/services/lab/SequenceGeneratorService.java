@@ -84,6 +84,36 @@ public class SequenceGeneratorService {
     }
 
     /**
+     * Ensures the stored sequence for the given lab/entity is at least the provided value.
+     * If the existing lastNumber is lower, it is updated so future code generations
+     * continue from the higher boundary (useful when importing historical data).
+     *
+     * @param labId lab identifier
+     * @param entityType entity enum
+     * @param minimumValue minimum value that sequence lastNumber must reach
+     */
+    @Transactional
+    public void ensureMinimumSequence(Long labId, EntityType entityType, long minimumValue) {
+        if (labId == null) {
+            throw new IllegalArgumentException("Lab ID cannot be null");
+        }
+        LabEntitySequence sequence = sequenceRepository
+                .findByLabIdAndEntityNameWithLock(labId, entityType.getEntityName())
+                .orElseGet(() -> {
+                    LabEntitySequence newSequence = new LabEntitySequence();
+                    newSequence.setLabId(labId);
+                    newSequence.setEntityName(entityType.getEntityName());
+                    newSequence.setLastNumber(0L);
+                    return newSequence;
+                });
+
+        if (sequence.getLastNumber() < minimumValue) {
+            sequence.setLastNumber(minimumValue);
+            sequenceRepository.save(sequence);
+        }
+    }
+
+    /**
      * Generates a code using EntityType enum.
      * Convenience method that uses the enum's name and prefix.
      * 

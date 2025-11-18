@@ -1,23 +1,24 @@
 package tiameds.com.tiameds.services.lab;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
-import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import tiameds.com.tiameds.dto.lab.TestReferenceDTO;
 import tiameds.com.tiameds.entity.*;
+import tiameds.com.tiameds.repository.LabTestReferenceLinkRepository;
 import tiameds.com.tiameds.repository.TestReferenceRepository;
 
 import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
 import java.io.InputStreamReader;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -30,11 +31,19 @@ import java.util.logging.Logger;
 public class TestReferenceServices {
 
     private final TestReferenceRepository testReferenceRepository;
+    private final SequenceGeneratorService sequenceGeneratorService;
+    private final LabTestReferenceLinkRepository labTestReferenceLinkRepository;
     private static final Logger LOGGER = Logger.getLogger(TestReferenceServices.class.getName());
 
+    @PersistenceContext
+    private EntityManager entityManager;
 
-    public TestReferenceServices(TestReferenceRepository testReferenceRepository) {
+    public TestReferenceServices(TestReferenceRepository testReferenceRepository,
+                                 SequenceGeneratorService sequenceGeneratorService,
+                                 LabTestReferenceLinkRepository labTestReferenceLinkRepository) {
         this.testReferenceRepository = testReferenceRepository;
+        this.sequenceGeneratorService = sequenceGeneratorService;
+        this.labTestReferenceLinkRepository = labTestReferenceLinkRepository;
     }
 
     public List<TestReferenceDTO> getAllTestReferences(Lab lab) {
@@ -126,6 +135,8 @@ public class TestReferenceServices {
     }
 
     public TestReferenceDTO addTestReference(Lab lab, TestReferenceDTO testReferenceDTO, User currentUser) {
+        alignReferenceSequence(lab.getId());
+
         TestReferenceEntity entity = new TestReferenceEntity();
         entity.setCategory(testReferenceDTO.getCategory());
         entity.setTestName(testReferenceDTO.getTestName());
@@ -145,29 +156,29 @@ public class TestReferenceServices {
         
         entity.setCreatedBy(currentUser.getUsername());
         entity.setUpdatedBy(currentUser.getUsername());
-
-        testReferenceRepository.save(entity);
-        lab.addTestReference(entity);
+        entity.setTestReferenceCode(generateUniqueReferenceCode(lab.getId()));
+        TestReferenceEntity saved = testReferenceRepository.save(entity);
+        labTestReferenceLinkRepository.linkLabToReference(lab.getId(), saved.getId());
 
         TestReferenceDTO dto = new TestReferenceDTO();
-        dto.setId(entity.getId());
-        dto.setCategory(entity.getCategory());
-        dto.setTestName(entity.getTestName());
-        dto.setTestDescription(entity.getTestDescription());
-        dto.setUnits(entity.getUnits());
-        dto.setGender(entity.getGender());
-        dto.setMinReferenceRange(entity.getMinReferenceRange());
-        dto.setMaxReferenceRange(entity.getMaxReferenceRange());
-        dto.setAgeMin(entity.getAgeMin());
-        dto.setAgeMax(entity.getAgeMax());
-        dto.setCreatedBy(entity.getCreatedBy());
-        dto.setUpdatedBy(entity.getUpdatedBy());
-        dto.setCreatedAt(entity.getCreatedAt());
-        dto.setUpdatedAt(entity.getUpdatedAt());
+        dto.setId(saved.getId());
+        dto.setCategory(saved.getCategory());
+        dto.setTestName(saved.getTestName());
+        dto.setTestDescription(saved.getTestDescription());
+        dto.setUnits(saved.getUnits());
+        dto.setGender(saved.getGender());
+        dto.setMinReferenceRange(saved.getMinReferenceRange());
+        dto.setMaxReferenceRange(saved.getMaxReferenceRange());
+        dto.setAgeMin(saved.getAgeMin());
+        dto.setAgeMax(saved.getAgeMax());
+        dto.setCreatedBy(saved.getCreatedBy());
+        dto.setUpdatedBy(saved.getUpdatedBy());
+        dto.setCreatedAt(saved.getCreatedAt());
+        dto.setUpdatedAt(saved.getUpdatedAt());
         
         // Add JSON fields to response DTO
-        dto.setReportJson(entity.getReportJson());
-        dto.setReferenceRanges(entity.getReferenceRanges());
+        dto.setReportJson(saved.getReportJson());
+        dto.setReferenceRanges(saved.getReferenceRanges());
         
         return dto;
     }
@@ -418,44 +429,55 @@ public class TestReferenceServices {
 //    }
 
 
-@Transactional
-public List<TestReferenceEntity> uploadCsv(Lab lab, MultipartFile file, User currentUser) {
+    @Transactional
+    public List<TestReferenceEntity> uploadCsv(Lab lab, MultipartFile file, User currentUser) {
 
-    if (currentUser == null) {
-        throw new RuntimeException("User authentication failed.");
-    }
-
-    List<TestReferenceEntity> savedEntities = new ArrayList<>();
-
-    try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8));
-         CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT
-                 .withFirstRecordAsHeader()
-                 .withIgnoreHeaderCase()
-                 .withTrim())) {
-
-        for (CSVRecord record : csvParser) {
-            try {
-                TestReferenceEntity entity = processRecord(record, currentUser, lab);
-
-                // ✅ save one by one in order
-                TestReferenceEntity saved = testReferenceRepository.save(entity);
-                savedEntities.add(saved);
-
-            } catch (Exception ex) {
-                LOGGER.warning("Skipping row " + record.getRecordNumber() +
-                        " due to error: " + ex.getMessage());
-            }
+        if (currentUser == null) {
+            throw new RuntimeException("User authentication failed.");
         }
 
-    } catch (Exception ex) {
-        LOGGER.warning("Failed to process CSV file: " + ex.getMessage());
-        throw new RuntimeException("Failed to process CSV file: " + ex.getMessage(), ex);
+        alignReferenceSequence(lab.getId());
+        List<TestReferenceEntity> savedEntities = new ArrayList<>();
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8));
+             CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT
+                     .withFirstRecordAsHeader()
+                     .withIgnoreHeaderCase()
+                     .withTrim())) {
+
+            for (CSVRecord record : csvParser) {
+                boolean persisted = false;
+                int attempts = 0;
+
+                while (!persisted && attempts < 5) {
+                    attempts++;
+                    TestReferenceEntity entity = null;
+                    try {
+                        entity = processRecord(record, currentUser);
+                        entity.setTestReferenceCode(generateUniqueReferenceCode(lab.getId()));
+                        TestReferenceEntity saved = testReferenceRepository.save(entity);
+                        labTestReferenceLinkRepository.linkLabToReference(lab.getId(), saved.getId());
+                        savedEntities.add(saved);
+                        persisted = true;
+                    } catch (DataIntegrityViolationException dive) {
+                        handleReferenceDuplicate(lab, entity, dive);
+                    } catch (Exception ex) {
+                        LOGGER.warning("Skipping row " + record.getRecordNumber() +
+                                " due to error: " + ex.getMessage());
+                        persisted = true; // stop retrying for this row
+                    }
+                }
+            }
+
+        } catch (Exception ex) {
+            LOGGER.warning("Failed to process CSV file: " + ex.getMessage());
+            throw new RuntimeException("Failed to process CSV file: " + ex.getMessage(), ex);
+        }
+
+        return savedEntities;
     }
 
-    return savedEntities;
-}
-
-    private TestReferenceEntity processRecord(CSVRecord record, User currentUser, Lab lab) {
+    private TestReferenceEntity processRecord(CSVRecord record, User currentUser) {
         // Required fields validation
         String category = getStringOrBlank(record, "Category");
         String testName = getStringOrBlank(record, "Test Name");
@@ -517,9 +539,6 @@ public List<TestReferenceEntity> uploadCsv(Lab lab, MultipartFile file, User cur
         entity.setUpdatedBy(currentUser.getUsername());
         entity.setCreatedAt(LocalDateTime.now());
         entity.setUpdatedAt(LocalDateTime.now());
-
-        // ✅ Set relationship properly
-        lab.addTestReference(entity);
 
         return entity;
     }
@@ -637,4 +656,40 @@ public List<TestReferenceEntity> uploadCsv(Lab lab, MultipartFile file, User cur
         }
     }
 
+    private String generateUniqueReferenceCode(Long labId) {
+        int guard = 0;
+        while (guard < 1000) {
+            String candidate = sequenceGeneratorService.generateCode(labId, EntityType.TEST_REFERENCE);
+            if (!testReferenceRepository.existsByTestReferenceCode(candidate)) {
+                return candidate;
+            }
+            guard++;
+        }
+        throw new IllegalStateException("Unable to generate unique test reference code for lab " + labId);
+    }
+
+    private void alignReferenceSequence(Long labId) {
+        String prefix = EntityType.TEST_REFERENCE.getPrefix() + labId + "-";
+        testReferenceRepository.findTopByTestReferenceCodeStartingWithOrderByTestReferenceCodeDesc(prefix)
+                .ifPresent(existing -> {
+                    String code = existing.getTestReferenceCode();
+                    if (code != null && code.startsWith(prefix)) {
+                        String numeric = code.substring(prefix.length());
+                        try {
+                            long value = Long.parseLong(numeric);
+                            sequenceGeneratorService.ensureMinimumSequence(labId, EntityType.TEST_REFERENCE, value);
+                        } catch (NumberFormatException ignored) {
+                            // legacy format - skip alignment
+                        }
+                    }
+                });
+    }
+
+    private void handleReferenceDuplicate(Lab lab, TestReferenceEntity entity, DataIntegrityViolationException dive) {
+        if (entity != null && entityManager != null && entityManager.contains(entity)) {
+            entityManager.detach(entity);
+        }
+        LOGGER.warning("Duplicate test_reference_code for lab " + lab.getId() + ". Cause: " + dive.getMostSpecificCause().getMessage());
+        alignReferenceSequence(lab.getId());
+    }
 }

@@ -1,9 +1,13 @@
 package tiameds.com.tiameds.services.lab;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -19,11 +23,15 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 @Service
 public class TestServices {
 
     private final TestRepository testRepository;
     private final SequenceGeneratorService sequenceGeneratorService;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     public TestServices(TestRepository testRepository, SequenceGeneratorService sequenceGeneratorService) {
         this.testRepository = testRepository;
@@ -32,56 +40,105 @@ public class TestServices {
 
     @Transactional
     public List<Test> uploadCSV(MultipartFile file, Lab lab) throws Exception {
-        // List to store tests to be saved
-        List<Test> tests = new ArrayList<>();
+        alignSequenceWithExistingTests(lab.getId());
 
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
-            // Parse CSV file with headers
-            CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.withFirstRecordAsHeader());
+        List<Test> savedTests = new ArrayList<>();
 
-            // Process each record in the CSV file
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()));
+             CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.withFirstRecordAsHeader())) {
+
             for (CSVRecord record : csvParser) {
-                // Fetch and validate required fields
-                String category = record.get("Category Name");
-                String name = record.get("LabTest Name");
-                String priceString = record.get("Price(INR)");
-
-                if (category == null || name == null || priceString == null) {
-                    throw new IllegalArgumentException("Missing required fields in CSV: " + record);
+                Test saved = persistRecord(record, lab);
+                if (saved != null) {
+                    savedTests.add(saved);
                 }
-
-                BigDecimal price;
-                try {
-                    price = new BigDecimal(priceString);
-                } catch (NumberFormatException e) {
-                    throw new IllegalArgumentException("Invalid price format in CSV: " + priceString);
-                }
-
-                // Create and populate Test entity
-                Test test = new Test();
-                
-                // Generate unique test code using sequence generator
-                String testCode = sequenceGeneratorService.generateCode(lab.getId(), EntityType.TEST);
-                test.setTestCode(testCode);
-                
-                test.setCategory(category);
-                test.setName(name);
-                test.setPrice(price);
-                test.getLabs().add(lab);  // Ensure the test is added to the correct lab
-                lab.addTest(test);
-                
-                // Add test to the list for batch saving
-                tests.add(test);
             }
 
-            // Save all tests to the database, associating them with the specified lab
-            return testRepository.saveAll(tests);
+            return savedTests;
 
         } catch (IllegalArgumentException e) {
             throw new RuntimeException("Invalid data in CSV file: " + e.getMessage(), e);
         } catch (Exception e) {
             throw new RuntimeException("Error processing CSV file: " + e.getMessage(), e);
         }
+    }
+
+    private Test persistRecord(CSVRecord record, Lab lab) {
+        String category = record.get("Category Name");
+        String name = record.get("LabTest Name");
+        String priceString = record.get("Price(INR)");
+
+        if (category == null || name == null || priceString == null) {
+            throw new IllegalArgumentException("Missing required fields in CSV: " + record);
+        }
+
+        BigDecimal price;
+        try {
+            price = new BigDecimal(priceString);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Invalid price format in CSV: " + priceString);
+        }
+
+        int attempt = 0;
+        while (attempt < 5) {
+            attempt++;
+            Test test = new Test();
+            test.setCategory(category);
+            test.setName(name);
+            test.setPrice(price);
+
+            String testCode = generateUniqueTestCode(lab.getId());
+            test.setTestCode(testCode);
+            test.getLabs().add(lab);
+
+            try {
+                Test saved = testRepository.save(test);
+                lab.addTest(saved);
+                return saved;
+            } catch (DataIntegrityViolationException dive) {
+                handleDuplicateCode(lab, test, dive);
+            }
+        }
+
+        log.error("Failed to persist test '{}' for lab {} after multiple attempts.", name, lab.getId());
+        return null;
+    }
+
+    private void handleDuplicateCode(Lab lab, Test test, DataIntegrityViolationException dive) {
+        if (entityManager != null && entityManager.contains(test)) {
+            entityManager.detach(test);
+        }
+        log.warn("Duplicate test_code {} detected for lab {}. Attempting to resync sequence. Cause: {}", test.getTestCode(), lab.getId(), dive.getMostSpecificCause().getMessage());
+        alignSequenceWithExistingTests(lab.getId());
+    }
+
+    private String generateUniqueTestCode(Long labId) {
+        int guard = 0;
+        while (guard < 1000) {
+            String candidate = sequenceGeneratorService.generateCode(labId, EntityType.TEST);
+            if (!testRepository.existsByTestCode(candidate)) {
+                return candidate;
+            }
+            guard++;
+        }
+        throw new IllegalStateException("Unable to generate unique test code for lab " + labId);
+    }
+
+    private void alignSequenceWithExistingTests(Long labId) {
+        String prefix = EntityType.TEST.getPrefix() + labId + "-";
+        testRepository.findTopByTestCodeStartingWithOrderByTestCodeDesc(prefix)
+                .ifPresent(existingTest -> {
+                    String existingCode = existingTest.getTestCode();
+                    if (existingCode != null && existingCode.startsWith(prefix)) {
+                        String numericPortion = existingCode.substring(prefix.length());
+                        try {
+                            long value = Long.parseLong(numericPortion);
+                            sequenceGeneratorService.ensureMinimumSequence(labId, EntityType.TEST, value);
+                        } catch (NumberFormatException ignored) {
+                            // skip sync if legacy code doesn't follow expected format
+                        }
+                    }
+                });
     }
 
 

@@ -142,6 +142,61 @@ public class EmailService {
     }
 
     /**
+     * Sends onboarding verification email with verification link
+     * @param to Email address to send to
+     * @param verificationToken The verification token
+     * @param verificationUrl Frontend verification URL (will redirect to onboarding form)
+     */
+    public void sendVerificationEmail(String to, String verificationToken, String verificationUrl) {
+        log.info("Attempting to send verification email to: {}", to);
+
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setTo(to);
+            helper.setSubject("Complete Your Onboarding");
+
+            // URL encode the token to handle special characters
+            String encodedToken = java.net.URLEncoder.encode(verificationToken, java.nio.charset.StandardCharsets.UTF_8);
+            
+            // Construct verification URL with token
+            String verificationLink = verificationUrl + "?token=" + encodedToken;
+            
+            String bodyText = String.format(
+                "Welcome! Please click the link below to complete your onboarding:\n\n%s\n\n" +
+                "This link will expire in 15 minutes. If you did not request this, please ignore this email.",
+                verificationLink
+            );
+            
+            String bodyHtml = String.format(
+                "<html><body>" +
+                "<h2>Welcome to Lab Automation</h2>" +
+                "<p>Please click the link below to complete your onboarding:</p>" +
+                "<p><a href=\"%s\" style=\"background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;\">Complete Onboarding</a></p>" +
+                "<p>Or copy and paste this link into your browser:</p>" +
+                "<p style=\"word-break: break-all;\">%s</p>" +
+                "<p><strong>This link will expire in 15 minutes.</strong></p>" +
+                "<p>If you did not request this, please ignore this email.</p>" +
+                "</body></html>",
+                verificationLink, verificationLink
+            );
+
+            helper.setText(bodyText, bodyHtml);
+
+            mailSender.send(message);
+            log.info("Verification email sent successfully to: {}", to);
+
+        } catch (MessagingException e) {
+            log.error("Failed to send verification email to {}: {}", to, e.getMessage(), e);
+            throw new EmailException("Failed to send verification email: " + e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("Unexpected error sending verification email to {}: {}", to, e.getMessage(), e);
+            throw new EmailException("Unexpected error sending verification email: " + e.getMessage(), e);
+        }
+    }
+
+    /**
      * Custom exception for email-related errors
      */
     public static class EmailException extends RuntimeException {
