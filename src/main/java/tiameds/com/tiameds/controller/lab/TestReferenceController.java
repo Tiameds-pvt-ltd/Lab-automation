@@ -299,49 +299,47 @@ public class TestReferenceController {
 
 
     //get the list of refenance by test name will be multiple
-//    @Transactional
-////    @GetMapping("/{labId}/test/{testName}")
-//    @GetMapping("/{labId}/test/{testName:.+}")
-//    public ResponseEntity<?> getTestReferenceByTestName(
-//            @PathVariable Long labId,
-//            @PathVariable String testName,
-//            @RequestHeader("Authorization") String token) {
-//        try {
-//            Optional<User> userOptional = userAuthService.authenticateUser(token);
-//            if (userOptional.isEmpty()) {
-//                return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
-//            }
-//
-//            User currentUser = userOptional.get();
-//            Optional<Lab> labOptional = labRepository.findById(labId);
-//            if (labOptional.isEmpty()) {
-//                return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
-//            }
-//
-//            Lab lab = labOptional.get();
-//            if (!currentUser.getLabs().contains(lab)) {
-//                return ApiResponseHelper.errorResponse("User is not authorized for this lab", HttpStatus.UNAUTHORIZED);
-//            }
-//
-//            if (!labAccessableFilter.isLabAccessible(labId)) {
-//                return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
-//            }
-//
-//            List<TestReferenceDTO> testReferenceEntities = testReferenceServices.getTestReferenceByTestName(lab, testName);
-//            return ApiResponseHelper.successResponseWithDataAndMessage("Test references fetched successfully", HttpStatus.OK, testReferenceEntities);
-//
-//        } catch (Exception e) {
-//            LOGGER.severe("Error fetching test references: " + e.getMessage());
-//            return ApiResponseHelper.errorResponse("Error processing request: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
-//        }
-//    }
+   @Transactional
+   @GetMapping("/{labId}/test/{testName:.+}") 
+   public ResponseEntity<?> getTestReferenceByTestName(
+           @PathVariable Long labId,
+           @PathVariable String testName) {
+       try {
+           Optional<User> userOptional = getAuthenticatedUser();
+           if (userOptional.isEmpty()) {
+               return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
+           }
+
+           User currentUser = userOptional.get();
+           Optional<Lab> labOptional = labRepository.findById(labId);
+           if (labOptional.isEmpty()) {
+               return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
+           }
+
+           Lab lab = labOptional.get();
+           if (!currentUser.getLabs().contains(lab)) {
+               return ApiResponseHelper.errorResponse("User is not authorized for this lab", HttpStatus.UNAUTHORIZED);
+           }
+
+           if (!labAccessableFilter.isLabAccessible(labId)) {
+               return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+           }
+
+           List<TestReferenceDTO> testReferenceEntities = testReferenceServices.getTestReferenceByTestName(lab, testName);
+           return ApiResponseHelper.successResponseWithDataAndMessage("Test references fetched successfully", HttpStatus.OK, testReferenceEntities);
+
+       } catch (Exception e) {
+           LOGGER.severe("Error fetching test references: " + e.getMessage());
+           return ApiResponseHelper.errorResponse("Error processing request: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+       }
+   }
 
 
 
 //    get the list of refenance by test name will be multiple
     @Transactional
     @GetMapping("/{labId}/test")
-    public ResponseEntity<?> getTestReferenceByTestName(
+    public ResponseEntity<?> getTestReferenceByTestNameQuery(
             @PathVariable Long labId,
             @RequestParam String testName) {
         try {
@@ -365,7 +363,9 @@ public class TestReferenceController {
                 return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
             }
 
+            LOGGER.info("Searching for test name: '" + testName + "' in lab: " + labId);
             List<TestReferenceDTO> testReferenceEntities = testReferenceServices.getTestReferenceByTestName(lab, testName);
+            LOGGER.info("Found " + testReferenceEntities.size() + " test references for test name: '" + testName + "'");
             return ApiResponseHelper.successResponseWithDataAndMessage("Test references fetched successfully", HttpStatus.OK, testReferenceEntities);
 
         } catch (Exception e) {
