@@ -7,7 +7,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: create
     show-sql: true
     properties:
       hibernate:
@@ -88,3 +88,16 @@ password:
           max: ${PASSWORD_RESET_RATE_LIMIT_IP_MAX:3}  # Max requests per IP per window
           window:
             minutes: ${PASSWORD_RESET_RATE_LIMIT_IP_WINDOW:1}  # Time window in minutes
+
+
+# Onboarding Configuration
+onboarding:
+  token:
+    expiry-minutes: 15  # Token expiration time in minutes (default: 15)
+  rate-limit:
+    max-emails-per-hour: 3  # Maximum verification emails per hour per email address
+    window-minutes: 60  # Rate limit window in minutes
+  frontend:
+    base-url: http://localhost:3000  # Frontend base URL
+    verification-url: http://localhost:3000/verify-email  # Email verification endpoint URL
+    onboarding-url: http://localhost:3000/onboarding  # Onboarding form URL

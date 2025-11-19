@@ -75,7 +75,7 @@ public class LabDefaultDataService {
             log.info("Lab {} already has test references. Skipping default reference upload.", labId);
         } else {
             try {
-                MultipartFile referenceFile = loadCsvAsMultipart("sample_test_references_with_reference_ranges.csv");
+                MultipartFile referenceFile = loadCsvAsMultipart("Lab_Modified.xlsx-Sheet1 - Copy.csv");
                 testReferenceServices.uploadCsv(lab, referenceFile, user);
                 log.info("Uploaded default reference data for lab {}", labId);
             } catch (Exception e) {

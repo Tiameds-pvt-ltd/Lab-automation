@@ -77,7 +77,6 @@ public class ReportEntity {
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 
-
     // new -field store json
     @Column(columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
@@ -90,3 +89,4 @@ public class ReportEntity {
     @Column(name = "report_code", unique = true)
     private String reportCode;
 }
+

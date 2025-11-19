@@ -44,7 +44,38 @@
         {
           "name": "JWT_SECRET",
           "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedlabsecret-SM3XcQ:JWT_SECRET::"
-        }
+        },
+        { "name": "SPRING_MAIL_USERNAME", "valueFrom": "arn:aws:secretsmanager:...:SPRING_MAIL_USERNAME::" },
+        { "name": "SPRING_MAIL_PASSWORD", "valueFrom": "arn:aws:secretsmanager:...:SPRING_MAIL_PASSWORD::" },
+
+        { "name": "SPRING_MAIL_SMTP_AUTH", "valueFrom": "arn:aws:secretsmanager:...:SPRING_MAIL_SMTP_AUTH::" },
+        { "name": "SPRING_MAIL_SMTP_STARTTLS_ENABLE", "valueFrom": "arn:aws:secretsmanager:...:SPRING_MAIL_SMTP_STARTTLS_ENABLE::" },
+
+        { "name": "SPRING_MAIL_HOST", "valueFrom": "arn:aws:secretsmanager:...:SPRING_MAIL_HOST::" },
+        { "name": "SPRING_MAIL_PORT", "valueFrom": "arn:aws:secretsmanager:...:SPRING_MAIL_PORT::" },
+
+        { "name": "JWT_PRIVATE_KEY_LOCATION", "valueFrom": "arn:aws:secretsmanager:...:JWT_PRIVATE_KEY_LOCATION::" },
+        { "name": "JWT_PUBLIC_KEY_LOCATION", "valueFrom": "arn:aws:secretsmanager:...:JWT_PUBLIC_KEY_LOCATION::" },
+
+        { "name": "JWT_ISSUER", "valueFrom": "arn:aws:secretsmanager:...:JWT_ISSUER::" },
+        { "name": "JWT_AUDIENCE", "valueFrom": "arn:aws:secretsmanager:...:JWT_AUDIENCE::" },
+        { "name": "JWT_ACCESS_TOKEN_TTL", "valueFrom": "arn:aws:secretsmanager:...:JWT_ACCESS_TOKEN_TTL::" },
+        { "name": "JWT_REFRESH_TOKEN_TTL", "valueFrom": "arn:aws:secretsmanager:...:JWT_REFRESH_TOKEN_TTL::" },
+
+        { "name": "ONBOARDING_TOKEN_EXPIRY_MINUTES", "valueFrom": "arn:aws:secretsmanager:...:ONBOARDING_TOKEN_EXPIRY_MINUTES::" },
+        { "name": "ONBOARDING_RATE_MAX_EMAILS_PER_HOUR", "valueFrom": "arn:aws:secretsmanager:...:ONBOARDING_RATE_MAX_EMAILS_PER_HOUR::" },
+        { "name": "ONBOARDING_RATE_WINDOW_MINUTES", "valueFrom": "arn:aws:secretsmanager:...:ONBOARDING_RATE_WINDOW_MINUTES::" },
+        { "name": "ONBOARDING_FRONTEND_BASE_URL", "valueFrom": "arn:aws:secretsmanager:...:ONBOARDING_FRONTEND_BASE_URL::" },
+        { "name": "ONBOARDING_VERIFICATION_URL", "valueFrom": "arn:aws:secretsmanager:...:ONBOARDING_VERIFICATION_URL::" },
+        { "name": "ONBOARDING_ONBOARDING_URL", "valueFrom": "arn:aws:secretsmanager:...:ONBOARDING_ONBOARDING_URL::" },
+
+        { "name": "PASSWORD_RESET_TOKEN_EXPIRY_MINUTES", "valueFrom": "arn:aws:secretsmanager:...:PASSWORD_RESET_TOKEN_EXPIRY_MINUTES::" },
+        { "name": "PASSWORD_RESET_TOKEN_LENGTH", "valueFrom": "arn:aws:secretsmanager:...:PASSWORD_RESET_TOKEN_LENGTH::" },
+        { "name": "PASSWORD_RESET_URL", "valueFrom": "arn:aws:secretsmanager:...:PASSWORD_RESET_URL::" },
+        { "name": "PASSWORD_RESET_RATE_LIMIT_EMAIL_MAX", "valueFrom": "arn:aws:secretsmanager:...:PASSWORD_RESET_RATE_LIMIT_EMAIL_MAX::" },
+        { "name": "PASSWORD_RESET_RATE_LIMIT_EMAIL_WINDOW", "valueFrom": "arn:aws:secretsmanager:...:PASSWORD_RESET_RATE_LIMIT_EMAIL_WINDOW::" },
+        { "name": "PASSWORD_RESET_RATE_LIMIT_IP_MAX", "valueFrom": "arn:aws:secretsmanager:...:PASSWORD_RESET_RATE_LIMIT_IP_MAX::" },
+        { "name": "PASSWORD_RESET_RATE_LIMIT_IP_WINDOW", "valueFrom": "arn:aws:secretsmanager:...:PASSWORD_RESET_RATE_LIMIT_IP_WINDOW::" }
       ],
       "ulimits": [],
       "logConfiguration": {
