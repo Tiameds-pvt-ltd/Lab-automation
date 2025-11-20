@@ -115,7 +115,7 @@ password:
       expiry:
         minutes: ${PASSWORD_RESET_TOKEN_EXPIRY_MINUTES:15}  # Default 15 minutes, optional 30
       length: ${PASSWORD_RESET_TOKEN_LENGTH:32}  # Token length in bytes (32+ recommended)
-    url: ${PASSWORD_RESET_URL}  # Frontend reset password URL
+    url: ${PASSWORD_RESET_URL::https://lab-test-env.tiameds.ai/reset-password}
     rate:
       limit:
         email:
@@ -134,6 +134,6 @@ onboarding:
     max-emails-per-hour: ${ONBOARDING_RATE_MAX_EMAILS_PER_HOUR:3}  # Maximum verification emails per hour per email address
     window-minutes: ${ONBOARDING_RATE_WINDOW_MINUTES:60}  # Rate limit window in minutes
   frontend:
-    base-url: ${ONBOARDING_FRONTEND_BASE_URL}  # Frontend base URL
-    verification-url: ${ONBOARDING_VERIFICATION_URL}  # Email verification endpoint URL
-    onboarding-url: ${ONBOARDING_ONBOARDING_URL}  # Onboarding form URL
+    base-url: ${ONBOARDING_FRONTEND_BASE_URL:https://lab-test-env.tiameds.ai}  # Frontend base URL
+    verification-url: ${ONBOARDING_VERIFICATION_URL:https://lab-test-env.tiameds.ai/request}  # Email verification endpoint URL
+    onboarding-url: ${ONBOARDING_ONBOARDING_URL:https://lab-test-env.tiameds.ai/onboarding}  # Onboarding form URL
