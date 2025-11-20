@@ -101,7 +101,7 @@ security:
     public-key-location: ${JWT_PUBLIC_KEY_LOCATION}
     access-cookie-name: ${JWT_ACCESS_COOKIE_NAME:accessToken}
     refresh-cookie-name: ${JWT_REFRESH_COOKIE_NAME:refreshToken}
-    cookie-domain: ${JWT_COOKIE_DOMAIN:}
+    cookie-domain: ${JWT_COOKIE_DOMAIN:.tiameds.ai}
     cookie-path: ${JWT_COOKIE_PATH:/}
     cookie-secure: ${JWT_COOKIE_SECURE:true}
-    same-site: ${JWT_COOKIE_SAMESITE:Strict}
+    same-site: ${JWT_COOKIE_SAMESITE:None}
