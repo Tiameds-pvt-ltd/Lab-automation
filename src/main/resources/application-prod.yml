@@ -90,6 +90,7 @@ security-scanning:
     suppression-file: ${OWASP_DC_SUPPRESSION_FILE:./config/dependency-check-suppressions.xml}
     report-path: ${OWASP_DC_REPORT_PATH:./reports/dependency-check-report.html}
 
+
 security:
   jwt:
     issuer: ${JWT_ISSUER:tiameds-lab-automation}
