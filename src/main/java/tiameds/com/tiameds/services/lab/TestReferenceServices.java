@@ -16,10 +16,11 @@ import tiameds.com.tiameds.dto.lab.TestReferenceDTO;
 import tiameds.com.tiameds.entity.*;
 import tiameds.com.tiameds.repository.LabTestReferenceLinkRepository;
 import tiameds.com.tiameds.repository.TestReferenceRepository;
+import tiameds.com.tiameds.utils.EncodingUtils;
 
 import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
+import java.io.IOException;
+import java.io.StringReader;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.logging.Logger;
@@ -488,36 +489,37 @@ public class TestReferenceServices {
         alignReferenceSequence(lab.getId());
         List<TestReferenceEntity> savedEntities = new ArrayList<>();
 
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8));
-             CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT
-                     .withFirstRecordAsHeader()
-                     .withIgnoreHeaderCase()
-                     .withTrim())) {
+        try (BufferedReader reader = createNormalizedReader(file)) {
+            try (CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT
+                    .withFirstRecordAsHeader()
+                    .withIgnoreHeaderCase()
+                    .withTrim())) {
 
-            for (CSVRecord record : csvParser) {
-                boolean persisted = false;
-                int attempts = 0;
+                for (CSVRecord record : csvParser) {
+                    boolean persisted = false;
+                    int attempts = 0;
 
-                while (!persisted && attempts < 5) {
-                    attempts++;
-                    TestReferenceEntity entity = null;
-                    try {
-                        entity = processRecord(record, currentUser);
-                        entity.setTestReferenceCode(generateUniqueReferenceCode(lab.getId()));
-                        TestReferenceEntity saved = testReferenceRepository.save(entity);
-                        labTestReferenceLinkRepository.linkLabToReference(lab.getId(), saved.getId());
-                        savedEntities.add(saved);
-                        persisted = true;
-                    } catch (DataIntegrityViolationException dive) {
-                        handleReferenceDuplicate(lab, entity, dive);
-                    } catch (Exception ex) {
-                        LOGGER.warning("Skipping row " + record.getRecordNumber() +
-                                " due to error: " + ex.getMessage());
-                        persisted = true; // stop retrying for this row
+                    while (!persisted && attempts < 5) {
+                        attempts++;
+                        TestReferenceEntity entity = null;
+                        try {
+                            entity = processRecord(record, currentUser);
+                            entity.setTestReferenceCode(generateUniqueReferenceCode(lab.getId()));
+                            TestReferenceEntity saved = testReferenceRepository.save(entity);
+                            labTestReferenceLinkRepository.linkLabToReference(lab.getId(), saved.getId());
+                            savedEntities.add(saved);
+                            persisted = true;
+                        } catch (DataIntegrityViolationException dive) {
+                            handleReferenceDuplicate(lab, entity, dive);
+                        } catch (Exception ex) {
+                            LOGGER.warning("Skipping row " + record.getRecordNumber() +
+                                    " due to error: " + ex.getMessage());
+                            persisted = true; // stop retrying for this row
+                        }
                     }
                 }
-            }
 
+            }
         } catch (Exception ex) {
             LOGGER.warning("Failed to process CSV file: " + ex.getMessage());
             throw new RuntimeException("Failed to process CSV file: " + ex.getMessage(), ex);
@@ -740,5 +742,11 @@ public class TestReferenceServices {
         }
         LOGGER.warning("Duplicate test_reference_code for lab " + lab.getId() + ". Cause: " + dive.getMostSpecificCause().getMessage());
         alignReferenceSequence(lab.getId());
+    }
+
+    private BufferedReader createNormalizedReader(MultipartFile file) throws IOException {
+        byte[] fileBytes = file.getBytes();
+        String normalizedContent = EncodingUtils.decodeWithUtf8Fallback(fileBytes);
+        return new BufferedReader(new StringReader(normalizedContent));
     }
 }
