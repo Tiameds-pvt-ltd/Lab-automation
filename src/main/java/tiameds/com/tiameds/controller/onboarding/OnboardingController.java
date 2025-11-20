@@ -16,6 +16,7 @@ import tiameds.com.tiameds.services.lab.LabDefaultDataService;
 import tiameds.com.tiameds.services.onboarding.OnboardingService;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Controller for onboarding form submission.
@@ -62,15 +63,27 @@ public class OnboardingController {
         try {
             // Validate token and create user + lab in a single transaction
             OnboardingResponseDTO response = onboardingService.completeOnboarding(request);
-            autoUploadDefaultTestData(response.getLabId(), response.getUserId());
+            
+            // Safe logging with null checks
+            String username = response != null ? response.getUsername() : "unknown";
+            String labName = response != null ? response.getLabName() : "unknown";
+            log.info("Onboarding completed successfully for user: {} (Lab: {})", username, labName);
 
-            log.info("Onboarding completed successfully for user: {} (Lab: {})", 
-                    response.getUsername(), response.getLabName());
+            // Safe message extraction with fallback
+            String message = (response != null && response.getMessage() != null) 
+                    ? response.getMessage() 
+                    : "Onboarding completed successfully";
 
-            return ApiResponseHelper.successResponseWithDataAndMessage(
-                    response.getMessage(),
+            // Return response immediately - don't wait for default data upload
+            ResponseEntity<Map<String, Object>> successResponse = ApiResponseHelper.successResponseWithDataAndMessage(
+                    message,
                     HttpStatus.CREATED,
                     response);
+            
+            // Trigger default data upload asynchronously - never block the response
+            triggerDefaultDataUploadAsync(response);
+            
+            return successResponse;
 
         } catch (IllegalArgumentException e) {
             log.warn("Onboarding failed due to validation error: {}", e.getMessage());
@@ -88,12 +101,35 @@ public class OnboardingController {
         }
     }
 
-    private void autoUploadDefaultTestData(Long labId, Long userId) {
-        try {
-            labDefaultDataService.uploadDefaultData(labId, userId);
-        } catch (Exception e) {
-            log.error("Default data upload failed for lab {}: {}", labId, e.getMessage(), e);
+    /**
+     * Triggers default data upload asynchronously without blocking the HTTP response.
+     * This ensures onboarding response is returned immediately even if upload takes time.
+     */
+    private void triggerDefaultDataUploadAsync(OnboardingResponseDTO response) {
+        if (response == null) {
+            return;
         }
+        
+        Long labId = response.getLabId();
+        Long userId = response.getUserId();
+        
+        if (labId == null || userId == null) {
+            log.warn("Skipping default data upload due to null labId or userId (labId={}, userId={})", labId, userId);
+            return;
+        }
+        
+        // Execute asynchronously - don't block the HTTP response
+        CompletableFuture.runAsync(() -> {
+            try {
+                log.info("Starting async default data upload for lab {} (userId: {})", labId, userId);
+                labDefaultDataService.uploadDefaultData(labId, userId);
+                log.info("Completed async default data upload for lab {}", labId);
+            } catch (Exception e) {
+                // Log but never throw - onboarding succeeded, this is just a convenience feature
+                log.error("Default data upload failed but onboarding succeeded for lab {}: {}", 
+                        labId, e.getMessage(), e);
+            }
+        });
     }
 }
 
