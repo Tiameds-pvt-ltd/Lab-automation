@@ -1,7 +1,6 @@
 server:
   servlet:
     context-path: /api/v1
-#  base-url: ${SERVER_BASE_URL:https://lab-test-env.tiameds.ai/api/v1}
   compression:
     enabled: true
     mime-types: application/json,application/xml,text/html,text/xml,text/plain,application/javascript,text/css
@@ -84,7 +83,7 @@ onboarding:
     window-minutes: ${ONBOARDING_RATE_WINDOW_MINUTES:60}  # Rate limit window in minutes
   frontend:
     base-url: ${ONBOARDING_FRONTEND_BASE_URL:https://lab-test-env.tiameds.ai}  # Frontend base URL
-    verification-url: ${ONBOARDING_VERIFICATION_URL:https://lab-test-env.tiameds.ai/onboarding/request}  # Email verification endpoint URL
+    verification-url: ${ONBOARDING_VERIFICATION_URL:https://lab-test-env.tiameds.ai/request}  # Email verification endpoint URL
     onboarding-url: ${ONBOARDING_ONBOARDING_URL:https://lab-test-env.tiameds.ai/onboarding}  # Onboarding form URL
 
 springdoc:
@@ -111,10 +110,10 @@ security:
     public-key-location: ${JWT_PUBLIC_KEY_LOCATION}
     access-cookie-name: ${JWT_ACCESS_COOKIE_NAME:accessToken}
     refresh-cookie-name: ${JWT_REFRESH_COOKIE_NAME:refreshToken}
-    cookie-domain: ${JWT_COOKIE_DOMAIN:}
+    cookie-domain: ${JWT_COOKIE_DOMAIN:.tiameds.ai}
     cookie-path: ${JWT_COOKIE_PATH:/}
     cookie-secure: ${JWT_COOKIE_SECURE:true}
-    same-site: ${JWT_COOKIE_SAMESITE:Strict}
+    same-site: ${JWT_COOKIE_SAMESITE:None}
     subject-encryption-key: ${JWT_SUBJECT_ENCRYPTION_KEY:MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=}
   ip:
     whitelist:

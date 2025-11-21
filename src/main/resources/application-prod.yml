@@ -90,6 +90,7 @@ security-scanning:
     suppression-file: ${OWASP_DC_SUPPRESSION_FILE:./config/dependency-check-suppressions.xml}
     report-path: ${OWASP_DC_REPORT_PATH:./reports/dependency-check-report.html}
 
+
 security:
   jwt:
     issuer: ${JWT_ISSUER:tiameds-lab-automation}
@@ -100,7 +101,7 @@ security:
     public-key-location: ${JWT_PUBLIC_KEY_LOCATION}
     access-cookie-name: ${JWT_ACCESS_COOKIE_NAME:accessToken}
     refresh-cookie-name: ${JWT_REFRESH_COOKIE_NAME:refreshToken}
-    cookie-domain: ${JWT_COOKIE_DOMAIN:}
+    cookie-domain: ${JWT_COOKIE_DOMAIN:.tiameds.ai}
     cookie-path: ${JWT_COOKIE_PATH:/}
     cookie-secure: ${JWT_COOKIE_SECURE:true}
-    same-site: ${JWT_COOKIE_SAMESITE:Strict}
+    same-site: ${JWT_COOKIE_SAMESITE:None}

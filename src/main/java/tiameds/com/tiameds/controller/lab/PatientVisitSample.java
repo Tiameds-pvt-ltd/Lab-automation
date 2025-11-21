@@ -80,19 +80,13 @@ public class PatientVisitSample {
         Map<String, Object> oldData = toAuditMap(visit);
 
         // 2. Fetch or create samples and create VisitSample entities with timestamps and codes
-        Long labId = visit.getLabs() != null && !visit.getLabs().isEmpty() 
-                ? visit.getLabs().iterator().next().getId() 
-                : 0L;
+        Long labId = resolveLabId(visit);
+        if (labId == null) {
+            return ResponseEntity.badRequest().body("Visit is not linked to any lab");
+        }
         
         for (String sampleName : request.getSampleNames()) {
-            SampleEntity sample = sampleAssocationRepository.findByName(sampleName).orElseGet(() -> {
-                SampleEntity newSample = new SampleEntity();
-                // Generate unique sample code using sequence generator
-                String sampleCode = sequenceGeneratorService.generateCode(0L, EntityType.SAMPLE);
-                newSample.setSampleCode(sampleCode);
-                newSample.setName(sampleName);
-                return sampleAssocationRepository.save(newSample); // Save new sample
-            });
+            SampleEntity sample = getOrCreateSample(sampleName, labId);
 
             // Create VisitSample entity with timestamps and code
             VisitSample visitSample = new VisitSample();
@@ -155,20 +149,14 @@ public class PatientVisitSample {
         // 2. Clear existing visit samples and create new ones
         visit.getVisitSamples().clear();
         
-        Long labId = visit.getLabs() != null && !visit.getLabs().isEmpty() 
-                ? visit.getLabs().iterator().next().getId() 
-                : 0L;
+        Long labId = resolveLabId(visit);
+        if (labId == null) {
+            return ResponseEntity.badRequest().body("Visit is not linked to any lab");
+        }
         
         // 3. Create new VisitSample entities for each sample
         for (String sampleName : request.getSampleNames()) {
-            SampleEntity sample = sampleAssocationRepository.findByName(sampleName).orElseGet(() -> {
-                SampleEntity newSample = new SampleEntity();
-                // Generate unique sample code
-                String sampleCode = sequenceGeneratorService.generateCode(0L, EntityType.SAMPLE);
-                newSample.setSampleCode(sampleCode);
-                newSample.setName(sampleName);
-                return sampleAssocationRepository.save(newSample);
-            });
+            SampleEntity sample = getOrCreateSample(sampleName, labId);
 
             // Create VisitSample entity with timestamps and code
             VisitSample visitSample = new VisitSample();
@@ -224,19 +212,17 @@ public class PatientVisitSample {
         Map<String, Object> oldData = toAuditMap(visit);
 
         // 2. Remove VisitSample entities for the specified samples
+        Long labId = resolveLabId(visit);
+        if (labId == null) {
+            return ResponseEntity.badRequest().body("Visit is not linked to any lab");
+        }
+
         Set<SampleEntity> samplesToRemove = new HashSet<>();
         for (String sampleName : request.getSampleNames()) {
-            SampleEntity sample = sampleAssocationRepository.findByName(sampleName)
-                    .orElse(null);
-            if (sample != null) {
-                samplesToRemove.add(sample);
-            }
+            sampleAssocationRepository
+                    .findFirstByNameIgnoreCaseAndLabIdOrderByIdAsc(normalizeSampleName(sampleName), labId)
+                    .ifPresent(samplesToRemove::add);
         }
-        
-        // Get lab ID from visit before removing samples
-        Long labId = visit.getLabs() != null && !visit.getLabs().isEmpty() 
-                ? visit.getLabs().iterator().next().getId() 
-                : 0L;
         
         // 3. Remove VisitSample entities from the visit
         visit.getVisitSamples().removeIf(vs -> samplesToRemove.contains(vs.getSample()));
@@ -393,6 +379,32 @@ public class PatientVisitSample {
 
         auditLog.setSeverity(LabAuditLogs.Severity.MEDIUM);
         auditLogService.persistAsync(auditLog);
+    }
+
+    private SampleEntity getOrCreateSample(String sampleName, Long labId) {
+        String normalizedName = normalizeSampleName(sampleName);
+        return sampleAssocationRepository
+                .findFirstByNameIgnoreCaseAndLabIdOrderByIdAsc(normalizedName, labId)
+                .orElseGet(() -> createSample(normalizedName, labId));
+    }
+
+    private SampleEntity createSample(String sampleName, Long labId) {
+        SampleEntity newSample = new SampleEntity();
+        newSample.setSampleCode(sequenceGeneratorService.generateCode(labId, EntityType.SAMPLE));
+        newSample.setName(sampleName);
+        newSample.setLabId(labId);
+        return sampleAssocationRepository.save(newSample);
+    }
+
+    private Long resolveLabId(VisitEntity visit) {
+        if (visit.getLabs() == null || visit.getLabs().isEmpty()) {
+            return null;
+        }
+        return visit.getLabs().iterator().next().getId();
+    }
+
+    private String normalizeSampleName(String sampleName) {
+        return sampleName == null ? "" : sampleName.trim();
     }
 
     private Map<String, Object> toAuditMap(VisitEntity visit) {
