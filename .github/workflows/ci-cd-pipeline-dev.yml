@@ -156,6 +156,8 @@
 #          cluster: ${{ secrets.ECS_CLUSTER_DEV}}
 #          wait-for-service-stability: true
 
+
+
 name: CI/CD Pipeline
 
 on:
@@ -218,7 +220,6 @@ jobs:
           echo "Building Docker image $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-
 
       # Step 7: Update ECS Task Definition
       - name: Update ECS Task Definition
