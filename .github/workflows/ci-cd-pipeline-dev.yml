@@ -157,7 +157,6 @@
 #          wait-for-service-stability: true
 
 
-
 name: CI/CD Pipeline
 
 on:
@@ -221,21 +220,20 @@ jobs:
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-      # Step 7: Update ECS Task Definition
-      - name: Update ECS Task Definition
-        id: update-task-def
+      # Step 7: Render ECS Task Definition
+      - name: Render ECS Task Definition
+        id: render-task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
           task-definition: deploy/tiameds-lab-dev-task-definition.json
-          container-name: tiameds-lab-dev-task
+          container-name: tiameds-lab-dev-container   # Must match AWS ECS container name
           image: ${{ steps.ecr-login.outputs.registry }}/${{ secrets.ECR_REPOSITORY_DEV }}:${{ github.sha }}
 
-
-      # Step 8: Deploy to ECS
+      # Step 8: Deploy to ECS Service
       - name: Deploy to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
-          task-definition: ${{ steps.update-task-def.outputs.task-definition }}
+          task-definition: ${{ steps.render-task-def.outputs.task-definition }}
           service: ${{ secrets.ECS_SERVICE_DEV }}
           cluster: ${{ secrets.ECS_CLUSTER_DEV }}
           wait-for-service-stability: true

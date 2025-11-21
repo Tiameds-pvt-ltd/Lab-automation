@@ -2,7 +2,7 @@
   "taskDefinitionArn": "arn:aws:ecs:ap-south-1:977098986605:task-definition/tiameds-lab-dev-task:8",
   "containerDefinitions": [
     {
-      "name": "tiameds-lab-dev-task",
+      "name": "tiameds-lab-dev-container",
       "image": "977098986605.dkr.ecr.ap-south-1.amazonaws.com/tiameds-lab-dev:latest",
       "cpu": 0,
       "portMappings": [
