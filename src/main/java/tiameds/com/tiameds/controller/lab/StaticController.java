@@ -68,7 +68,9 @@ public class StaticController {
     public ResponseEntity<?> getPatientVisitsByDateRange(
             @PathVariable Long labId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size
     ) {
         try {
             Optional<User> currentUser = getAuthenticatedUser();
@@ -81,8 +83,23 @@ public class StaticController {
                 return ApiResponseHelper.successResponseWithDataAndMessage("Lab is not accessible", HttpStatus.UNAUTHORIZED, null);
             }
 
-            List<LabStatisticsDTO> dtoList = staticServices.getTransactionDatewise(labId, startDate, endDate, currentUser.get());
-            return ApiResponseHelper.successResponseWithDataAndMessage("Transaction details fetched successfully", HttpStatus.OK, dtoList);
+            int sanitizedPage = Math.max(page, 0);
+            int sanitizedSize = Math.min(Math.max(size, 10), 200);
+
+            var dtoPage = staticServices.getTransactionDatewise(labId, startDate, endDate, currentUser.get(), sanitizedPage, sanitizedSize);
+
+            var responseBody = new java.util.HashMap<String, Object>();
+            responseBody.put("status", "success");
+            responseBody.put("message", "Transaction details fetched successfully");
+            responseBody.put("data", dtoPage.getContent());
+
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.add("X-Total-Elements", String.valueOf(dtoPage.getTotalElements()));
+            headers.add("X-Total-Pages", String.valueOf(dtoPage.getTotalPages()));
+            headers.add("X-Page-Number", String.valueOf(dtoPage.getNumber()));
+            headers.add("X-Page-Size", String.valueOf(dtoPage.getSize()));
+
+            return new ResponseEntity<>(responseBody, headers, HttpStatus.OK);
 
         } catch (Exception e) {
             log.error("Error fetching datewise transactions for lab {}", labId, e);

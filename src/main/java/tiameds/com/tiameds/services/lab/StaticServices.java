@@ -1,5 +1,10 @@
 package tiameds.com.tiameds.services.lab;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tiameds.com.tiameds.controller.lab.LabStatisticsDTO;
@@ -82,19 +87,26 @@ public class StaticServices {
 
 
 
-    public List<LabStatisticsDTO> getTransactionDatewise(Long labId, LocalDate startDate, LocalDate endDate, User user) {
+    @Transactional(readOnly = true)
+    public Page<LabStatisticsDTO> getTransactionDatewise(Long labId,
+                                                         LocalDate startDate,
+                                                         LocalDate endDate,
+                                                         User user,
+                                                         int page,
+                                                         int size) {
         LocalDateTime startDateTime = (startDate != null ? startDate.atStartOfDay() : LocalDate.MIN.atStartOfDay());
         LocalDateTime endDateTime = (endDate != null ? endDate.atTime(23, 59, 59) : LocalDate.MAX.atTime(23, 59, 59));
 
-        List<TransactionEntity> transactions = transactionRepository.findTransactionsByLabAndDateRange(
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        Page<TransactionEntity> transactions = transactionRepository.findTransactionsByLabAndDateRange(
                 labId,
                 startDateTime,
-                endDateTime
+                endDateTime,
+                pageable
         );
 
-
-
-        return transactions.stream()
+        List<LabStatisticsDTO> dtoList = transactions.getContent().stream()
                 .map(t -> {
                     try {
                         return mapToLabStatisticsDTO(t);
@@ -104,6 +116,8 @@ public class StaticServices {
                 })
                 .filter(dto -> dto != null)
                 .toList();
+
+        return new PageImpl<>(dtoList, pageable, transactions.getTotalElements());
     }
 
     private LabStatisticsDTO mapToLabStatisticsDTO(TransactionEntity transaction) {

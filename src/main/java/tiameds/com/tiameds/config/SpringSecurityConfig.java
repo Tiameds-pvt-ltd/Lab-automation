@@ -152,6 +152,7 @@ public class SpringSecurityConfig {
 
                                 .requestMatchers("/admin/**").hasRole("ADMIN")
                                 .requestMatchers("/lab/admin/get-user-labs").hasAnyRole("ADMIN", "TECHNICIAN", "DESKROLE","SUPERADMIN")
+                                .requestMatchers("/lab/admin/me").hasAnyRole("ADMIN", "TECHNICIAN", "DESKROLE","SUPERADMIN")
                                 .requestMatchers("/lab/admin/**").hasAnyRole("SUPERADMIN", "ADMIN")
 //                                .requestMatchers("/lab/**").hasRole("ADMIN")
                                 .requestMatchers("/lab-super-admin/**").hasRole("SUPERADMIN")
