@@ -156,7 +156,6 @@
 #          cluster: ${{ secrets.ECS_CLUSTER_DEV}}
 #          wait-for-service-stability: true
 
-
 name: CI/CD Pipeline
 
 on:
@@ -225,8 +224,9 @@ jobs:
         id: update-task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
-          task-definition: deploy/tiameds-lab-dev-task-defination.json
-          container-name: tiameds-lab-dev-container
+          task-definition: deploy/tiameds-lab-dev-task-definition.json
+
+          container-name: tiameds-lab-dev-container                      # <--- matches ECS JSON
           image: ${{ steps.ecr-login.outputs.registry }}/${{ secrets.ECR_REPOSITORY_DEV }}:${{ github.sha }}
 
       # Step 8: Deploy to ECS
