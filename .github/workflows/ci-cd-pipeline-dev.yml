@@ -226,7 +226,7 @@ jobs:
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
           task-definition: deploy/tiameds-lab-dev-task-defination.json
-          container-name: tiameds-lab-dev-task
+          container-name: tiameds-lab-dev-container
           image: ${{ steps.ecr-login.outputs.registry }}/${{ secrets.ECR_REPOSITORY_DEV }}:${{ github.sha }}
 
       # Step 8: Deploy to ECS
