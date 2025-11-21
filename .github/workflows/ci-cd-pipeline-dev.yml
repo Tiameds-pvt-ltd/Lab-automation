@@ -225,8 +225,8 @@ jobs:
         id: update-task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
-          task-definition: ${{ secrets.ECR_TASK_DEFINATION_DEV }}
-          container-name: ${{ secrets.ECS_CONTAINER_NAME_DEV }}
+          task-definition: deploy/tiameds-lab-dev-task-defination.json
+          container-name: tiameds-lab-dev-task
           image: ${{ steps.ecr-login.outputs.registry }}/${{ secrets.ECR_REPOSITORY_DEV }}:${{ github.sha }}
 
       # Step 8: Deploy to ECS
