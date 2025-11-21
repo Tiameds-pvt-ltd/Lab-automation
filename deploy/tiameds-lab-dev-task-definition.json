@@ -3,7 +3,7 @@
   "containerDefinitions": [
     {
       "name": "tiameds-lab-dev-task",
-      "image": "977098986605.dkr.ecr.ap-south-1.amazonaws.com/tiameds-lab-dev",
+      "image": "977098986605.dkr.ecr.ap-south-1.amazonaws.com/tiameds-lab-dev:latest",
       "cpu": 0,
       "portMappings": [
         {
