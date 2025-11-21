@@ -1,0 +1,256 @@
+{
+  "taskDefinitionArn": "arn:aws:ecs:ap-south-1:977098986605:task-definition/tiameds-lab-dev-task:8",
+  "containerDefinitions": [
+    {
+      "name": "tiameds-lab-dev-task",
+      "image": "977098986605.dkr.ecr.ap-south-1.amazonaws.com/tiameds-lab-dev",
+      "cpu": 0,
+      "portMappings": [
+        {
+          "name": "tiameds-lab-dev-container-80-tcp",
+          "containerPort": 8080,
+          "hostPort": 8080,
+          "protocol": "tcp",
+          "appProtocol": "http"
+        }
+      ],
+      "essential": true,
+      "environment": [
+        {
+          "name": "SPRING_PROFILES_ACTIVE",
+          "value": "prod"
+        }
+      ],
+      "environmentFiles": [],
+      "mountPoints": [],
+      "volumesFrom": [],
+      "secrets": [
+        {
+          "name": "DB_NAME",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:DB_NAME::"
+        },
+        {
+          "name": "DB_PASSWORD",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:DB_PASSWORD::"
+        },
+        {
+          "name": "DB_URL",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:DB_URL::"
+        },
+        {
+          "name": "DB_USERNAME",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:DB_USERNAME::"
+        },
+        {
+          "name": "JWT_ACCESS_COOKIE_NAME",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:JWT_ACCESS_COOKIE_NAME::"
+        },
+        {
+          "name": "JWT_ACCESS_TOKEN_TTL",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:JWT_ACCESS_TOKEN_TTL::"
+        },
+        {
+          "name": "JWT_AUDIENCE",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:JWT_AUDIENCE::"
+        },
+        {
+          "name": "JWT_COOKIE_PATH",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:JWT_COOKIE_PATH::"
+        },
+        {
+          "name": "JWT_COOKIE_SAMESITE",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:JWT_COOKIE_SAMESITE::"
+        },
+        {
+          "name": "JWT_COOKIE_SECURE",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:JWT_COOKIE_SECURE::"
+        },
+        {
+          "name": "JWT_ISSUER",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:JWT_ISSUER::"
+        },
+        {
+          "name": "JWT_PRIVATE_KEY_LOCATION",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:JWT_PRIVATE_KEY_LOCATION::"
+        },
+        {
+          "name": "JWT_PUBLIC_KEY_LOCATION",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:JWT_PUBLIC_KEY_LOCATION::"
+        },
+        {
+          "name": "JWT_REFRESH_COOKIE_NAME",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:JWT_REFRESH_COOKIE_NAME::"
+        },
+        {
+          "name": "JWT_REFRESH_TOKEN_TTL",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:JWT_REFRESH_TOKEN_TTL::"
+        },
+        {
+          "name": "JWT_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:JWT_SECRET::"
+        },
+        {
+          "name": "JWT_SUBJECT_ENCRYPTION_KEY",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:JWT_SUBJECT_ENCRYPTION_KEY::"
+        },
+        {
+          "name": "ONBOARDING_FRONTEND_BASE_URL",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:ONBOARDING_FRONTEND_BASE_URL::"
+        },
+        {
+          "name": "ONBOARDING_ONBOARDING_URL",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:ONBOARDING_ONBOARDING_URL::"
+        },
+        {
+          "name": "ONBOARDING_RATE_MAX_EMAILS_PER_HOUR",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:ONBOARDING_RATE_MAX_EMAILS_PER_HOUR::"
+        },
+        {
+          "name": "ONBOARDING_RATE_WINDOW_MINUTES",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:ONBOARDING_RATE_WINDOW_MINUTES::"
+        },
+        {
+          "name": "ONBOARDING_TOKEN_EXPIRY_MINUTES",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:ONBOARDING_TOKEN_EXPIRY_MINUTES::"
+        },
+        {
+          "name": "ONBOARDING_VERIFICATION_URL",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:ONBOARDING_VERIFICATION_URL::"
+        },
+        {
+          "name": "PASSWORD_RESET_RATE_LIMIT_EMAIL_MAX",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:PASSWORD_RESET_RATE_LIMIT_EMAIL_MAX::"
+        },
+        {
+          "name": "PASSWORD_RESET_RATE_LIMIT_EMAIL_WINDOW",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:PASSWORD_RESET_RATE_LIMIT_EMAIL_WINDOW::"
+        },
+        {
+          "name": "PASSWORD_RESET_RATE_LIMIT_IP_MAX",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:PASSWORD_RESET_RATE_LIMIT_IP_MAX::"
+        },
+        {
+          "name": "PASSWORD_RESET_RATE_LIMIT_IP_WINDOW",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:PASSWORD_RESET_RATE_LIMIT_IP_WINDOW::"
+        },
+        {
+          "name": "PASSWORD_RESET_TOKEN_EXPIRY_MINUTES",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:PASSWORD_RESET_TOKEN_EXPIRY_MINUTES::"
+        },
+        {
+          "name": "PASSWORD_RESET_TOKEN_LENGTH",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:PASSWORD_RESET_TOKEN_LENGTH::"
+        },
+        {
+          "name": "PASSWORD_RESET_URL",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:PASSWORD_RESET_URL::"
+        },
+        {
+          "name": "SPRING_MAIL_HOST",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:SPRING_MAIL_HOST::"
+        },
+        {
+          "name": "SPRING_MAIL_PASSWORD",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:SPRING_MAIL_PASSWORD::"
+        },
+        {
+          "name": "SPRING_MAIL_PORT",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:SPRING_MAIL_PORT::"
+        },
+        {
+          "name": "SPRING_MAIL_SMTP_AUTH",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:SPRING_MAIL_SMTP_AUTH::"
+        },
+        {
+          "name": "SPRING_MAIL_SMTP_STARTTLS_ENABLE",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:SPRING_MAIL_SMTP_STARTTLS_ENABLE::"
+        },
+        {
+          "name": "SPRING_MAIL_USERNAME",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedslabdevsecret-PCifBP:SPRING_MAIL_USERNAME::"
+        }
+      ],
+      "ulimits": [],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/tiameds-lab-dev-task",
+          "mode": "non-blocking",
+          "awslogs-create-group": "true",
+          "max-buffer-size": "25m",
+          "awslogs-region": "ap-south-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "systemControls": []
+    }
+  ],
+
+  "family": "tiameds-lab-dev-task",
+  "taskRoleArn": "arn:aws:iam::977098986605:role/ecsTaskExecutionRole",
+  "executionRoleArn": "arn:aws:iam::977098986605:role/ecsTaskExecutionRole",
+  "networkMode": "awsvpc",
+  "revision": 1,
+  "volumes": [],
+  "status": "ACTIVE",
+  "requiresAttributes": [
+    {
+      "name": "com.amazonaws.ecs.capability.logging-driver.awslogs"
+    },
+    {
+      "name": "ecs.capability.execution-role-awslogs"
+    },
+    {
+      "name": "com.amazonaws.ecs.capability.ecr-auth"
+    },
+    {
+      "name": "com.amazonaws.ecs.capability.docker-remote-api.1.19"
+    },
+    {
+      "name": "com.amazonaws.ecs.capability.docker-remote-api.1.28"
+    },
+    {
+      "name": "com.amazonaws.ecs.capability.task-iam-role"
+    },
+    {
+      "name": "ecs.capability.execution-role-ecr-pull"
+    },
+    {
+      "name": "com.amazonaws.ecs.capability.docker-remote-api.1.18"
+    },
+    {
+      "name": "ecs.capability.task-eni"
+    },
+    {
+      "name": "com.amazonaws.ecs.capability.docker-remote-api.1.29"
+    }
+  ],
+  "placementConstraints": [],
+  "compatibilities": [
+    "EC2",
+    "FARGATE"
+  ],
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
+  "cpu": "1024",
+  "memory": "3072",
+  "runtimePlatform": {
+    "cpuArchitecture": "X86_64",
+    "operatingSystemFamily": "LINUX"
+  },
+  "registeredAt": "2025-01-29T12:03:55.966Z",
+  "registeredBy": "arn:aws:iam::977098986605:root",
+  "enableFaultInjection": false,
+  "tags": []
+}
+
+
+
+
+
+
+
+
+
+

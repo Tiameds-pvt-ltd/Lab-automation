@@ -7,7 +7,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: create  # 'create' for development; 'update' or 'none' for production
+      ddl-auto: update  # 'create' for development; 'update' or 'none' for production
     show-sql: true  # Optional: Shows SQL queries in logs
     properties:
       hibernate:
