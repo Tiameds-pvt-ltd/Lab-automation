@@ -1,46 +1,107 @@
+server:
+  servlet:
+    context-path: /api/v1
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain,application/javascript,text/css
+  error:
+    whitelabel:
+      enabled: false
+
+logging:
+  level:
+    org.springframework: INFO
+    org.springframework.security: WARN
+    com:
+      fasterxml:
+        jackson: WARN
+
 spring:
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
   datasource:
-    url: jdbc:postgresql://tiamed-test-db.cfsi2w0iou42.ap-south-1.rds.amazonaws.com:5432/tiamedtestdb
-    username: tiamedtestdb
-    password: tiamedtestdb
+    hikari:
+      auto-commit: false
+      data-source-properties:
+        cachePrepStmts: true
+        prepStmtCacheSize: 500
+        prepStmtCacheSqlLimit: 1024
+        useServerPrepStmts: false
+      minimum-idle: 0
+      max-lifetime: 900000
+      maximum-pool-size: 40
+      transaction-isolation: TRANSACTION_READ_COMMITTED
+    url: jdbc:postgresql://${DB_URL}:5432/${DB_NAME}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
-      ddl-auto: create  # 'create' for development; 'update' or 'none' for production
-    show-sql: true  # Optional: Shows SQL queries in logs
+      ddl-auto: update
+    open-in-view: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-        default_batch_fetch_size: 10  # Batch size for collection loading
+        connection:
+          provider_disables_autocommit: true
+        jdbc:
+          batch_size: 15
+          time_zone: UTC
+        order_inserts: true
+        order_updates: true
+        query:
+          fail_on_pagination_over_collection_fetch: true
+          in_clause_parameter_padding: true
+          plan_cache_max_size: 4096
+        default_batch_fetch_size: 10
+    show-sql: false
 
-
-  servlet:
-    multipart:
-      max-file-size: 10MB  # Maximum size for a single file
-      max-request-size: 10MB  # Maximum total request size, should be >= max-file-size
-    context-path: /api/v1  # Combined the `context-path` here
-
-  jwt:
-    secret: "TaK+HaV^uvCHEFsEVfypW#7g9^k*Z8$V"
-
-  server:
-    port: 8080  # Port on which the application runs
+  mail:
+    host: ${SPRING_MAIL_HOST:smtp.gmail.com}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME}
+    password: ${SPRING_MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: ${SPRING_MAIL_SMTP_AUTH:true}
+          starttls:
+            enable: ${SPRING_MAIL_SMTP_STARTTLS_ENABLE:true}
 
 springdoc:
   api-docs:
     path: /v3/api-docs
   swagger-ui:
-    path: /doc  # Swagger UI path
+    path: /doc
 
-logging:
-  level:
-    org.springframework: INFO  # General logging level
-    org.springframework.security: DEBUG  # Detailed logging for Spring Security (optional)
-    com:
-      fasterxml:
-        jackson: DEBUG  # Enable detailed logging for Jackson
+security-scanning:
+  sonarqube:
+    host-url: ${SONAR_HOST_URL}
+    project-key: ${SONAR_PROJECT_KEY}
+    token: ${SONAR_TOKEN}
+  spotbugs:
+    enabled: ${SPOTBUGS_ENABLED:false}
+    report-path: ${SPOTBUGS_REPORT_PATH:build/reports/spotbugs/spotbugs.xml}
+  dependency-check:
+    enabled: ${OWASP_DC_ENABLED:false}
+    suppression-file: ${OWASP_DC_SUPPRESSION_FILE:./config/dependency-check-suppressions.xml}
+    report-path: ${OWASP_DC_REPORT_PATH:./reports/dependency-check-report.html}
 
-server:
-    servlet:
-        context-path: /api/v1
+
+security:
+  jwt:
+    issuer: ${JWT_ISSUER:tiameds-lab-automation}
+    audience: ${JWT_AUDIENCE:tiameds-clients}
+    access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:PT15M}
+    refresh-token-ttl: ${JWT_REFRESH_TOKEN_TTL:P1D}
+    private-key-location: ${JWT_PRIVATE_KEY_LOCATION}
+    public-key-location: ${JWT_PUBLIC_KEY_LOCATION}
+    access-cookie-name: ${JWT_ACCESS_COOKIE_NAME:accessToken}
+    refresh-cookie-name: ${JWT_REFRESH_COOKIE_NAME:refreshToken}
+    cookie-domain: ${JWT_COOKIE_DOMAIN:.tiameds.ai}
+    cookie-path: ${JWT_COOKIE_PATH:/}
+    cookie-secure: ${JWT_COOKIE_SECURE:true}
+    same-site: ${JWT_COOKIE_SAMESITE:None}
