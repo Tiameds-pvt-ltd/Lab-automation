@@ -94,7 +94,6 @@
           "name": "JWT_REFRESH_TOKEN_TTL",
           "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:lab-prod-secret-dE248F:JWT_REFRESH_TOKEN_TTL::"
         }
-        /* Add other secrets as needed */
       ],
       "logConfiguration": {
         "logDriver": "awslogs",
