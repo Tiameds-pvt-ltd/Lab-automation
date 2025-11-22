@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:postgresql://tiameds-dev-db.cfsi2w0iou42.ap-south-1.rds.amazonaws.com:5432/tiameds-dev-db
+    url: jdbc:postgresql://tiameds-dev-db.cfsi2w0iou42.ap-south-1.rds.amazonaws.com:5432/tiameds_dev_db
     username: tiameds_dev_db
     password: tiameds_dev_db
     driver-class-name: org.postgresql.Driver
