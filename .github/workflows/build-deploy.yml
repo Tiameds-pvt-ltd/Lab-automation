@@ -1,3 +1,165 @@
+#name: build-deploy.yml
+#on:
+#  push:
+#    branches:
+#      - lab_prod
+#  pull_request:
+#    branches:
+#      - lab_prod
+#  workflow_dispatch:
+#
+#jobs:
+#  build-and-deploy:
+#    runs-on: ubuntu-latest
+#
+#    steps:
+#      # Step 1: Checkout code
+#      - name: Checkout code
+#        uses: actions/checkout@v4
+#
+#      # Step 2: Set up JDK 17 for Maven
+#      - name: Set up JDK 17
+#        uses: actions/setup-java@v4
+#        with:
+#          java-version: '17'
+#          distribution: 'temurin'
+#          cache: maven
+#
+#      # Step 3: Build and Package Spring Boot Application
+#      - name: Build Application (Skip Tests)
+#        run: mvn clean package -Pci -Dmaven.test.skip=true
+#        env:
+#          SPRING_PROFILES_ACTIVE: ci
+#          JWT_SECRET: dummy-secret-for-build-only
+#
+#      ##################################################################
+#      #      SECURITY SCANS COMMENTED OUT FOR FASTER DEPLOYMENT       #
+#      ##################################################################
+#
+#      #      # Step 4: Security Scanning (OWASP non-blocking)
+#      #      - name: Run Security Scans
+#      #        continue-on-error: true
+#      #        run: |
+#      #          echo "🔒 Starting security scanning..."
+#      #          echo "📦 Running OWASP Dependency-Check..."
+#      #          mkdir -p dependency-check-data
+#      #          mvn org.owasp:dependency-check-maven:10.0.4:check \
+#      #            -DdataDirectory=dependency-check-data \
+#      #            -Dautoupdate=false \
+#      #            -Dnvd.api.disabled=true || echo "⚠️ OWASP scan skipped or completed with issues"
+#      #          echo "🔍 Running SpotBugs..."
+#      #          mvn spotbugs:check || echo "⚠️ SpotBugs issues found"
+#      #          echo "✅ Security scans completed!"
+#
+#      #      # Step 5: SonarQube Analysis
+#      #      - name: SonarQube Analysis
+#      #        if: false
+#      #        continue-on-error: true
+#      #        run: |
+#      #          echo "🔍 Running SonarQube analysis..."
+#      #          mvn sonar:sonar \
+#      #            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
+#      #            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }} \
+#      #            -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
+#      #            -Dsonar.qualitygate.wait=true || echo "⚠️ SonarQube completed with issues"
+#      #          echo "✅ SonarQube analysis completed!"
+#
+#      #      # Step 6: Start Application for ZAP Testing
+#      #      - name: Start Application for ZAP
+#      #        if: false
+#      #        continue-on-error: true
+#      #        run: |
+#      #          echo "🚀 Starting application for ZAP testing..."
+#      #          mvn spring-boot:run -Dspring-boot.run.profiles=ci &
+#      #          APP_PID=$!
+#      #          echo "APP_PID=$APP_PID" >> $GITHUB_ENV
+#      #          echo "⏳ Waiting..."
+#      #          sleep 60
+#      #          echo "✅ Application started!"
+#
+#      #      # Step 7: OWASP ZAP Baseline Scan
+#      #      - name: OWASP ZAP Baseline Scan
+#      #        if: false
+#      #        continue-on-error: true
+#      #        uses: zaproxy/action-baseline@v0.7.0
+#      #        with:
+#      #          target: 'http://localhost:8080/api/v1'
+#      #          rules_file_name: '.zap/rules.tsv'
+#      #          cmd_options: '-a'
+#
+#      #      # Step 8: OWASP ZAP Full Scan
+#      #      - name: OWASP ZAP Full Scan
+#      #        if: false
+#      #        continue-on-error: true
+#      #        uses: zaproxy/action-full-scan@v0.4.0
+#      #        with:
+#      #          target: 'http://localhost:8080/api/v1'
+#      #          rules_file_name: '.zap/rules.tsv'
+#      #          cmd_options: '-a'
+#
+#      #      # Step 9: Stop Application
+#      #      - name: Stop Application
+#      #        if: false
+#      #        continue-on-error: true
+#      #        run: |
+#      #          echo "🛑 Stopping application..."
+#      #          if [ ! -z "$APP_PID" ]; then
+#      #            kill $APP_PID || echo "Application already stopped"
+#      #          fi
+#      #          pkill -f spring-boot:run || echo "Already stopped"
+#      #          echo "✅ Application stopped!"
+#
+#      ##################################################################
+#      #                     DEPLOYMENT STEPS BELOW                    #
+#      ##################################################################
+#
+#      # Step 10: Configure AWS credentials
+#      - name: Configure AWS credentials
+#        uses: aws-actions/configure-aws-credentials@v3
+#        with:
+#          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#          aws-region: ${{ secrets.AWS_REGION }}
+#
+#      # Step 11: Log in to Amazon ECR
+#      - name: Log in to Amazon ECR
+#        id: ecr-login
+#        uses: aws-actions/amazon-ecr-login@v2
+#
+#      # Step 12: Build, Tag, and Push Docker Image to Amazon ECR
+#      - name: Build, Tag, and Push Docker Image to Amazon ECR
+#        env:
+#          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+#          IMAGE_TAG: ${{ github.sha }}
+#          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_PROD }}
+#        run: |
+#          echo "Building Docker image $ECR_REGISTRY/$ECR_REPOSITORY_PROD:$IMAGE_TAG"
+#          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_PROD:$IMAGE_TAG .
+#          docker push $ECR_REGISTRY/$ECR_REPOSITORY_PROD:$IMAGE_TAG
+#
+#      # Step 13: Update ECS Task Definition
+#      - name: Update ECS Task Definition
+#        id: update-task-def
+#        uses: aws-actions/amazon-ecs-render-task-definition@v1
+#        with:
+#          task-definition: deploy/tiameds-prod-task.json
+#          container-name: tiameds-prod-container
+#          image: ${{ steps.ecr-login.outputs.registry }}/${{ secrets.ECR_REPOSITORY_PROD }}:${{ github.sha }}
+#
+#      # Step 14: Deploy to ECS
+#      - name: Deploy to ECS
+#        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+#        with:
+#          task-definition: ${{ steps.update-task-def.outputs.task-definition }}
+#          service: ${{ secrets.ECS_SERVICE_PROD }}
+#          cluster: ${{ secrets.ECS_CLUSTER_PROD }}
+#          wait-for-service-stability: true
+
+
+
+
+
+
 name: build-deploy.yml
 on:
   push:
@@ -36,83 +198,6 @@ jobs:
       #      SECURITY SCANS COMMENTED OUT FOR FASTER DEPLOYMENT       #
       ##################################################################
 
-      #      # Step 4: Security Scanning (OWASP non-blocking)
-      #      - name: Run Security Scans
-      #        continue-on-error: true
-      #        run: |
-      #          echo "🔒 Starting security scanning..."
-      #          echo "📦 Running OWASP Dependency-Check..."
-      #          mkdir -p dependency-check-data
-      #          mvn org.owasp:dependency-check-maven:10.0.4:check \
-      #            -DdataDirectory=dependency-check-data \
-      #            -Dautoupdate=false \
-      #            -Dnvd.api.disabled=true || echo "⚠️ OWASP scan skipped or completed with issues"
-      #          echo "🔍 Running SpotBugs..."
-      #          mvn spotbugs:check || echo "⚠️ SpotBugs issues found"
-      #          echo "✅ Security scans completed!"
-
-      #      # Step 5: SonarQube Analysis
-      #      - name: SonarQube Analysis
-      #        if: false
-      #        continue-on-error: true
-      #        run: |
-      #          echo "🔍 Running SonarQube analysis..."
-      #          mvn sonar:sonar \
-      #            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
-      #            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }} \
-      #            -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
-      #            -Dsonar.qualitygate.wait=true || echo "⚠️ SonarQube completed with issues"
-      #          echo "✅ SonarQube analysis completed!"
-
-      #      # Step 6: Start Application for ZAP Testing
-      #      - name: Start Application for ZAP
-      #        if: false
-      #        continue-on-error: true
-      #        run: |
-      #          echo "🚀 Starting application for ZAP testing..."
-      #          mvn spring-boot:run -Dspring-boot.run.profiles=ci &
-      #          APP_PID=$!
-      #          echo "APP_PID=$APP_PID" >> $GITHUB_ENV
-      #          echo "⏳ Waiting..."
-      #          sleep 60
-      #          echo "✅ Application started!"
-
-      #      # Step 7: OWASP ZAP Baseline Scan
-      #      - name: OWASP ZAP Baseline Scan
-      #        if: false
-      #        continue-on-error: true
-      #        uses: zaproxy/action-baseline@v0.7.0
-      #        with:
-      #          target: 'http://localhost:8080/api/v1'
-      #          rules_file_name: '.zap/rules.tsv'
-      #          cmd_options: '-a'
-
-      #      # Step 8: OWASP ZAP Full Scan
-      #      - name: OWASP ZAP Full Scan
-      #        if: false
-      #        continue-on-error: true
-      #        uses: zaproxy/action-full-scan@v0.4.0
-      #        with:
-      #          target: 'http://localhost:8080/api/v1'
-      #          rules_file_name: '.zap/rules.tsv'
-      #          cmd_options: '-a'
-
-      #      # Step 9: Stop Application
-      #      - name: Stop Application
-      #        if: false
-      #        continue-on-error: true
-      #        run: |
-      #          echo "🛑 Stopping application..."
-      #          if [ ! -z "$APP_PID" ]; then
-      #            kill $APP_PID || echo "Application already stopped"
-      #          fi
-      #          pkill -f spring-boot:run || echo "Already stopped"
-      #          echo "✅ Application stopped!"
-
-      ##################################################################
-      #                     DEPLOYMENT STEPS BELOW                    #
-      ##################################################################
-
       # Step 10: Configure AWS credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v3
@@ -130,12 +215,13 @@ jobs:
       - name: Build, Tag, and Push Docker Image to Amazon ECR
         env:
           ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          ECR_REPOSITORY_PROD: ${{ secrets.ECR_REPOSITORY_PROD }}
           IMAGE_TAG: ${{ github.sha }}
-          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_PROD }}
         run: |
-          echo "Building Docker image $ECR_REGISTRY/$ECR_REPOSITORY_PROD:$IMAGE_TAG"
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_PROD:$IMAGE_TAG .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY_PROD:$IMAGE_TAG
+          IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$IMAGE_TAG"
+          echo "Building Docker image $IMAGE"
+          docker build -t $IMAGE .
+          docker push $IMAGE
 
       # Step 13: Update ECS Task Definition
       - name: Update ECS Task Definition
@@ -154,3 +240,4 @@ jobs:
           service: ${{ secrets.ECS_SERVICE_PROD }}
           cluster: ${{ secrets.ECS_CLUSTER_PROD }}
           wait-for-service-stability: true
+
