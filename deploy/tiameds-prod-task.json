@@ -1,29 +1,30 @@
 {
-  "taskDefinitionArn": "arn:aws:ecs:ap-south-1:977098986605:task-definition/tiameds-prod-task:1",
+  "family": "tiameds-prod-task",
+  "taskRoleArn": "arn:aws:iam::977098986605:role/ecsTaskExecutionRole",
+  "executionRoleArn": "arn:aws:iam::977098986605:role/ecsTaskExecutionRole",
+  "networkMode": "awsvpc",
   "containerDefinitions": [
     {
       "name": "tiameds-prod-container",
-     "image": "977098986605.dkr.ecr.ap-south-1.amazonaws.com/tiameds-prod-app:latest",
+      "image": "977098986605.dkr.ecr.ap-south-1.amazonaws.com/tiameds-prod-app:latest",
       "cpu": 0,
+      "memory": 3072,
+      "essential": true,
       "portMappings": [
         {
-          "appProtocol": "http",
           "containerPort": 8080,
           "hostPort": 80,
+          "protocol": "tcp",
           "name": "tiameds-prod-container-8080-tcp",
-          "protocol": "tcp"
+          "appProtocol": "http"
         }
       ],
-      "essential": true,
       "environment": [
         {
           "name": "SPRING_PROFILES_ACTIVE",
           "value": "prod"
         }
       ],
-      "environmentFiles": [],
-      "mountPoints": [],
-      "volumesFrom": [],
       "secrets": [
         {
           "name": "DB_URL",
@@ -92,165 +93,25 @@
         {
           "name": "JWT_REFRESH_TOKEN_TTL",
           "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:lab-prod-secret-dE248F:JWT_REFRESH_TOKEN_TTL::"
-        },
-        {
-          "name": "ONBOARDING_TOKEN_EXPIRY_MINUTES",
-          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:lab-prod-secret-dE248F:ONBOARDING_TOKEN_EXPIRY_MINUTES::"
-        },
-        {
-          "name": "ONBOARDING_RATE_MAX_EMAILS_PER_HOUR",
-          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:lab-prod-secret-dE248F:ONBOARDING_RATE_MAX_EMAILS_PER_HOUR::"
-        },
-        {
-          "name": "ONBOARDING_RATE_WINDOW_MINUTES",
-          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:lab-prod-secret-dE248F:ONBOARDING_RATE_WINDOW_MINUTES::"
-        },
-        {
-          "name": "ONBOARDING_FRONTEND_BASE_URL",
-          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:lab-prod-secret-dE248F:ONBOARDING_FRONTEND_BASE_URL::"
-        },
-        {
-          "name": "ONBOARDING_VERIFICATION_URL",
-          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:lab-prod-secret-dE248F:ONBOARDING_VERIFICATION_URL::"
-        },
-        {
-          "name": "ONBOARDING_ONBOARDING_URL",
-          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:lab-prod-secret-dE248F:ONBOARDING_ONBOARDING_URL::"
-        },
-        {
-          "name": "PASSWORD_RESET_TOKEN_EXPIRY_MINUTES",
-          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:lab-prod-secret-dE248F:PASSWORD_RESET_TOKEN_EXPIRY_MINUTES::"
-        },
-        {
-          "name": "PASSWORD_RESET_TOKEN_LENGTH",
-          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:lab-prod-secret-dE248F:PASSWORD_RESET_TOKEN_LENGTH::"
-        },
-        {
-          "name": "PASSWORD_RESET_URL",
-          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:lab-prod-secret-dE248F:PASSWORD_RESET_URL::"
-        },
-        {
-          "name": "PASSWORD_RESET_RATE_LIMIT_EMAIL_MAX",
-          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:lab-prod-secret-dE248F:PASSWORD_RESET_RATE_LIMIT_EMAIL_MAX::"
-        },
-        {
-          "name": "PASSWORD_RESET_RATE_LIMIT_EMAIL_WINDOW",
-          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:lab-prod-secret-dE248F:PASSWORD_RESET_RATE_LIMIT_EMAIL_WINDOW::"
-        },
-        {
-          "name": "PASSWORD_RESET_RATE_LIMIT_IP_MAX",
-          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:lab-prod-secret-dE248F:PASSWORD_RESET_RATE_LIMIT_IP_MAX::"
-        },
-        {
-          "name": "PASSWORD_RESET_RATE_LIMIT_IP_WINDOW",
-          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:lab-prod-secret-dE248F:PASSWORD_RESET_RATE_LIMIT_IP_WINDOW::"
-        },
-        {
-          "name": "JWT_ACCESS_COOKIE_NAME",
-          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:lab-prod-secret-dE248F:JWT_ACCESS_COOKIE_NAME::"
-        },
-        {
-          "name": "JWT_REFRESH_COOKIE_NAME",
-          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:lab-prod-secret-dE248F:JWT_REFRESH_COOKIE_NAME::"
-        },
-        {
-          "name": "JWT_COOKIE_PATH",
-          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:lab-prod-secret-dE248F:JWT_COOKIE_PATH::"
-        },
-        {
-          "name": "JWT_COOKIE_SECURE",
-          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:lab-prod-secret-dE248F:JWT_COOKIE_SECURE::"
-        },
-        {
-          "name": "JWT_COOKIE_SAMESITE",
-          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:lab-prod-secret-dE248F:JWT_COOKIE_SAMESITE::"
-        },
-        {
-          "name": "JWT_SUBJECT_ENCRYPTION_KEY",
-          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:lab-prod-secret-dE248F:JWT_SUBJECT_ENCRYPTION_KEY::"
         }
+        /* Add other secrets as needed */
       ],
-      "ulimits": [],
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
           "awslogs-group": "/ecs/tiameds-prod-task",
-          "mode": "non-blocking",
-          "awslogs-create-group": "true",
-          "max-buffer-size": "25m",
           "awslogs-region": "ap-south-1",
-          "awslogs-stream-prefix": "ecs"
+          "awslogs-stream-prefix": "ecs",
+          "awslogs-create-group": "true"
         }
-      },
-      "systemControls": []
+      }
     }
   ],
-
-  "family": "tiameds-lab-task-defination",
-  "taskRoleArn": "arn:aws:iam::977098986605:role/ecsTaskExecutionRole",
-  "executionRoleArn": "arn:aws:iam::977098986605:role/ecsTaskExecutionRole",
-  "networkMode": "awsvpc",
-  "revision": 1,
-  "volumes": [],
-  "status": "ACTIVE",
-  "requiresAttributes": [
-    {
-      "name": "com.amazonaws.ecs.capability.logging-driver.awslogs"
-    },
-    {
-      "name": "ecs.capability.execution-role-awslogs"
-    },
-    {
-      "name": "com.amazonaws.ecs.capability.ecr-auth"
-    },
-    {
-      "name": "com.amazonaws.ecs.capability.docker-remote-api.1.19"
-    },
-    {
-      "name": "com.amazonaws.ecs.capability.docker-remote-api.1.28"
-    },
-    {
-      "name": "com.amazonaws.ecs.capability.task-iam-role"
-    },
-    {
-      "name": "ecs.capability.execution-role-ecr-pull"
-    },
-    {
-      "name": "com.amazonaws.ecs.capability.docker-remote-api.1.18"
-    },
-    {
-      "name": "ecs.capability.task-eni"
-    },
-    {
-      "name": "com.amazonaws.ecs.capability.docker-remote-api.1.29"
-    }
-  ],
-  "placementConstraints": [],
-  "compatibilities": [
-    "EC2",
-    "FARGATE"
-  ],
-  "requiresCompatibilities": [
-    "FARGATE"
-  ],
+  "requiresCompatibilities": ["FARGATE"],
   "cpu": "1024",
   "memory": "3072",
   "runtimePlatform": {
     "cpuArchitecture": "X86_64",
     "operatingSystemFamily": "LINUX"
-  },
-  "registeredAt": "2025-01-29T12:03:55.966Z",
-  "registeredBy": "arn:aws:iam::977098986605:root",
-  "enableFaultInjection": false,
-  "tags": []
+  }
 }
-
-
-
-
-
-
-
-
-
-
