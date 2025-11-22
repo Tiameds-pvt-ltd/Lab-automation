@@ -237,4 +237,6 @@ jobs:
           service: ${{ secrets.ECS_SERVICE_DEV }}
           cluster: ${{ secrets.ECS_CLUSTER_DEV }}
           container-port: 8080
+
           wait-for-service-stability: true
+
