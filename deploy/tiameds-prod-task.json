@@ -19,6 +19,7 @@
           "appProtocol": "http"
         }
       ],
+
       "environment": [
         {
           "name": "SPRING_PROFILES_ACTIVE",
