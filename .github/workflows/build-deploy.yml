@@ -240,4 +240,5 @@ jobs:
           service: ${{ secrets.ECS_SERVICE_PROD }}
           cluster: ${{ secrets.ECS_CLUSTER_PROD }}
           wait-for-service-stability: true
+          container-port: 8080  # match your containe
 
