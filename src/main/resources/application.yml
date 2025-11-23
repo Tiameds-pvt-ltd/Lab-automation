@@ -1,3 +1,151 @@
+#server:
+#  servlet:
+#    context-path: /api/v1
+#  compression:
+#    enabled: true
+#    mime-types: application/json,application/xml,text/html,text/xml,text/plain,application/javascript,text/css
+#  error:
+#    whitelabel:
+#      enabled: false
+#
+#logging:
+#  level:
+#    org.springframework: INFO
+#    org.springframework.security: WARN  # Changed to WARN for production
+#    com:
+#      fasterxml:
+#        jackson: WARN  # Changed to WARN for production
+#
+#spring:
+#  profiles:
+#    active: default
+#  servlet:
+#    multipart:
+#      max-file-size: 10MB
+#      max-request-size: 10MB
+#
+#  datasource:
+#    hikari:
+#      auto-commit: false
+#      data-source-properties:
+#        cachePrepStmts: true
+#        prepStmtCacheSize: 500
+#        prepStmtCacheSqlLimit: 1024
+#        useServerPrepStmts: false
+#      minimumIdle: 0
+#      maxLifetime: 900000
+#      maximum-pool-size: 40
+#      transaction-isolation: TRANSACTION_READ_COMMITTED
+#    url: jdbc:postgresql://${DB_URL}:5432/${DB_NAME}
+#    username: ${DB_USERNAME}
+#    password: ${DB_PASSWORD}
+#    driver-class-name: org.postgresql.Driver
+#
+#
+#  jpa:
+#    hibernate:
+#      ddl-auto: update
+#    open-in-view: false
+#    properties:
+#      hibernate:
+#        connection:
+#          provider_disables_autocommit: true
+#        jdbc:
+#          batch_size: 15
+#          time_zone: UTC
+#        order_inserts: true
+#        order_updates: true
+#        query:
+#          fail_on_pagination_over_collection_fetch: true
+#          in_clause_parameter_padding: true
+#          plan_cache_max_size: 4096
+#        default_batch_fetch_size: 10
+#    show-sql: false
+#
+#  mail:
+#    host: ${SPRING_MAIL_HOST:smtp.gmail.com}
+#    port: ${SPRING_MAIL_PORT:587}
+#    username: ${SPRING_MAIL_USERNAME:itadmin@tiameds.ai}
+#    password: ${SPRING_MAIL_PASSWORD:fpkpxeiacxuqncjm}
+#    from: ${SPRING_MAIL_FROM:${SPRING_MAIL_USERNAME:itadmin@tiameds.ai}}
+#    properties:
+#      mail:
+#        smtp:
+#          auth: ${SPRING_MAIL_SMTP_AUTH:true}
+#          starttls:
+#            enable: ${SPRING_MAIL_SMTP_STARTTLS_ENABLE:true}
+#
+## Onboarding Configuration
+#onboarding:
+#  token:
+#    expiry-minutes: ${ONBOARDING_TOKEN_EXPIRY_MINUTES:15}  # Token expiration time in minutes
+#  rate-limit:
+#    max-emails-per-hour: ${ONBOARDING_RATE_MAX_EMAILS_PER_HOUR:3}  # Maximum verification emails per hour per email address
+#    window-minutes: ${ONBOARDING_RATE_WINDOW_MINUTES:60}  # Rate limit window in minutes
+#  frontend:
+#    base-url: ${ONBOARDING_FRONTEND_BASE_URL:https://lab-prod.tiameds.ai}  # Frontend base URL
+#    verification-url: ${ONBOARDING_VERIFICATION_URL:https://lab-prod.tiameds.ai/request}  # Email verification endpoint URL
+#    onboarding-url: ${ONBOARDING_ONBOARDING_URL:https://lab-prod.tiameds.ai/onboarding}  # Onboarding form URL
+#
+#springdoc:
+#  api-docs:
+#    path: /v3/api-docs
+#  swagger-ui:
+#    path: /doc  # Consider restricting Swagger UI in production
+#
+## Rate limiting configuration (user-based only)
+#rate:
+#  limit:
+#    login:
+#      attempts: 5  # Max login attempts per user
+#      window: 10   # Time window in minutes (user is blocked for this duration if limit exceeded)
+#
+## Security configuration
+#security:
+#  jwt:
+#    issuer: ${JWT_ISSUER:tiameds-lab-automation}
+#    audience: ${JWT_AUDIENCE:tiameds-clients}
+#    access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:PT15M}
+#    refresh-token-ttl: ${JWT_REFRESH_TOKEN_TTL:P1D}
+#    private-key-location: ${JWT_PRIVATE_KEY_LOCATION}
+#    public-key-location: ${JWT_PUBLIC_KEY_LOCATION}
+#    access-cookie-name: ${JWT_ACCESS_COOKIE_NAME:accessToken}
+#    refresh-cookie-name: ${JWT_REFRESH_COOKIE_NAME:refreshToken}
+#    cookie-domain: ${JWT_COOKIE_DOMAIN:.tiameds.ai}
+#    cookie-path: ${JWT_COOKIE_PATH:/}
+#    cookie-secure: ${JWT_COOKIE_SECURE:true}
+#    same-site: ${JWT_COOKIE_SAMESITE:None}
+#    subject-encryption-key: ${JWT_SUBJECT_ENCRYPTION_KEY:MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=}
+#  ip:
+#    whitelist:
+#      enabled: false  # Set to true to enable IP whitelisting
+#      ips: ""  # Comma-separated list of allowed IPs (e.g., "192.168.1.1,10.0.0.1")
+#
+#
+## Password reset configuration
+## Database-backed rate limiting (shared across all instances)
+#password:
+#  reset:
+#    token:
+#      expiry:
+#        minutes: ${PASSWORD_RESET_TOKEN_EXPIRY_MINUTES:15}  # Default 15 minutes, optional 30
+#      length: ${PASSWORD_RESET_TOKEN_LENGTH:32}  # Token length in bytes (32+ recommended)
+#    url: ${PASSWORD_RESET_URL:https://lab-prod.tiameds.ai/reset-password}  # Frontend reset password URL
+#    rate:
+#      limit:
+#        email:
+#          max: ${PASSWORD_RESET_RATE_LIMIT_EMAIL_MAX:3}  # Max requests per email per window
+#          window:
+#            minutes: ${PASSWORD_RESET_RATE_LIMIT_EMAIL_WINDOW:1}  # Time window in minutes
+#        ip:
+#          max: ${PASSWORD_RESET_RATE_LIMIT_IP_MAX:3}  # Max requests per IP per window
+#          window:
+#            minutes: ${PASSWORD_RESET_RATE_LIMIT_IP_WINDOW:1}  # Time window in minutes
+#
+
+
+
+
 server:
   servlet:
     context-path: /api/v1
@@ -67,7 +215,6 @@ spring:
     port: ${SPRING_MAIL_PORT:587}
     username: ${SPRING_MAIL_USERNAME:itadmin@tiameds.ai}
     password: ${SPRING_MAIL_PASSWORD:fpkpxeiacxuqncjm}
-    from: ${SPRING_MAIL_FROM:${SPRING_MAIL_USERNAME:itadmin@tiameds.ai}}
     properties:
       mail:
         smtp:
@@ -83,9 +230,9 @@ onboarding:
     max-emails-per-hour: ${ONBOARDING_RATE_MAX_EMAILS_PER_HOUR:3}  # Maximum verification emails per hour per email address
     window-minutes: ${ONBOARDING_RATE_WINDOW_MINUTES:60}  # Rate limit window in minutes
   frontend:
-    base-url: ${ONBOARDING_FRONTEND_BASE_URL:https://lab-test-env.tiameds.ai}  # Frontend base URL
-    verification-url: ${ONBOARDING_VERIFICATION_URL:https://lab-test-env.tiameds.ai/request}  # Email verification endpoint URL
-    onboarding-url: ${ONBOARDING_ONBOARDING_URL:https://lab-test-env.tiameds.ai/onboarding}  # Onboarding form URL
+    base-url: ${ONBOARDING_FRONTEND_BASE_URL:https://lab-prod.tiameds.ai}  # Frontend base URL
+    verification-url: ${ONBOARDING_VERIFICATION_URL:https://lab-prod.tiameds.ai/request}  # Email verification endpoint URL
+    onboarding-url: ${ONBOARDING_ONBOARDING_URL:https://lab-prod.tiameds.ai/onboarding}  # Onboarding form URL
 
 springdoc:
   api-docs:
@@ -130,7 +277,7 @@ password:
       expiry:
         minutes: ${PASSWORD_RESET_TOKEN_EXPIRY_MINUTES:15}  # Default 15 minutes, optional 30
       length: ${PASSWORD_RESET_TOKEN_LENGTH:32}  # Token length in bytes (32+ recommended)
-    url: ${PASSWORD_RESET_URL:https://lab-test-env.tiameds.ai/reset-password}  # Frontend reset password URL
+    url: ${PASSWORD_RESET_URL:https://lab-prod.tiameds.ai/reset-password}  # Frontend reset password URL
     rate:
       limit:
         email:
@@ -141,4 +288,3 @@ password:
           max: ${PASSWORD_RESET_RATE_LIMIT_IP_MAX:3}  # Max requests per IP per window
           window:
             minutes: ${PASSWORD_RESET_RATE_LIMIT_IP_WINDOW:1}  # Time window in minutes
-
