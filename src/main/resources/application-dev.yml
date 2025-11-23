@@ -24,7 +24,6 @@ spring:
     port: ${SPRING_MAIL_PORT:587}
     username: ${SPRING_MAIL_USERNAME:itadmin@tiameds.ai}
     password: ${SPRING_MAIL_PASSWORD:fpkpxeiacxuqncjm}
-    from: ${SPRING_MAIL_FROM:${SPRING_MAIL_USERNAME:itadmin@tiameds.ai}}
     properties:
       mail:
         smtp:
