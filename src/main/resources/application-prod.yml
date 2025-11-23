@@ -100,9 +100,9 @@ onboarding:
     max-emails-per-hour: ${ONBOARDING_RATE_MAX_EMAILS_PER_HOUR:3}  # Maximum verification emails per hour per email address
     window-minutes: ${ONBOARDING_RATE_WINDOW_MINUTES:60}  # Rate limit window in minutes
   frontend:
-    base-url: ${ONBOARDING_FRONTEND_BASE_URL:https://lab-prod.tiameds.ai/}  # Frontend base URL
-    verification-url: ${ONBOARDING_VERIFICATION_URL:https://lab-prod.tiameds.ai//request}  # Email verification endpoint URL
-    onboarding-url: ${ONBOARDING_ONBOARDING_URL:https://lab-prod.tiameds.ai//onboarding}  # Onboarding form URL
+    base-url: ${ONBOARDING_FRONTEND_BASE_URL:https://lab-prod.tiameds.ai}  # Frontend base URL
+    verification-url: ${ONBOARDING_VERIFICATION_URL:https://lab-prod.tiameds.ai/request}  # Email verification endpoint URL
+    onboarding-url: ${ONBOARDING_ONBOARDING_URL:https://lab-prod.tiameds.ai/onboarding}  # Onboarding form URL
 
 # Rate limiting configuration (user-based only)
 rate:
