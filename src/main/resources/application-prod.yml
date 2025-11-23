@@ -101,7 +101,7 @@ onboarding:
     window-minutes: ${ONBOARDING_RATE_WINDOW_MINUTES:60}  # Rate limit window in minutes
   frontend:
     base-url: ${ONBOARDING_FRONTEND_BASE_URL:https://lab-prod.tiameds.ai}  # Frontend base URL
-    verification-url: ${ONBOARDING_VERIFICATION_URL:https://lab-prod.tiameds.ai/request}  # Email verification endpoint URL
+    verification-url: ${ONBOARDING_VERIFICATION_URL:https://lab-prod.tiameds.ai/verify-email}  # Email verification endpoint URL
     onboarding-url: ${ONBOARDING_ONBOARDING_URL:https://lab-prod.tiameds.ai/onboarding}  # Onboarding form URL
 
 # Rate limiting configuration (user-based only)
@@ -140,7 +140,7 @@ password:
       expiry:
         minutes: ${PASSWORD_RESET_TOKEN_EXPIRY_MINUTES:15}  # Default 15 minutes, optional 30
       length: ${PASSWORD_RESET_TOKEN_LENGTH:32}  # Token length in bytes (32+ recommended)
-    url: ${PASSWORD_RESET_URL:https://lab-prod.tiameds.ai//reset-password}  # Frontend reset password URL
+    url: ${PASSWORD_RESET_URL:https://lab-prod.tiameds.ai/reset-password}  # Frontend reset password URL
     rate:
       limit:
         email:
