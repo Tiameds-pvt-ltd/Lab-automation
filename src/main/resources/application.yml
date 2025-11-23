@@ -166,7 +166,7 @@ logging:
 
 spring:
   profiles:
-    active: default
+    active: prod
   servlet:
     multipart:
       max-file-size: 10MB
