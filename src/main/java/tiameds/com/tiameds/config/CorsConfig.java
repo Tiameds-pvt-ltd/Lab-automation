@@ -18,7 +18,6 @@ public class CorsConfig {
         configuration.setAllowedOrigins(List.of(
                 "https://lab-prod.tiameds.ai/"
         ));
-
         // Allowed methods
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
 
