@@ -16,8 +16,7 @@ public class CorsConfig {
 
         // Allow these domains
         configuration.setAllowedOrigins(List.of(
-                "https://lab-test-env.tiameds.ai",
-                "http://localhost:3000"
+                "https://lab-prod.tiameds.ai/"
         ));
 
         // Allowed methods
