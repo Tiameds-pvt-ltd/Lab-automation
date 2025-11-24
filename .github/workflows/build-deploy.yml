@@ -232,6 +232,7 @@ jobs:
           container-name: tiameds-prod-container
           image: ${{ steps.ecr-login.outputs.registry }}/${{ secrets.ECR_REPOSITORY_PROD }}:${{ github.sha }}
 
+
       # Step 14: Deploy to ECS
       - name: Deploy to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
