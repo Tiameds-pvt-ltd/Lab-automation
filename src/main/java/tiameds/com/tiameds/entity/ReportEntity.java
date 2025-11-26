@@ -93,5 +93,17 @@ public class ReportEntity {
 
     @Column(name = "report_code", unique = true)
     private String reportCode;
+
+    public String getNormalRange() {
+        return this.referenceRange;
+    }
+
+    public String getResultValue() {
+        return this.enteredValue;
+    }
+
+    public String getAgeRange() {
+        return this.referenceAgeRange;
+    }
 }
 

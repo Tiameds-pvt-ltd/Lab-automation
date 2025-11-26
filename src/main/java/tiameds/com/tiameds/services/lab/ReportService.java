@@ -85,6 +85,7 @@ public class ReportService {
         if (reportEntities.isEmpty()) {
             return ApiResponseHelper.errorResponse("Report not found", HttpStatus.NOT_FOUND);
         }
+        reportEntities.forEach(report -> report.setTestRows(buildTestRows(report)));
         return ApiResponseHelper.successResponse("Report fetched successfully", reportEntities);
     }
 
@@ -253,6 +254,22 @@ public class ReportService {
         return ApiResponseHelper.successResponse("Reports created successfully", responsePayload);
     }
 
+
+    public List<TestRow> buildTestRows(ReportEntity report) {
+        if (report.getTestRows() != null && !report.getTestRows().isEmpty()) {
+            return report.getTestRows();
+        }
+
+        List<TestRow> list = new ArrayList<>();
+        TestRow row = new TestRow();
+        row.setTestParameter(report.getReferenceDescription());
+        row.setNormalRange(report.getNormalRange());
+        row.setEnteredValue(report.getResultValue());
+        row.setUnit(report.getUnit());
+        row.setReferenceAgeRange(report.getAgeRange());
+        list.add(row);
+        return list;
+    }
 
 }
 
