@@ -8,6 +8,7 @@ import tiameds.com.tiameds.dto.lab.ReportDto;
 import tiameds.com.tiameds.dto.lab.TestResultDto;
 import tiameds.com.tiameds.entity.EntityType;
 import tiameds.com.tiameds.entity.ReportEntity;
+import tiameds.com.tiameds.entity.TestRow;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.entity.VisitEntity;
 import tiameds.com.tiameds.entity.VisitTestResult;
@@ -162,8 +163,6 @@ public class ReportService {
 
     public ResponseEntity<?> createReports(List<ReportDto> reportDtoList, Long labId, User user, TestResultDto testResultDto) {
 
-        List<ReportEntity> reportEntities = new ArrayList<>();
-
         // Validate testResultDto
         if (testResultDto == null || testResultDto.getTestId() == null || testResultDto.getIsFilled() == null) {
             return ApiResponseHelper.errorResponse("Test result cannot be null or missing required fields", HttpStatus.BAD_REQUEST);
@@ -198,48 +197,57 @@ public class ReportService {
             return ApiResponseHelper.errorResponse("Visit Test Result not found for the given visit and test ID", HttpStatus.NOT_FOUND);
         }
 
-        // Save report entities
-        for (ReportDto reportDto : reportDtoList) {
-            Optional<VisitEntity> optionalVisit = visitRepository.findById(reportDto.getVisitId());
-            if (optionalVisit.isEmpty()) {
-                return ApiResponseHelper.errorResponse("Visit not found", HttpStatus.NOT_FOUND);
-            }
+        ReportDto firstReport = reportDtoList.get(0);
 
-            VisitEntity visit = optionalVisit.get();
-            visit.setVisitStatus("Completed");
-            visitRepository.save(visit);
-
-            ReportEntity reportEntity = new ReportEntity();
-            
-            // Generate unique report code using sequence generator
-            String reportCode = sequenceGeneratorService.generateCode(labId, EntityType.REPORT);
-            reportEntity.setReportCode(reportCode);
-            
-            reportEntity.setVisitId(reportDto.getVisitId());
-            reportEntity.setTestName(reportDto.getTestName());
-            reportEntity.setTestCategory(reportDto.getTestCategory());
-            reportEntity.setPatientName(reportDto.getPatientName());
-            reportEntity.setLabId(labId);
-            reportEntity.setReferenceDescription(reportDto.getReferenceDescription());
-            reportEntity.setReferenceRange(reportDto.getReferenceRange());
-            reportEntity.setReferenceAgeRange(reportDto.getReferenceAgeRange());
-            reportEntity.setEnteredValue(reportDto.getEnteredValue());
-            reportEntity.setDescription(reportDto.getDescription());
-            reportEntity.setRemarks(reportDto.getRemarks());
-            reportEntity.setComments(reportDto.getComments());
-            reportEntity.setUnit(reportDto.getUnit());
-            // JSON fields
-            reportEntity.setReportJson(reportDto.getReportJson());
-            reportEntity.setReferenceRanges(reportDto.getReferenceRanges());
-            reportEntity.setCreatedBy(user.getId());
-
-            reportEntities.add(reportEntity);
+        Optional<VisitEntity> optionalVisit = visitRepository.findById(firstReport.getVisitId());
+        if (optionalVisit.isEmpty()) {
+            return ApiResponseHelper.errorResponse("Visit not found", HttpStatus.NOT_FOUND);
         }
 
-        List<ReportEntity> savedEntities = reportRepository.saveAll(reportEntities);
+        VisitEntity visit = optionalVisit.get();
+        visit.setVisitStatus("Completed");
+        visitRepository.save(visit);
+
+        ReportEntity reportEntity = new ReportEntity();
+
+        // Generate unique report code using sequence generator
+        String reportCode = sequenceGeneratorService.generateCode(labId, EntityType.REPORT);
+        reportEntity.setReportCode(reportCode);
+
+        reportEntity.setVisitId(firstReport.getVisitId());
+        reportEntity.setTestName(firstReport.getTestName());
+        reportEntity.setTestCategory(firstReport.getTestCategory());
+        reportEntity.setPatientName(firstReport.getPatientName());
+        reportEntity.setLabId(labId);
+        reportEntity.setReferenceDescription(firstReport.getReferenceDescription());
+        reportEntity.setReferenceRange(firstReport.getReferenceRange());
+        reportEntity.setReferenceAgeRange(firstReport.getReferenceAgeRange());
+        reportEntity.setEnteredValue(firstReport.getEnteredValue());
+        reportEntity.setDescription(firstReport.getDescription());
+        reportEntity.setRemarks(firstReport.getRemarks());
+        reportEntity.setComments(firstReport.getComments());
+        reportEntity.setUnit(firstReport.getUnit());
+        reportEntity.setReportJson(firstReport.getReportJson());
+        reportEntity.setReferenceRanges(firstReport.getReferenceRanges());
+        reportEntity.setCreatedBy(user.getId());
+
+        List<TestRow> testRows = new ArrayList<>();
+        for (ReportDto reportDto : reportDtoList) {
+            TestRow testRow = new TestRow(
+                    reportDto.getReferenceDescription(),
+                    reportDto.getReferenceRange(),
+                    reportDto.getEnteredValue(),
+                    reportDto.getUnit(),
+                    reportDto.getReferenceAgeRange()
+            );
+            testRows.add(testRow);
+        }
+        reportEntity.setTestRows(testRows);
+
+        ReportEntity savedEntity = reportRepository.save(reportEntity);
 
         Map<String, Object> responsePayload = new HashMap<>();
-        responsePayload.put("reports", savedEntities);
+        responsePayload.put("report", savedEntity);
         responsePayload.put("testResult", testResultDto);
 
         return ApiResponseHelper.successResponse("Reports created successfully", responsePayload);
