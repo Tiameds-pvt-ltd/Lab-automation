@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import tiameds.com.tiameds.dto.lab.ReportDto;
 import tiameds.com.tiameds.dto.lab.TestResultDto;
 import tiameds.com.tiameds.entity.EntityType;
+import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.entity.ReportEntity;
 import tiameds.com.tiameds.entity.TestRow;
 import tiameds.com.tiameds.entity.User;
@@ -15,6 +16,7 @@ import tiameds.com.tiameds.entity.VisitTestResult;
 import tiameds.com.tiameds.repository.*;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @Service
@@ -85,7 +87,33 @@ public class ReportService {
         if (reportEntities.isEmpty()) {
             return ApiResponseHelper.errorResponse("Report not found", HttpStatus.NOT_FOUND);
         }
-        reportEntities.forEach(report -> report.setTestRows(buildTestRows(report)));
+
+        String patientCode = null;
+        String visitCode = null;
+        Optional<VisitEntity> visitOptional = visitRepository.findById(visitId);
+        if (visitOptional.isPresent()) {
+            VisitEntity visit = visitOptional.get();
+            visitCode = visit.getVisitCode();
+            if (visit.getPatient() != null) {
+                patientCode = visit.getPatient().getPatientCode();
+            }
+        }
+
+        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+
+        final String finalPatientCode = patientCode;
+        final String finalVisitCode = visitCode;
+        reportEntities.forEach(report -> {
+            report.setTestRows(buildTestRows(report));
+            report.setPatientCode(finalPatientCode);
+            report.setVisitCode(finalVisitCode);
+            if (report.getCreatedAt() != null) {
+                report.setCreatedDateTime(report.getCreatedAt().format(dateTimeFormatter));
+            } else {
+                report.setCreatedDateTime(null);
+            }
+        });
+
         return ApiResponseHelper.successResponse("Report fetched successfully", reportEntities);
     }
 
@@ -260,15 +288,15 @@ public class ReportService {
             return report.getTestRows();
         }
 
-        List<TestRow> list = new ArrayList<>();
-        TestRow row = new TestRow();
-        row.setTestParameter(report.getReferenceDescription());
-        row.setNormalRange(report.getNormalRange());
-        row.setEnteredValue(report.getResultValue());
-        row.setUnit(report.getUnit());
-        row.setReferenceAgeRange(report.getAgeRange());
-        list.add(row);
-        return list;
+        List<TestRow> rows = new ArrayList<>();
+        rows.add(new TestRow(
+                report.getReferenceDescription(),
+                report.getReferenceRange(),
+                report.getEnteredValue(),
+                report.getUnit(),
+                report.getReferenceAgeRange()
+        ));
+        return rows;
     }
 
 }

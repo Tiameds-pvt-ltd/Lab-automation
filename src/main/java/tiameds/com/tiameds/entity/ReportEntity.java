@@ -94,16 +94,13 @@ public class ReportEntity {
     @Column(name = "report_code", unique = true)
     private String reportCode;
 
-    public String getNormalRange() {
-        return this.referenceRange;
-    }
+    @Transient
+    private String patientCode;
 
-    public String getResultValue() {
-        return this.enteredValue;
-    }
+    @Transient
+    private String visitCode;
 
-    public String getAgeRange() {
-        return this.referenceAgeRange;
-    }
+    @Transient
+    private String createdDateTime;
 }
 
