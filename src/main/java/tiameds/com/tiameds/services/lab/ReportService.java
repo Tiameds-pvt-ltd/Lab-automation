@@ -283,24 +283,48 @@ public class ReportService {
     }
 
 
+//    public List<TestRow> buildTestRows(ReportEntity report) {
+//        List<?> storedRows = report.getTestRows();
+//        if (storedRows != null && !storedRows.isEmpty()) {
+//            List<TestRow> normalizedRows = new ArrayList<>();
+//            for (Object rowObj : storedRows) {
+//                if (rowObj instanceof TestRow row) {
+//                    normalizedRows.add(fillMissingRowValues(row, report));
+//                } else if (rowObj instanceof Map<?, ?> rowMap) {
+//                    normalizedRows.add(convertLegacyRow(rowMap, report));
+//                }
+//            }
+//            if (!normalizedRows.isEmpty()) {
+//                return normalizedRows;
+//            }
+//        }
+//
+//        return List.of(buildFallbackRow(report));
+//    }
+
     public List<TestRow> buildTestRows(ReportEntity report) {
+
         List<?> storedRows = report.getTestRows();
-        if (storedRows != null && !storedRows.isEmpty()) {
-            List<TestRow> normalizedRows = new ArrayList<>();
-            for (Object rowObj : storedRows) {
-                if (rowObj instanceof TestRow row) {
-                    normalizedRows.add(fillMissingRowValues(row, report));
-                } else if (rowObj instanceof Map<?, ?> rowMap) {
-                    normalizedRows.add(convertLegacyRow(rowMap, report));
-                }
-            }
-            if (!normalizedRows.isEmpty()) {
-                return normalizedRows;
+
+        // If no testRows present (older data), return null
+        if (storedRows == null || storedRows.isEmpty()) {
+            return null;   // ← THIS FIXES YOUR ISSUE
+        }
+
+        // If testRows exist, normalize them
+        List<TestRow> normalizedRows = new ArrayList<>();
+
+        for (Object rowObj : storedRows) {
+            if (rowObj instanceof TestRow row) {
+                normalizedRows.add(fillMissingRowValues(row, report));
+            } else if (rowObj instanceof Map<?, ?> rowMap) {
+                normalizedRows.add(convertLegacyRow(rowMap, report));
             }
         }
 
-        return List.of(buildFallbackRow(report));
+        return normalizedRows.isEmpty() ? null : normalizedRows;
     }
+
 
     private TestRow convertLegacyRow(Map<?, ?> rowMap, ReportEntity report) {
         String parameter = stringValue(rowMap, "testParameter",
