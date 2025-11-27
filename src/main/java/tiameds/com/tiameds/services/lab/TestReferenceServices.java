@@ -265,19 +265,8 @@ public class TestReferenceServices {
                             .replaceAll("\\s*\\(", " (")
                             .replaceAll("\\s*\\)", ") ");
                     
-                    // Try exact match first (case-insensitive)
-                    boolean exactMatch = normalizedDbValue.equalsIgnoreCase(normalizedSearchTerm);
-                    
-                    // If no exact match, try contains match (case-insensitive)
-                    // Only check if DB value contains the search term (not reverse, to avoid false positives)
-                    boolean containsMatch = false;
-                    if (!exactMatch && normalizedSearchTerm.length() >= 5) {
-                        // Check if DB value contains the search term
-                        containsMatch = normalizedDbValue.toLowerCase().contains(normalizedSearchTerm.toLowerCase());
-                    }
-                    
-                    boolean matches = exactMatch || containsMatch;
-                    
+                    // Exact match only (case-insensitive) after normalization
+                    boolean matches = normalizedDbValue.equalsIgnoreCase(normalizedSearchTerm);
                     if (matches) {
                         LOGGER.info("Match found: DB='" + testReferenceEntity.getTestName() + "' normalized='" + normalizedDbValue + "' search='" + normalizedSearchTerm + "'");
                     }
