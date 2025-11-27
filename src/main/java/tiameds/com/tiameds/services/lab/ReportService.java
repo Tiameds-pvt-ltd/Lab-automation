@@ -287,16 +287,7 @@ public class ReportService {
         if (report.getTestRows() != null && !report.getTestRows().isEmpty()) {
             return report.getTestRows();
         }
-
-        List<TestRow> rows = new ArrayList<>();
-        rows.add(new TestRow(
-                report.getReferenceDescription(),
-                report.getReferenceRange(),
-                report.getEnteredValue(),
-                report.getUnit(),
-                report.getReferenceAgeRange()
-        ));
-        return rows;
+        return Collections.emptyList();
     }
 
 }
