@@ -1,107 +1,107 @@
-server:
-  servlet:
-    context-path: /api/v1
-  compression:
-    enabled: true
-    mime-types: application/json,application/xml,text/html,text/xml,text/plain,application/javascript,text/css
-  error:
-    whitelabel:
-      enabled: false
-
-logging:
-  level:
-    org.springframework: INFO
-    org.springframework.security: WARN
-    com:
-      fasterxml:
-        jackson: WARN
-
-spring:
-  servlet:
-    multipart:
-      max-file-size: 10MB
-      max-request-size: 10MB
-
-  datasource:
-    hikari:
-      auto-commit: false
-      data-source-properties:
-        cachePrepStmts: true
-        prepStmtCacheSize: 500
-        prepStmtCacheSqlLimit: 1024
-        useServerPrepStmts: false
-      minimum-idle: 0
-      max-lifetime: 900000
-      maximum-pool-size: 40
-      transaction-isolation: TRANSACTION_READ_COMMITTED
-    url: jdbc:postgresql://${DB_URL}:5432/${DB_NAME}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
-    driver-class-name: org.postgresql.Driver
-
-  jpa:
-    hibernate:
-      ddl-auto: update
-    open-in-view: false
-    properties:
-      hibernate:
-        connection:
-          provider_disables_autocommit: true
-        jdbc:
-          batch_size: 15
-          time_zone: UTC
-        order_inserts: true
-        order_updates: true
-        query:
-          fail_on_pagination_over_collection_fetch: true
-          in_clause_parameter_padding: true
-          plan_cache_max_size: 4096
-        default_batch_fetch_size: 10
-    show-sql: false
-
-  mail:
-    host: ${SPRING_MAIL_HOST:smtp.gmail.com}
-    port: ${SPRING_MAIL_PORT:587}
-    username: ${SPRING_MAIL_USERNAME}
-    password: ${SPRING_MAIL_PASSWORD}
-    properties:
-      mail:
-        smtp:
-          auth: ${SPRING_MAIL_SMTP_AUTH:true}
-          starttls:
-            enable: ${SPRING_MAIL_SMTP_STARTTLS_ENABLE:true}
-
-springdoc:
-  api-docs:
-    path: /v3/api-docs
-  swagger-ui:
-    path: /doc
-
-security-scanning:
-  sonarqube:
-    host-url: ${SONAR_HOST_URL}
-    project-key: ${SONAR_PROJECT_KEY}
-    token: ${SONAR_TOKEN}
-  spotbugs:
-    enabled: ${SPOTBUGS_ENABLED:false}
-    report-path: ${SPOTBUGS_REPORT_PATH:build/reports/spotbugs/spotbugs.xml}
-  dependency-check:
-    enabled: ${OWASP_DC_ENABLED:false}
-    suppression-file: ${OWASP_DC_SUPPRESSION_FILE:./config/dependency-check-suppressions.xml}
-    report-path: ${OWASP_DC_REPORT_PATH:./reports/dependency-check-report.html}
-
-
-security:
-  jwt:
-    issuer: ${JWT_ISSUER:tiameds-lab-automation}
-    audience: ${JWT_AUDIENCE:tiameds-clients}
-    access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:PT15M}
-    refresh-token-ttl: ${JWT_REFRESH_TOKEN_TTL:P1D}
-    private-key-location: ${JWT_PRIVATE_KEY_LOCATION}
-    public-key-location: ${JWT_PUBLIC_KEY_LOCATION}
-    access-cookie-name: ${JWT_ACCESS_COOKIE_NAME:accessToken}
-    refresh-cookie-name: ${JWT_REFRESH_COOKIE_NAME:refreshToken}
-    cookie-domain: ${JWT_COOKIE_DOMAIN:.tiameds.ai}
-    cookie-path: ${JWT_COOKIE_PATH:/}
-    cookie-secure: ${JWT_COOKIE_SECURE:true}
-    same-site: ${JWT_COOKIE_SAMESITE:None}
+#server:
+#  servlet:
+#    context-path: /api/v1
+#  compression:
+#    enabled: true
+#    mime-types: application/json,application/xml,text/html,text/xml,text/plain,application/javascript,text/css
+#  error:
+#    whitelabel:
+#      enabled: false
+#
+#logging:
+#  level:
+#    org.springframework: INFO
+#    org.springframework.security: WARN
+#    com:
+#      fasterxml:
+#        jackson: WARN
+#
+#spring:
+#  servlet:
+#    multipart:
+#      max-file-size: 10MB
+#      max-request-size: 10MB
+#
+#  datasource:
+#    hikari:
+#      auto-commit: false
+#      data-source-properties:
+#        cachePrepStmts: true
+#        prepStmtCacheSize: 500
+#        prepStmtCacheSqlLimit: 1024
+#        useServerPrepStmts: false
+#      minimum-idle: 0
+#      max-lifetime: 900000
+#      maximum-pool-size: 40
+#      transaction-isolation: TRANSACTION_READ_COMMITTED
+#    url: jdbc:postgresql://${DB_URL}:5432/${DB_NAME}
+#    username: ${DB_USERNAME}
+#    password: ${DB_PASSWORD}
+#    driver-class-name: org.postgresql.Driver
+#
+#  jpa:
+#    hibernate:
+#      ddl-auto: update
+#    open-in-view: false
+#    properties:
+#      hibernate:
+#        connection:
+#          provider_disables_autocommit: true
+#        jdbc:
+#          batch_size: 15
+#          time_zone: UTC
+#        order_inserts: true
+#        order_updates: true
+#        query:
+#          fail_on_pagination_over_collection_fetch: true
+#          in_clause_parameter_padding: true
+#          plan_cache_max_size: 4096
+#        default_batch_fetch_size: 10
+#    show-sql: false
+#
+#  mail:
+#    host: ${SPRING_MAIL_HOST:smtp.gmail.com}
+#    port: ${SPRING_MAIL_PORT:587}
+#    username: ${SPRING_MAIL_USERNAME}
+#    password: ${SPRING_MAIL_PASSWORD}
+#    properties:
+#      mail:
+#        smtp:
+#          auth: ${SPRING_MAIL_SMTP_AUTH:true}
+#          starttls:
+#            enable: ${SPRING_MAIL_SMTP_STARTTLS_ENABLE:true}
+#
+#springdoc:
+#  api-docs:
+#    path: /v3/api-docs
+#  swagger-ui:
+#    path: /doc
+#
+#security-scanning:
+#  sonarqube:
+#    host-url: ${SONAR_HOST_URL}
+#    project-key: ${SONAR_PROJECT_KEY}
+#    token: ${SONAR_TOKEN}
+#  spotbugs:
+#    enabled: ${SPOTBUGS_ENABLED:false}
+#    report-path: ${SPOTBUGS_REPORT_PATH:build/reports/spotbugs/spotbugs.xml}
+#  dependency-check:
+#    enabled: ${OWASP_DC_ENABLED:false}
+#    suppression-file: ${OWASP_DC_SUPPRESSION_FILE:./config/dependency-check-suppressions.xml}
+#    report-path: ${OWASP_DC_REPORT_PATH:./reports/dependency-check-report.html}
+#
+#
+#security:
+#  jwt:
+#    issuer: ${JWT_ISSUER:tiameds-lab-automation}
+#    audience: ${JWT_AUDIENCE:tiameds-clients}
+#    access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:PT15M}
+#    refresh-token-ttl: ${JWT_REFRESH_TOKEN_TTL:P1D}
+#    private-key-location: ${JWT_PRIVATE_KEY_LOCATION}
+#    public-key-location: ${JWT_PUBLIC_KEY_LOCATION}
+#    access-cookie-name: ${JWT_ACCESS_COOKIE_NAME:accessToken}
+#    refresh-cookie-name: ${JWT_REFRESH_COOKIE_NAME:refreshToken}
+#    cookie-domain: ${JWT_COOKIE_DOMAIN:.tiameds.ai}
+#    cookie-path: ${JWT_COOKIE_PATH:/}
+#    cookie-secure: ${JWT_COOKIE_SECURE:true}
+#    same-site: ${JWT_COOKIE_SAMESITE:None}
