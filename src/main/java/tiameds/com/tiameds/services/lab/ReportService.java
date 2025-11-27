@@ -263,7 +263,7 @@ public class ReportService {
         List<TestRow> testRows = new ArrayList<>();
         for (ReportDto reportDto : reportDtoList) {
             TestRow testRow = new TestRow(
-                    reportDto.getReferenceDescription(),
+                    resolveTestParameter(reportDto),
                     reportDto.getReferenceRange(),
                     reportDto.getEnteredValue(),
                     reportDto.getUnit(),
@@ -284,10 +284,101 @@ public class ReportService {
 
 
     public List<TestRow> buildTestRows(ReportEntity report) {
-        if (report.getTestRows() != null && !report.getTestRows().isEmpty()) {
-            return report.getTestRows();
+        List<?> storedRows = report.getTestRows();
+        if (storedRows != null && !storedRows.isEmpty()) {
+            List<TestRow> normalizedRows = new ArrayList<>();
+            for (Object rowObj : storedRows) {
+                if (rowObj instanceof TestRow row) {
+                    normalizedRows.add(fillMissingRowValues(row, report));
+                } else if (rowObj instanceof Map<?, ?> rowMap) {
+                    normalizedRows.add(convertLegacyRow(rowMap, report));
+                }
+            }
+            if (!normalizedRows.isEmpty()) {
+                return normalizedRows;
+            }
         }
-        return Collections.emptyList();
+
+        return List.of(buildFallbackRow(report));
+    }
+
+    private TestRow convertLegacyRow(Map<?, ?> rowMap, ReportEntity report) {
+        String parameter = stringValue(rowMap, "testParameter",
+                stringValue(rowMap, "referenceDescription", defaultTestParameter(report)));
+        String normalRange = stringValue(rowMap, "normalRange",
+                stringValue(rowMap, "referenceRange", report.getReferenceRange()));
+        String enteredValue = stringValue(rowMap, "enteredValue", report.getEnteredValue());
+        String unit = stringValue(rowMap, "unit", report.getUnit());
+        String ageRange = stringValue(rowMap, "referenceAgeRange", report.getReferenceAgeRange());
+
+        return new TestRow(parameter, normalRange, enteredValue, unit, ageRange);
+    }
+
+    private TestRow fillMissingRowValues(TestRow row, ReportEntity report) {
+        if (row == null) {
+            return buildFallbackRow(report);
+        }
+        if (isBlank(row.getTestParameter())) {
+            row.setTestParameter(defaultTestParameter(report));
+        }
+        if (isBlank(row.getNormalRange())) {
+            row.setNormalRange(report.getReferenceRange());
+        }
+        if (isBlank(row.getEnteredValue())) {
+            row.setEnteredValue(report.getEnteredValue());
+        }
+        if (isBlank(row.getUnit())) {
+            row.setUnit(report.getUnit());
+        }
+        if (isBlank(row.getReferenceAgeRange())) {
+            row.setReferenceAgeRange(report.getReferenceAgeRange());
+        }
+        return row;
+    }
+
+    private TestRow buildFallbackRow(ReportEntity report) {
+        return new TestRow(
+                defaultTestParameter(report),
+                report.getReferenceRange(),
+                report.getEnteredValue(),
+                report.getUnit(),
+                report.getReferenceAgeRange()
+        );
+    }
+
+    private String resolveTestParameter(ReportDto reportDto) {
+        if (reportDto == null) {
+            return null;
+        }
+        if (!isBlank(reportDto.getReportParameter())) {
+            return reportDto.getReportParameter().trim();
+        }
+        if (!isBlank(reportDto.getReferenceDescription())) {
+            return reportDto.getReferenceDescription().trim();
+        }
+        return reportDto.getTestName();
+    }
+
+    private String defaultTestParameter(ReportEntity report) {
+        if (report == null) {
+            return null;
+        }
+        if (!isBlank(report.getReferenceDescription())) {
+            return report.getReferenceDescription();
+        }
+        return report.getTestName();
+    }
+
+    private String stringValue(Map<?, ?> map, String primaryKey, String defaultValue) {
+        Object value = map.get(primaryKey);
+        if (value == null && primaryKey != null) {
+            // attempt secondary lookup already handled by caller
+        }
+        return value instanceof String str && !str.isBlank() ? str : defaultValue;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 
 }
