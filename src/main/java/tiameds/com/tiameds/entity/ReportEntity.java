@@ -87,7 +87,7 @@ public class ReportEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     private String referenceRanges;
 
-    @Column(name = "test_rows", columnDefinition = "jsonb")
+    @Column(name = "test_rows", columnDefinition = "jsonb" ,nullable = true)
     @JdbcTypeCode(SqlTypes.JSON)
     private List<TestRow> testRows;
 
