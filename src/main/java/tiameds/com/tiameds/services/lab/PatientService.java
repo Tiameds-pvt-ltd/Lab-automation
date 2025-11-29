@@ -327,6 +327,7 @@ public class PatientService {
                     PatientList patientList = new PatientList();
                     patientList.setId(patient.getPatientId());
                     patientList.setFirstName(patient.getFirstName());
+                    patientList.setLastName(patient.getLastName());
                     patientList.setPhone(patient.getPhone());
                     patientList.setCity(patient.getCity());
                     patientList.setGender(patient.getGender());

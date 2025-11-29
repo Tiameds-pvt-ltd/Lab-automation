@@ -7,9 +7,6 @@ import lombok.Setter;
 import tiameds.com.tiameds.entity.PatientEntity;
 
 import java.time.LocalDate;
-import java.util.List;
-
-
 @Getter
 @Setter
 @AllArgsConstructor
@@ -17,6 +14,7 @@ import java.util.List;
 public class PatientList{
     private Long id;
     private String firstName;
+    private String lastName;
     private String phone;
     private String city;
     private LocalDate dateOfBirth;
@@ -27,6 +25,7 @@ public class PatientList{
     public PatientList(Long patientId, String firstName, String lastName, String phone, String email, String address, String city, String state, String zip, String bloodGroup, LocalDate dateOfBirth, String gender , String age) {
         this.id = patientId;
         this.firstName = firstName;
+        this.lastName = lastName;
         this.phone = phone;
         this.city = city;
         this.dateOfBirth = dateOfBirth;
