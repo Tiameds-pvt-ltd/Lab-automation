@@ -1,5 +1,6 @@
 package tiameds.com.tiameds.dto.visits;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -21,8 +22,10 @@ import java.util.stream.Collectors;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class VisitDetailsDTO {
     private Long visitId;
+    private String visitCode;
     private LocalDate visitDate;
     private String visitType;
     private String visitStatus;
@@ -43,6 +46,7 @@ public class VisitDetailsDTO {
     private List <VisitTestResultResponseDTO> testResult;
     public VisitDetailsDTO(VisitEntity visitEntity) {
         this.visitId = visitEntity.getVisitId();
+        this.visitCode = visitEntity.getVisitCode();
         this.visitDate = visitEntity.getVisitDate();
         this.visitType = visitEntity.getVisitType();
         this.visitStatus = visitEntity.getVisitStatus();

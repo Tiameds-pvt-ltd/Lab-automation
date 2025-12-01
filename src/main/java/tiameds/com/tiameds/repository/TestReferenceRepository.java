@@ -16,4 +16,6 @@ public interface TestReferenceRepository extends JpaRepository<TestReferenceEnti
     boolean existsByTestReferenceCode(String code);
 
     Optional<TestReferenceEntity> findTopByTestReferenceCodeStartingWithOrderByTestReferenceCodeDesc(String prefix);
+    
+    Optional<TestReferenceEntity> findByTestReferenceCode(String testReferenceCode);
 }

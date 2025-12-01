@@ -1,7 +1,7 @@
 package tiameds.com.tiameds.controller.lab;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.transaction.Transactional;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -10,13 +10,13 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import tiameds.com.tiameds.dto.lab.LabListDTO;
 import tiameds.com.tiameds.dto.lab.LabRequestDTO;
-import tiameds.com.tiameds.dto.lab.LabResponseDTO;
-import tiameds.com.tiameds.dto.lab.UserResponseDTO;
 import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.repository.LabRepository;
 import tiameds.com.tiameds.services.auth.MyUserDetails;
 import tiameds.com.tiameds.services.auth.UserService;
+import tiameds.com.tiameds.dto.lab.LabCreationResponseDTO;
+import tiameds.com.tiameds.services.lab.LabCreationService;
 import tiameds.com.tiameds.services.lab.LabDefaultDataService;
 import tiameds.com.tiameds.services.lab.UserLabService;
 import tiameds.com.tiameds.utils.ApiResponse;
@@ -24,10 +24,12 @@ import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 
-@Transactional
+@Slf4j
 @RestController
 @RequestMapping("/lab/admin")
 @Tag(name = "Lab Admin", description = "Endpoints for Lab Admin where lab admin can manage labs, add members, and handle lab-related operations")
@@ -37,17 +39,20 @@ public class LabController {
     private final LabAccessableFilter labAccessableFilter;
     private final LabDefaultDataService labDefaultDataService;
     private final UserService userService;
+    private final LabCreationService labCreationService;
 
     public LabController(UserLabService userLabService,
                          LabRepository labRepository,
                          LabAccessableFilter labAccessableFilter,
                          LabDefaultDataService labDefaultDataService,
-                         UserService userService) {
+                         UserService userService,
+                         LabCreationService labCreationService) {
         this.userLabService = userLabService;
         this.labRepository = labRepository;
         this.labAccessableFilter = labAccessableFilter;
         this.labDefaultDataService = labDefaultDataService;
         this.userService = userService;
+        this.labCreationService = labCreationService;
     }
 
     // ---------- Get all labs created by the user ----------
@@ -132,77 +137,89 @@ public class LabController {
     }
 
 
-    @Transactional
+
+
+    // ---------- Create a new lab and add the current user as a member ----------
     @PostMapping("/add-lab")
-    public ResponseEntity<?> addLab(
+    public ResponseEntity<Map<String, Object>> addLab(
             @RequestBody LabRequestDTO labRequestDTO) {
 
         Optional<User> currentUserOptional = getAuthenticatedUser();
         if (currentUserOptional.isEmpty()) {
-            ApiResponse<String> response = new ApiResponse<>("error", "User not found", null);
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+            return ApiResponseHelper.successResponseWithDataAndMessage(
+                    "User not found",
+                    HttpStatus.UNAUTHORIZED,
+                    null);
         }
         User currentUser = currentUserOptional.get();
 
-        // Check if the lab already exists
-        if (userLabService.existsLabByName(labRequestDTO.getName())) {
-            ApiResponse<String> response = new ApiResponse<>("error", "Lab already exists", null);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
-        }
-        Lab lab = new Lab();
-        lab.setName(labRequestDTO.getName());
-        lab.setAddress(labRequestDTO.getAddress());
-        lab.setCity(labRequestDTO.getCity());
-        lab.setState(labRequestDTO.getState());
-        lab.setDescription(labRequestDTO.getDescription());
-        lab.setIsActive(true);
-        lab.setCreatedBy(currentUser);
-
-        // Set new fields
-        lab.setLabLogo(labRequestDTO.getLabLogo());
-        lab.setLicenseNumber(labRequestDTO.getLicenseNumber());
-        lab.setLabType(labRequestDTO.getLabType());
-        lab.setLabZip(labRequestDTO.getLabZip());
-        lab.setLabCountry(labRequestDTO.getLabCountry());
-        lab.setLabPhone(labRequestDTO.getLabPhone());
-        lab.setLabEmail(labRequestDTO.getLabEmail());
-        lab.setDirectorName(labRequestDTO.getDirectorName());
-        lab.setDirectorEmail(labRequestDTO.getDirectorEmail());
-        lab.setDirectorPhone(labRequestDTO.getDirectorPhone());
-        lab.setCertificationBody(labRequestDTO.getCertificationBody());
-        lab.setLabCertificate(labRequestDTO.getLabCertificate());
-        lab.setDirectorGovtId(labRequestDTO.getDirectorGovtId());
-        lab.setLabBusinessRegistration(labRequestDTO.getLabBusinessRegistration());
-        lab.setLabLicense(labRequestDTO.getLabLicense());
-        lab.setTaxId(labRequestDTO.getTaxId());
-        lab.setLabAccreditation(labRequestDTO.getLabAccreditation());
-        lab.setDataPrivacyAgreement(labRequestDTO.getDataPrivacyAgreement());
-        Lab savedLab = labRepository.save(lab);
         try {
-            addMemberToLab(savedLab.getId(), currentUser.getId());
+            // Create lab and associate user in a single transaction
+            LabCreationResponseDTO response = labCreationService.createLabWithUserAssociation(labRequestDTO, currentUser);
+            
+            // Safe logging with null checks
+            String username = response != null ? response.getUsername() : "unknown";
+            String labName = response != null ? response.getLabName() : "unknown";
+            log.info("Lab created successfully for user: {} (Lab: {})", username, labName);
+
+            // Safe message extraction with fallback
+            String message = (response != null && response.getMessage() != null) 
+                    ? response.getMessage() 
+                    : "Lab created successfully and user added as a member";
+
+            // Return response immediately - don't wait for default data upload
+            ResponseEntity<Map<String, Object>> successResponse = ApiResponseHelper.successResponseWithDataAndMessage(
+                    message,
+                    HttpStatus.CREATED,
+                    response);
+            
+            // Trigger default data upload asynchronously - never block the response
+            triggerDefaultDataUploadAsync(response);
+            
+            return successResponse;
+
+        } catch (IllegalArgumentException e) {
+            log.warn("Lab creation failed due to validation error: {}", e.getMessage());
+            return ApiResponseHelper.successResponseWithDataAndMessage(
+                    e.getMessage(),
+                    HttpStatus.BAD_REQUEST,
+                    null);
         } catch (Exception e) {
-            ApiResponse<String> response = new ApiResponse<>("error", "Failed to add user as member", null);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+            log.error("Unexpected error during lab creation for user {}: {}", 
+                    currentUser.getUsername(), e.getMessage(), e);
+            return ApiResponseHelper.successResponseWithDataAndMessage(
+                    "An error occurred during lab creation. Please try again or contact support.",
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    null);
         }
-        // Return success response
-        labDefaultDataService.uploadDefaultData(savedLab.getId(), currentUser.getId());
-        UserResponseDTO userResponseDTO = new UserResponseDTO(    // Create UserResponseDTO
-                currentUser.getId(),
-                currentUser.getUsername(),
-                currentUser.getEmail(),
-                currentUser.getFirstName(),
-                currentUser.getLastName()
-        );
-        LabResponseDTO labResponseDTO = new LabResponseDTO(
-                savedLab.getId(),
-                savedLab.getName(),
-                savedLab.getAddress(),
-                savedLab.getCity(),
-                savedLab.getState(),
-                savedLab.getDescription(),
-                userResponseDTO
-        );
-        return ApiResponseHelper.successResponseWithDataAndMessage("Lab created successfully and user added as a member", HttpStatus.OK, labResponseDTO);
+    }
+    /**
+     * Triggers default data upload asynchronously without blocking the HTTP response.
+     * This ensures lab creation response is returned immediately even if upload takes time.
+     */
+    private void triggerDefaultDataUploadAsync(LabCreationResponseDTO response) {
+        if (response == null) {
+            return;
+        }
+        Long labId = response.getLabId();
+        Long userId = response.getUserId();
+        
+        if (labId == null || userId == null) {
+            log.warn("Skipping default data upload due to null labId or userId (labId={}, userId={})", labId, userId);
+            return;
+        }
+        // Execute asynchronously - don't block the HTTP response
+        CompletableFuture.runAsync(() -> {
+            try {
+                log.info("Starting async default data upload for lab {} (userId: {})", labId, userId);
+                labDefaultDataService.uploadDefaultData(labId, userId);
+                log.info("Completed async default data upload for lab {}", labId);
+            } catch (Exception e) {
+                // Log but never throw - lab creation succeeded, this is just a convenience feature
+                log.error("Default data upload failed but lab creation succeeded for lab {}: {}", 
+                        labId, e.getMessage(), e);
+            }
+        });
     }
 
     private void addMemberToLab(Long labId, Long userId) {

@@ -20,6 +20,9 @@ public class ReportDto {
     @JsonProperty("testName")
     private String testName;
 
+    @JsonProperty("reportParameter")
+    private String reportParameter;
+
     @JsonProperty("testCategory")
     private String testCategory;
 

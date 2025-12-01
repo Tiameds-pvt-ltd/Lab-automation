@@ -11,6 +11,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Setter
@@ -86,7 +87,20 @@ public class ReportEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     private String referenceRanges;
 
+    @Column(name = "test_rows", columnDefinition = "jsonb" ,nullable = true)
+    @JdbcTypeCode(SqlTypes.JSON)
+    private List<TestRow> testRows;
+
     @Column(name = "report_code", unique = true)
     private String reportCode;
+
+    @Transient
+    private String patientCode;
+
+    @Transient
+    private String visitCode;
+
+    @Transient
+    private String createdDateTime;
 }
 

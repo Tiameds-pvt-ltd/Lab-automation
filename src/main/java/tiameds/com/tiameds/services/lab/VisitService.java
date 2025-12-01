@@ -580,6 +580,8 @@ public class VisitService {
                     return new PatientVisitDTO(
                             patient.getPatientId(),
                             patient.getFirstName(),
+                            patient.getLastName(),
+                            patient.getPatientCode(),
                             patient.getPhone(),
                             patient.getCity(),
                             patient.getDateOfBirth(),

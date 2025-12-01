@@ -28,7 +28,6 @@ import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
 
 import java.time.LocalDateTime;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -69,46 +68,79 @@ public class TestController {
     }
     // 1. Get all tests in a lab
     @Transactional
-    @GetMapping("/{labId}/tests")
+    @GetMapping("/tests")
     public ResponseEntity<?> getAllTests(
-            @PathVariable Long labId) {
+            @RequestParam Long labId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
         try {
-            User currentUser = getAuthenticatedUser()
-                    .orElseThrow(() -> new RuntimeException("User not found"));
-
-            // Check if the lab exists in the repository
-            Lab lab = labRepository.findById(labId)
-                    .orElseThrow(() -> new RuntimeException("Lab not found"));
-
-            // Check if the lab is active
-            boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
-            if (isAccessible == false) {
-                return ApiResponseHelper.successResponseWithDataAndMessage("Lab is not accessible", HttpStatus.UNAUTHORIZED, null);
+            Optional<User> userOptional = getAuthenticatedUser();
+            if (userOptional.isEmpty()) {
+                return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
             }
-
-            // Verify if the current user is associated with the lab
+            User currentUser = userOptional.get();
+            
+            if (labId == null) {
+                return ApiResponseHelper.errorResponse("Lab ID is required", HttpStatus.BAD_REQUEST);
+            }
+            
+            Optional<Lab> labOptional = labRepository.findById(labId);
+            if (labOptional.isEmpty()) {
+                return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
+            }
+            Lab lab = labOptional.get();
+            
             if (!currentUser.getLabs().contains(lab)) {
-                return ApiResponseHelper.successResponseWithDataAndMessage("User is not a member of this lab", HttpStatus.UNAUTHORIZED, null);
+                return ApiResponseHelper.errorResponse("User is not authorized for this lab", HttpStatus.UNAUTHORIZED);
             }
 
-            // Retrieve, sort by ID in ascending order, and map all tests to DTOs
-            List<TestDTO> testDTOs = lab.getTests().stream()
-                    .sorted(Comparator.comparingLong(Test::getId)) // Sort by ID in ascending order
-                    .map(test -> new TestDTO(
-                            test.getId(),
-                            test.getCategory(),
-                            test.getName(),
-                            test.getPrice(),
-                            test.getCreatedAt(),
-                            test.getUpdatedAt()
-                    ))
-                    .collect(Collectors.toList());
+            if (!labAccessableFilter.isLabAccessible(labId)) {
+                return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+            }
 
-            return ApiResponseHelper.successResponseWithDataAndMessage("Tests retrieved successfully", HttpStatus.OK, testDTOs);
+            Map<String, Object> paginatedResponse = testServices.getAllTests(lab, page, size);
+            return ApiResponseHelper.successResponseWithDataAndMessage("Tests retrieved successfully", HttpStatus.OK, paginatedResponse);
 
         } catch (Exception e) {
-            // Handle unexpected exceptions and provide meaningful error messages
-            return ApiResponseHelper.errorResponse("An unexpected error occurred: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+            return ApiResponseHelper.errorResponse("Error processing request: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    // /admin/lab/1/tests
+    @Transactional
+    @GetMapping("/{labId}/tests")
+    public ResponseEntity<?> getAllTestsByLabId(
+            @PathVariable Long labId) {
+        try {
+            Optional<User> userOptional = getAuthenticatedUser();
+            if (userOptional.isEmpty()) {
+                return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
+            }
+            User currentUser = userOptional.get();
+            
+            if (labId == null) {
+                return ApiResponseHelper.errorResponse("Lab ID is required", HttpStatus.BAD_REQUEST);
+            }
+            
+            Optional<Lab> labOptional = labRepository.findById(labId);
+            if (labOptional.isEmpty()) {
+                return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
+            }
+            Lab lab = labOptional.get();
+            
+            if (!currentUser.getLabs().contains(lab)) {
+                return ApiResponseHelper.errorResponse("User is not authorized for this lab", HttpStatus.UNAUTHORIZED);
+            }
+
+            if (!labAccessableFilter.isLabAccessible(labId)) {
+                return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+            }
+
+            List<TestDTO> allTests = testServices.getAllTests(lab);
+            return ApiResponseHelper.successResponseWithDataAndMessage("Tests retrieved successfully", HttpStatus.OK, allTests);
+
+        } catch (Exception e) {
+            return ApiResponseHelper.errorResponse("Error processing request: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -290,6 +322,7 @@ public class TestController {
             // Map the test to a DTO
             TestDTO testDTO = new TestDTO(
                     test.getId(),
+                    test.getTestCode(),
                     test.getCategory(),
                     test.getName(),
                     test.getPrice(),
@@ -567,6 +600,7 @@ public class TestController {
     private TestDTO toTestDTO(Test test) {
         return new TestDTO(
                 test.getId(),
+                test.getTestCode(),
                 test.getCategory(),
                 test.getName(),
                 test.getPrice(),

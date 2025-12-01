@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 public class TestDTO {
 
     private long id;
+    private String testCode;
     private String category;
     private String name;
     private BigDecimal price;

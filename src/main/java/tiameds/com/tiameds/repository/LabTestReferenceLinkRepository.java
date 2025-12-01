@@ -26,5 +26,11 @@ public interface LabTestReferenceLinkRepository extends org.springframework.data
             WHERE lab_id = :labId AND test_reference_id = :referenceId
             """, nativeQuery = true)
     int unlinkLabFromReference(@Param("labId") Long labId, @Param("referenceId") Long referenceId);
+
+    @Query(value = """
+            SELECT COUNT(*) FROM lab_test_references
+            WHERE lab_id = :labId AND test_reference_id = :referenceId
+            """, nativeQuery = true)
+    int countRelationship(@Param("labId") Long labId, @Param("referenceId") Long referenceId);
 }
 

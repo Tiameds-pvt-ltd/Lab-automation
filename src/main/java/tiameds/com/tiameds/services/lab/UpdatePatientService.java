@@ -997,6 +997,9 @@ public class UpdatePatientService {
     }
 
     private void updateBasicPatientInfo(PatientEntity existingPatient, PatientDTO patientDTO, String username) {
+        if (patientDTO.getFirstName() != null) {
+            existingPatient.setFirstName(patientDTO.getFirstName());
+        }
         if (patientDTO.getLastName() != null) {
             existingPatient.setLastName(patientDTO.getLastName());
         }

@@ -1,5 +1,6 @@
 package tiameds.com.tiameds.dto.lab;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.Column;
 import lombok.AllArgsConstructor;
@@ -15,6 +16,7 @@ import java.time.LocalDateTime;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class TransactionDTO {
 
     private Long id;
@@ -58,6 +60,7 @@ public class TransactionDTO {
 
     @JsonProperty("created_at")
     private LocalDateTime createdAt;
+    private String transactionCode;
 
     public TransactionDTO(TransactionEntity transaction) {
         this.id = transaction.getId();
@@ -74,5 +77,6 @@ public class TransactionDTO {
         this.remarks = transaction.getRemarks();
         this.createdAt = transaction.getCreatedAt();
         this.createdBy = transaction.getCreatedBy();
+        this.transactionCode = transaction.getTransactionCode();
     }
 }

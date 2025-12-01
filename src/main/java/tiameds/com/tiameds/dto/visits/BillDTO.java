@@ -1,4 +1,6 @@
 package tiameds.com.tiameds.dto.visits;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -18,8 +20,10 @@ import java.util.stream.Collectors;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class BillDTO {
     private Long billingId;
+    private String billingCode;
     private BigDecimal totalAmount;
     private String paymentStatus; // PAID, UNPAID, PARTIAL
     private String paymentMethod; // CASH, CARD, ONLINE
@@ -51,6 +55,7 @@ public class BillDTO {
 
     public BillDTO(BillingEntity billing) {
         this.billingId = billing.getId();
+        this.billingCode = billing.getBillingCode();
         this.totalAmount = billing.getTotalAmount();
         this.paymentStatus = billing.getPaymentStatus();
         this.paymentMethod = billing.getPaymentMethod();
@@ -76,29 +81,10 @@ public class BillDTO {
         this.createdAt = billing.getCreatedAt();
         this.updatedAt = billing.getUpdatedAt();
         // Initialize transactions if they exist
-        if (billing.getTransactions() != null && !billing.getTransactions().isEmpty()) {
-            this.transactions = billing.getTransactions().stream()
-                    .map(transaction -> {
-                        TransactionDTO dto = new TransactionDTO();
-                        dto.setId(transaction.getId());
-                        dto.setBillingId(billing.getId());
-                        dto.setPaymentMethod(transaction.getPaymentMethod());
-                        dto.setUpiId(transaction.getUpiId());
-                        dto.setUpiAmount(transaction.getUpiAmount());
-                        dto.setCardAmount(transaction.getCardAmount());
-                        dto.setCashAmount(transaction.getCashAmount());
-                        dto.setReceivedAmount(transaction.getReceivedAmount());
-                        dto.setRefundAmount(transaction.getRefundAmount());
-                        dto.setDueAmount(transaction.getDueAmount());
-                        dto.setPaymentDate(transaction.getPaymentDate());
-                        dto.setRemarks(transaction.getRemarks());
-                        dto.setCreatedAt(transaction.getCreatedAt());
-                        dto.setCreatedBy(transaction.getCreatedBy());
-                        return dto;
-                    })
-                    .collect(Collectors.toSet());
-        } else {
-            this.transactions = Collections.emptySet();
-        }
+        this.transactions = billing.getTransactions() != null && !billing.getTransactions().isEmpty()
+                ? billing.getTransactions().stream()
+                        .map(TransactionDTO::new)
+                        .collect(Collectors.toSet())
+                : Collections.emptySet();
     }
 }
