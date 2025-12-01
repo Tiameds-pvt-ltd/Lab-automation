@@ -139,6 +139,9 @@ public class LabController {
     }
 
 
+
+
+    // ---------- Create a new lab and add the current user as a member ----------
     @Transactional
     @PostMapping("/add-lab")
     public ResponseEntity<Map<String, Object>> addLab(
@@ -193,7 +196,6 @@ public class LabController {
                     null);
         }
     }
-
     /**
      * Triggers default data upload asynchronously without blocking the HTTP response.
      * This ensures lab creation response is returned immediately even if upload takes time.
@@ -202,7 +204,6 @@ public class LabController {
         if (response == null) {
             return;
         }
-        
         Long labId = response.getLabId();
         Long userId = response.getUserId();
         
@@ -210,7 +211,6 @@ public class LabController {
             log.warn("Skipping default data upload due to null labId or userId (labId={}, userId={})", labId, userId);
             return;
         }
-        
         // Execute asynchronously - don't block the HTTP response
         CompletableFuture.runAsync(() -> {
             try {
