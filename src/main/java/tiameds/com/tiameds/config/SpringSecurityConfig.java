@@ -92,6 +92,7 @@ public class SpringSecurityConfig {
                                         "/lab/sample-list",
                                         "/lab/*/report/{visitId}",
                                         "/admin/lab/*/tests",
+                                        "/admin/lab/tests",
                                         "/lab/test-reference/{labId}",
                                         "/lab/test-reference/{labId}/download",
                                         //------------------------

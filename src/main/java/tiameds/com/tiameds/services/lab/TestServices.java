@@ -17,11 +17,16 @@ import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.entity.Test;
 import tiameds.com.tiameds.repository.TestRepository;
 
+import tiameds.com.tiameds.dto.lab.TestDTO;
+
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -144,6 +149,59 @@ public class TestServices {
 
 
 
+
+    public List<TestDTO> getAllTests(Lab lab) {
+        return lab.getTests().stream()
+                .sorted(Comparator.comparingLong(Test::getId))
+                .map(test -> new TestDTO(
+                        test.getId(),
+                        test.getTestCode(),
+                        test.getCategory(),
+                        test.getName(),
+                        test.getPrice(),
+                        test.getCreatedAt(),
+                        test.getUpdatedAt()
+                ))
+                .toList();
+    }
+
+    public Map<String, Object> getAllTests(Lab lab, int page, int size) {
+        List<TestDTO> allTests = lab.getTests().stream()
+                .sorted(Comparator.comparingLong(Test::getId))
+                .map(test -> new TestDTO(
+                        test.getId(),
+                        test.getTestCode(),
+                        test.getCategory(),
+                        test.getName(),
+                        test.getPrice(),
+                        test.getCreatedAt(),
+                        test.getUpdatedAt()
+                ))
+                .toList();
+        
+        // Calculate pagination
+        int totalElements = allTests.size();
+        int totalPages = (int) Math.ceil((double) totalElements / size);
+        int start = page * size;
+        int end = Math.min(start + size, totalElements);
+        
+        // Get paginated subset
+        List<TestDTO> paginatedTests = start < totalElements 
+                ? allTests.subList(start, end)
+                : new ArrayList<>();
+        
+        // Build response with pagination metadata
+        Map<String, Object> response = new HashMap<>();
+        response.put("content", paginatedTests);
+        response.put("page", page);
+        response.put("size", size);
+        response.put("totalElements", totalElements);
+        response.put("totalPages", totalPages);
+        response.put("hasNext", page < totalPages - 1);
+        response.put("hasPrevious", page > 0);
+        
+        return response;
+    }
 
     public ResponseEntity<?> downloadCSV(Lab lab) {
         // Fetch all tests associated with the specified lab

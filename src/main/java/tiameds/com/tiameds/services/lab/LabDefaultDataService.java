@@ -57,7 +57,8 @@ public class LabDefaultDataService {
             "Wound Swab",
             "Blood Culture Sample",
             "Skin Scraping",
-            "Hair Sample"
+            "Hair Sample",
+            "N/A"
     );
 
     public LabDefaultDataService(LabRepository labRepository,
