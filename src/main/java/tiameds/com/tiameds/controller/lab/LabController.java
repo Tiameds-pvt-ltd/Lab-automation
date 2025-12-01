@@ -1,7 +1,6 @@
 package tiameds.com.tiameds.controller.lab;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,7 +30,6 @@ import java.util.concurrent.CompletableFuture;
 
 
 @Slf4j
-@Transactional
 @RestController
 @RequestMapping("/lab/admin")
 @Tag(name = "Lab Admin", description = "Endpoints for Lab Admin where lab admin can manage labs, add members, and handle lab-related operations")
@@ -142,7 +140,6 @@ public class LabController {
 
 
     // ---------- Create a new lab and add the current user as a member ----------
-    @Transactional
     @PostMapping("/add-lab")
     public ResponseEntity<Map<String, Object>> addLab(
             @RequestBody LabRequestDTO labRequestDTO) {
