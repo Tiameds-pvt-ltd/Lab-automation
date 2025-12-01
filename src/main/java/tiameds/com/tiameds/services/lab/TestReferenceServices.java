@@ -508,6 +508,88 @@ public class TestReferenceServices {
     }
 
 
+//    public List<TestReferenceDTO>getTestReferenceByTestName(Lab lab, String testName) {
+//        if (testName == null || testName.trim().isEmpty()) {
+//            LOGGER.warning("Test name is null or empty");
+//            return new ArrayList<>();
+//        }
+//        // Normalize the search term: trim, replace multiple spaces with single space, and normalize parentheses spacing
+//        String normalizedSearchTerm = testName.trim()
+//                .replaceAll("\\s+", " ")
+//                .replaceAll("\\s*\\(", " (")
+//                .replaceAll("\\s*\\)", ") ");
+//        LOGGER.info("Normalized search term: '" + normalizedSearchTerm + "' (original: '" + testName + "')");
+//        LOGGER.info("Total test references in lab: " + lab.getTestReferences().size());
+//
+//        // Log all test names in the lab for debugging
+//        if (LOGGER.isLoggable(java.util.logging.Level.INFO)) {
+//            List<String> allTestNames = lab.getTestReferences().stream()
+//                    .map(TestReferenceEntity::getTestName)
+//                    .filter(name -> name != null)
+//                    .toList();
+//            LOGGER.info("All test names in lab: " + String.join(", ", allTestNames));
+//        }
+//
+//        List<TestReferenceDTO> testReferenceDTOS = lab.getTestReferences().stream()
+//                .filter(testReferenceEntity -> {
+//                    if (testReferenceEntity.getTestName() == null) {
+//                        return false;
+//                    }
+//                    // Normalize database value: trim, replace multiple spaces, and normalize parentheses spacing
+//                    String normalizedDbValue = testReferenceEntity.getTestName().trim()
+//                            .replaceAll("\\s+", " ")
+//                            .replaceAll("\\s*\\(", " (")
+//                            .replaceAll("\\s*\\)", ") ");
+//
+//                    // Try exact match first (case-insensitive)
+//                    boolean exactMatch = normalizedDbValue.equalsIgnoreCase(normalizedSearchTerm);
+//
+//                    // If no exact match, try contains match (case-insensitive)
+//                    // Only check if DB value contains the search term (not reverse, to avoid false positives)
+//                    boolean containsMatch = false;
+//                    if (!exactMatch && normalizedSearchTerm.length() >= 5) {
+//                        // Check if DB value contains the search term
+//                        containsMatch = normalizedDbValue.toLowerCase().contains(normalizedSearchTerm.toLowerCase());
+//                    }
+//
+//                    boolean matches = exactMatch || containsMatch;
+//
+//                    if (matches) {
+//                        LOGGER.info("Match found: DB='" + testReferenceEntity.getTestName() + "' normalized='" + normalizedDbValue + "' search='" + normalizedSearchTerm + "'");
+//                    }
+//
+//                    return matches;
+//                })
+//                .sorted(Comparator.comparingLong(TestReferenceEntity::getId))
+//                .map(TestReferenceEntity -> {
+//                    TestReferenceDTO dto = new TestReferenceDTO();
+//                    dto.setId(TestReferenceEntity.getId());
+//                    dto.setCategory(TestReferenceEntity.getCategory());
+//                    dto.setTestName(TestReferenceEntity.getTestName());
+//                    dto.setTestDescription(TestReferenceEntity.getTestDescription());
+//                    dto.setUnits(TestReferenceEntity.getUnits());
+//                    dto.setGender(TestReferenceEntity.getGender());
+//                    dto.setMinReferenceRange(TestReferenceEntity.getMinReferenceRange());
+//                    dto.setMaxReferenceRange(TestReferenceEntity.getMaxReferenceRange());
+//                    dto.setAgeMin(TestReferenceEntity.getAgeMin());
+//                    dto.setMinAgeUnit(TestReferenceEntity.getMinAgeUnit() != null ? TestReferenceEntity.getMinAgeUnit().toString() : null);
+//                    dto.setAgeMax(TestReferenceEntity.getAgeMax());
+//                    dto.setMaxAgeUnit(TestReferenceEntity.getMaxAgeUnit() != null ? TestReferenceEntity.getMaxAgeUnit().toString() : null);
+//                    dto.setCreatedBy(TestReferenceEntity.getCreatedBy());
+//                    dto.setUpdatedBy(TestReferenceEntity.getUpdatedBy());
+//                    dto.setCreatedAt(TestReferenceEntity.getCreatedAt());
+//                    dto.setUpdatedAt(TestReferenceEntity.getUpdatedAt());
+//
+//                    // Add JSON fields
+//                    dto.setReportJson(TestReferenceEntity.getReportJson());
+//                    dto.setReferenceRanges(TestReferenceEntity.getReferenceRanges());
+//
+//                    return dto;
+//                }).toList();
+//        return testReferenceDTOS;
+//    }
+
+
     public List<TestReferenceDTO>getTestReferenceByTestName(Lab lab, String testName) {
         if (testName == null || testName.trim().isEmpty()) {
             LOGGER.warning("Test name is null or empty");
@@ -520,7 +602,7 @@ public class TestReferenceServices {
                 .replaceAll("\\s*\\)", ") ");
         LOGGER.info("Normalized search term: '" + normalizedSearchTerm + "' (original: '" + testName + "')");
         LOGGER.info("Total test references in lab: " + lab.getTestReferences().size());
-        
+
         // Log all test names in the lab for debugging
         if (LOGGER.isLoggable(java.util.logging.Level.INFO)) {
             List<String> allTestNames = lab.getTestReferences().stream()
@@ -529,7 +611,7 @@ public class TestReferenceServices {
                     .toList();
             LOGGER.info("All test names in lab: " + String.join(", ", allTestNames));
         }
-        
+
         List<TestReferenceDTO> testReferenceDTOS = lab.getTestReferences().stream()
                 .filter(testReferenceEntity -> {
                     if (testReferenceEntity.getTestName() == null) {
@@ -540,24 +622,13 @@ public class TestReferenceServices {
                             .replaceAll("\\s+", " ")
                             .replaceAll("\\s*\\(", " (")
                             .replaceAll("\\s*\\)", ") ");
-                    
-                    // Try exact match first (case-insensitive)
-                    boolean exactMatch = normalizedDbValue.equalsIgnoreCase(normalizedSearchTerm);
-                    
-                    // If no exact match, try contains match (case-insensitive)
-                    // Only check if DB value contains the search term (not reverse, to avoid false positives)
-                    boolean containsMatch = false;
-                    if (!exactMatch && normalizedSearchTerm.length() >= 5) {
-                        // Check if DB value contains the search term
-                        containsMatch = normalizedDbValue.toLowerCase().contains(normalizedSearchTerm.toLowerCase());
-                    }
-                    
-                    boolean matches = exactMatch || containsMatch;
-                    
+
+                    // Exact match only (case-insensitive) after normalization
+                    boolean matches = normalizedDbValue.equalsIgnoreCase(normalizedSearchTerm);
                     if (matches) {
                         LOGGER.info("Match found: DB='" + testReferenceEntity.getTestName() + "' normalized='" + normalizedDbValue + "' search='" + normalizedSearchTerm + "'");
                     }
-                    
+
                     return matches;
                 })
                 .sorted(Comparator.comparingLong(TestReferenceEntity::getId))
@@ -579,11 +650,11 @@ public class TestReferenceServices {
                     dto.setUpdatedBy(TestReferenceEntity.getUpdatedBy());
                     dto.setCreatedAt(TestReferenceEntity.getCreatedAt());
                     dto.setUpdatedAt(TestReferenceEntity.getUpdatedAt());
-                    
+
                     // Add JSON fields
                     dto.setReportJson(TestReferenceEntity.getReportJson());
                     dto.setReferenceRanges(TestReferenceEntity.getReferenceRanges());
-                    
+
                     return dto;
                 }).toList();
         return testReferenceDTOS;

@@ -1,5 +1,4 @@
 package tiameds.com.tiameds.controller.lab;
-
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.*;
 import org.springframework.security.core.Authentication;
