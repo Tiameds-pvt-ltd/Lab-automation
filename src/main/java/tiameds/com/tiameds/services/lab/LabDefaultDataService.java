@@ -98,7 +98,7 @@ public class LabDefaultDataService {
             log.info("Lab {} already has tests. Skipping default price list upload.", labId);
         } else {
             try {
-                MultipartFile priceListFile = loadCsvAsMultipart("tiamed_price_list.csv");
+                MultipartFile priceListFile = loadCsvAsMultipart("test_price_list-2.csv");
                 testServices.uploadCSV(priceListFile, lab);
                 log.info("Uploaded default price list for lab {}", labId);
             } catch (Exception e) {
@@ -110,7 +110,7 @@ public class LabDefaultDataService {
             log.info("Lab {} already has test references. Skipping default reference upload.", labId);
         } else {
             try {
-                MultipartFile referenceFile = loadCsvAsMultipart("Lab_Modified.xlsx-Sheet1 - Copy.csv");
+                MultipartFile referenceFile = loadCsvAsMultipart("Lab_Modified.xlsx-Sheet2 - Copy.csv");
                 testReferenceServices.uploadCsv(lab, referenceFile, user);
                 log.info("Uploaded default reference data for lab {}", labId);
             } catch (Exception e) {
