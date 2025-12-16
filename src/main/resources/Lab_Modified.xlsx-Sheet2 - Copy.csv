@@ -1093,7 +1093,8 @@ RADIOLOGY,USG BPP TWINS,DETAILED REPORT,N/A,M/F,,,0,YEARS,100,YEARS,,"{
     }
   ],
   ""impression"": ""Intrauterine pregnancy of __ weeks __ days. Growth survey otherwise appears normal with normal BPP 8/8 and normal Doppler."",
-  ""followUp"": ""Repeat evaluation for fetal growth assessment and fetal monitoring is rec",
+  ""followUp"": ""Repeat evaluation for fetal growth assessment and fetal monitoring is recommended.""
+}",
 RADIOLOGY,Early OB AROUND 4 WEEKS,DETAILED REPORT,N/A,M/F,,,0,YEARS,100,YEARS,,"{
   ""reportType"": ""Antenatal US Scan (TAS)"",
   ""indication"": """",
@@ -2938,7 +2939,8 @@ RADIOLOGY,HRUS NECK - Submandibular,DETAILED REPORT,N/A,M/F,,,0,YEARS,100,YEARS,
     }
   ],
   ""tables"": [],
-  ""impression"": ""Bulky right submandibular gland with focal small",
+  ""impression"": ""Bulky right submandibular gland with focal small hypoechoic lesion. FNAC performed.""
+}",
 RADIOLOGY,HRUS - Parotid gland,DETAILED REPORT,N/A,M/F,,,0,YEARS,100,YEARS,,"{
   ""reportType"": ""HRUS - Parotid Region"",
   ""indication"": """",
