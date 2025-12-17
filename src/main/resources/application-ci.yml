@@ -12,7 +12,7 @@ spring:
       transaction-isolation: TRANSACTION_READ_COMMITTED
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: none
     open-in-view: false
     properties:
       hibernate:
