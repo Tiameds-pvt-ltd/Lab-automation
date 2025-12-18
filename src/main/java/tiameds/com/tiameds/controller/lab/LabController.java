@@ -192,7 +192,7 @@ public class LabController {
                     HttpStatus.INTERNAL_SERVER_ERROR,
                     null);
         }
-    }
+        }
     /**
      * Triggers default data upload asynchronously without blocking the HTTP response.
      * This ensures lab creation response is returned immediately even if upload takes time.
