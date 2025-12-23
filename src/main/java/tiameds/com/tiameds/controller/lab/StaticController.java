@@ -111,7 +111,6 @@ public class StaticController {
 //    @GetMapping("/{labId}/testwise-transactionsdetails"
 
 
-
     private Optional<User> getAuthenticatedUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
