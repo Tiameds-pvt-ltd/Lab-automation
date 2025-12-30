@@ -120,6 +120,73 @@ public class StaticServices {
         return new PageImpl<>(dtoList, pageable, billings.getTotalElements());
     }
 
+    /**
+     * Gets payment details by date range (past bills paid on filter date):
+     * - Includes ONLY billings created BEFORE the filter date
+     * - AND have transactions where transaction date is in the filter date range
+     * - Excludes bills created on the filter date
+     * - Excludes bills without transactions
+     * Results are sorted by most recent transaction date (descending)
+     */
+    @Transactional(readOnly = true)
+    public Page<LabStatisticsDTO> getPaymentDatewise(Long labId,
+                                                     LocalDate startDate,
+                                                     LocalDate endDate,
+                                                     User user,
+                                                     int page,
+                                                     int size) {
+        LocalDateTime startDateTime = (startDate != null ? startDate.atStartOfDay() : LocalDate.MIN.atStartOfDay());
+        LocalDateTime endDateTime = (endDate != null ? endDate.atTime(23, 59, 59) : LocalDate.MAX.atTime(23, 59, 59));
+
+        // First, get billings without explicit sorting (we'll sort in memory by most recent transaction date)
+        Pageable pageable = PageRequest.of(page, size);
+
+        Page<BillingEntity> billings = billingRepository.findBillingsByLabAndPaymentDateRange(
+                labId,
+                startDateTime,
+                endDateTime,
+                pageable
+        );
+
+        // Sort by most recent transaction date (if exists), else billing creation date
+        List<BillingEntity> sortedBillings = billings.getContent().stream()
+                .sorted((b1, b2) -> {
+                    LocalDateTime date1 = getMostRecentActivityDate(b1);
+                    LocalDateTime date2 = getMostRecentActivityDate(b2);
+                    return date2.compareTo(date1); // Descending order (newest first)
+                })
+                .toList();
+
+        List<LabStatisticsDTO> dtoList = sortedBillings.stream()
+                .map(billing -> {
+                    try {
+                        return mapBillingToLabStatisticsDTO(billing);
+                    } catch (Exception ex) {
+                        return null;
+                    }
+                })
+                .filter(dto -> dto != null)
+                .toList();
+
+        return new PageImpl<>(dtoList, pageable, billings.getTotalElements());
+    }
+
+    /**
+     * Gets the most recent activity date for a billing:
+     * - Returns the most recent transaction.createdAt if transactions exist
+     * - Returns billing.createdAt if no transactions exist
+     */
+    private LocalDateTime getMostRecentActivityDate(BillingEntity billing) {
+        if (billing.getTransactions() != null && !billing.getTransactions().isEmpty()) {
+            return billing.getTransactions().stream()
+                    .map(TransactionEntity::getCreatedAt)
+                    .filter(date -> date != null)
+                    .max(LocalDateTime::compareTo)
+                    .orElse(billing.getCreatedAt() != null ? billing.getCreatedAt() : LocalDateTime.MIN);
+        }
+        return billing.getCreatedAt() != null ? billing.getCreatedAt() : LocalDateTime.MIN;
+    }
+
     private LabStatisticsDTO mapBillingToLabStatisticsDTO(BillingEntity billing) {
         VisitEntity visit = billing.getVisit();
         if (visit == null) {

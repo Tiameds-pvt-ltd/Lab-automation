@@ -107,8 +107,68 @@ public class StaticController {
         }
     }
 
+    /**
+     * Get payment details by date range (past bills paid on filter date).
+     * This endpoint shows ONLY past bills that were paid on the filter date.
+     * 
+     * Includes:
+     * - Billings created BEFORE the filter date
+     * - AND have transactions where transaction date falls within the filter date range
+     * 
+     * Excludes:
+     * - Bills created on the filter date
+     * - Bills without transactions
+     * 
+     * Results are sorted by most recent transaction date (descending).
+     * 
+     * Example: Filter by 30th December will show bills created before 30th December
+     * that were paid on 30th December, but NOT bills created on 30th December.
+     */
+    @GetMapping("/{labId}/datewise-paymentdetails")
+    public ResponseEntity<?> getPaymentDetailsByDateRange(
+            @PathVariable Long labId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size
+    ) {
+        try {
+            Optional<User> currentUser = getAuthenticatedUser();
+            if (currentUser.isEmpty()) {
+                return ApiResponseHelper.successResponseWithDataAndMessage("User not found", HttpStatus.UNAUTHORIZED, null);
+            }
 
-//    @GetMapping("/{labId}/testwise-transactionsdetails"
+            boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+            if (!isAccessible) {
+                return ApiResponseHelper.successResponseWithDataAndMessage("Lab is not accessible", HttpStatus.UNAUTHORIZED, null);
+            }
+
+            int sanitizedPage = Math.max(page, 0);
+            int sanitizedSize = Math.min(Math.max(size, 10), 200);
+
+            var dtoPage = staticServices.getPaymentDatewise(labId, startDate, endDate, currentUser.get(), sanitizedPage, sanitizedSize);
+
+            var responseBody = new java.util.HashMap<String, Object>();
+            responseBody.put("status", "success");
+            responseBody.put("message", "Payment details fetched successfully");
+            responseBody.put("data", dtoPage.getContent());
+
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.add("X-Total-Elements", String.valueOf(dtoPage.getTotalElements()));
+            headers.add("X-Total-Pages", String.valueOf(dtoPage.getTotalPages()));
+            headers.add("X-Page-Number", String.valueOf(dtoPage.getNumber()));
+            headers.add("X-Page-Size", String.valueOf(dtoPage.getSize()));
+
+            return new ResponseEntity<>(responseBody, headers, HttpStatus.OK);
+
+        } catch (Exception e) {
+            log.error("Error fetching datewise payment details for lab {}", labId, e);
+            return ApiResponseHelper.successResponseWithDataAndMessage("No payment details found", HttpStatus.OK, List.of());
+        }
+    }
+
+
+
 
 
     private Optional<User> getAuthenticatedUser() {
