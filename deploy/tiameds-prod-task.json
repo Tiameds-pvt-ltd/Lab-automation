@@ -1,4 +1,4 @@
-{
+ {
   "family": "tiameds-prod-task",
   "taskRoleArn": "arn:aws:iam::977098986605:role/ecsTaskExecutionRole",
   "executionRoleArn": "arn:aws:iam::977098986605:role/ecsTaskExecutionRole",
