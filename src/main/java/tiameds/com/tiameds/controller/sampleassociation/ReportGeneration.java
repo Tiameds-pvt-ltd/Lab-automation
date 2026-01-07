@@ -177,6 +177,7 @@ public class ReportGeneration {
     }
 
 
+
     @Transactional
     @GetMapping("{labId}/report/{visitId}")
     public ResponseEntity<?> getReport(
