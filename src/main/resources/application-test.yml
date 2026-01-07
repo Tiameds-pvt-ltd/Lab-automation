@@ -41,7 +41,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: none
     open-in-view: false
     properties:
       hibernate:
@@ -98,7 +98,7 @@ security:
     access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:PT15M}
     refresh-token-ttl: ${JWT_REFRESH_TOKEN_TTL:P1D}
     private-key-location: ${JWT_PRIVATE_KEY_LOCATION}
-    public-key-location: ${JWT_P UBLIC_KEY_LOCATION}
+    public-key-location: ${JWT_PUBLIC_KEY_LOCATION}
     access-cookie-name: ${JWT_ACCESS_COOKIE_NAME:accessToken}
     refresh-cookie-name: ${JWT_REFRESH_COOKIE_NAME:refreshToken}
     cookie-domain: ${JWT_COOKIE_DOMAIN:.tiameds.ai}
