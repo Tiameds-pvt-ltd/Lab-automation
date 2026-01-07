@@ -16,6 +16,9 @@ import tiameds.com.tiameds.entity.VisitTestResult;
 import tiameds.com.tiameds.repository.*;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @Service
@@ -104,8 +107,11 @@ public class ReportService {
             report.setTestRows(buildTestRows(report));
             report.setPatientCode(finalPatientCode);
             report.setVisitCode(finalVisitCode);
-            // createdAt is now Instant and will be serialized as UTC by Jackson
-            // Frontend should convert to local timezone for display
+            // Format createdDateTime in IST for display (createdAt remains UTC)
+            if (report.getCreatedAt() != null) {
+                ZonedDateTime istDateTime = report.getCreatedAt().atZone(ZoneId.of("Asia/Kolkata"));
+                report.setCreatedDateTime(istDateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
+            }
         });
 
         return ApiResponseHelper.successResponse("Report fetched successfully", reportEntities);
