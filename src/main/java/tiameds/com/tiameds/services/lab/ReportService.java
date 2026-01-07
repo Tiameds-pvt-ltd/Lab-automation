@@ -16,6 +16,9 @@ import tiameds.com.tiameds.entity.VisitTestResult;
 import tiameds.com.tiameds.repository.*;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
@@ -99,19 +102,13 @@ public class ReportService {
             }
         }
 
-        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
-
         final String finalPatientCode = patientCode;
         final String finalVisitCode = visitCode;
         reportEntities.forEach(report -> {
             report.setTestRows(buildTestRows(report));
             report.setPatientCode(finalPatientCode);
             report.setVisitCode(finalVisitCode);
-            if (report.getCreatedAt() != null) {
-                report.setCreatedDateTime(report.getCreatedAt().format(dateTimeFormatter));
-            } else {
-                report.setCreatedDateTime(null);
-            }
+            report.setCreatedDateTime(formatDateTimeInIST(report.getCreatedAt()));
         });
 
         return ApiResponseHelper.successResponse("Report fetched successfully", reportEntities);
@@ -404,6 +401,43 @@ public class ReportService {
     private boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
     }
+
+    /**
+     * Converts a UTC LocalDateTime to IST (Indian Standard Time) formatted string.
+     * This method assumes the input LocalDateTime is stored in UTC timezone (as per database configuration).
+     * 
+     * @param utcDateTime The LocalDateTime stored in UTC (can be null)
+     * @return Formatted date-time string in IST timezone, or null if input is null
+     */
+//    private String formatDateTimeInIST(LocalDateTime utcDateTime) {
+//        if (utcDateTime == null) {
+//            return null;
+//        }
+//
+//        // Define timezone constants
+//        ZoneId utcZone = ZoneId.of("UTC");
+//        ZoneId istZone = ZoneId.of("Asia/Kolkata");
+//
+//        // Convert LocalDateTime (assumed UTC) to ZonedDateTime in UTC
+//        ZonedDateTime utcZonedDateTime = utcDateTime.atZone(utcZone);
+//
+//        // Convert to IST timezone
+//        ZonedDateTime istZonedDateTime = utcZonedDateTime.withZoneSameInstant(istZone);
+//
+//        // Format using ISO_OFFSET_DATE_TIME so the response includes explicit +05:30 offset
+//        DateTimeFormatter formatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
+//        return istZonedDateTime.format(formatter);
+//    }
+
+    private String formatDateTimeInIST(LocalDateTime dateTime) {
+        if (dateTime == null) return null;
+
+        ZonedDateTime istZonedDateTime =
+                dateTime.atZone(ZoneId.of("Asia/Kolkata"));
+
+        return istZonedDateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+    }
+
 
 }
 
