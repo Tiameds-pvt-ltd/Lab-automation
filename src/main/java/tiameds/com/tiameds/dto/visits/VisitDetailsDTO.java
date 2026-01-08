@@ -31,6 +31,7 @@ public class VisitDetailsDTO {
     private String visitStatus;
     private String visitDescription;
     private Long doctorId;
+    private String doctorName;
     private List<Long> testIds;
     private List<Long> packageIds;
 //    private List<Long> insuranceIds;
@@ -52,6 +53,7 @@ public class VisitDetailsDTO {
         this.visitStatus = visitEntity.getVisitStatus();
         this.visitDescription = visitEntity.getVisitDescription();
         this.doctorId = (visitEntity.getDoctor() != null) ? visitEntity.getDoctor().getId() : null;
+        this.doctorName = (visitEntity.getDoctor() != null) ? visitEntity.getDoctor().getName() : null;
 
         this.testIds = visitEntity.getTests() != null
                 ? visitEntity.getTests().stream().map(Test::getId).collect(Collectors.toList())

@@ -16,6 +16,8 @@ import tiameds.com.tiameds.entity.VisitTestResult;
 import tiameds.com.tiameds.repository.*;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
@@ -99,18 +101,16 @@ public class ReportService {
             }
         }
 
-        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
-
         final String finalPatientCode = patientCode;
         final String finalVisitCode = visitCode;
         reportEntities.forEach(report -> {
             report.setTestRows(buildTestRows(report));
             report.setPatientCode(finalPatientCode);
             report.setVisitCode(finalVisitCode);
+            // Format createdDateTime in IST for display (createdAt remains UTC)
             if (report.getCreatedAt() != null) {
-                report.setCreatedDateTime(report.getCreatedAt().format(dateTimeFormatter));
-            } else {
-                report.setCreatedDateTime(null);
+                ZonedDateTime istDateTime = report.getCreatedAt().atZone(ZoneId.of("Asia/Kolkata"));
+                report.setCreatedDateTime(istDateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
             }
         });
 

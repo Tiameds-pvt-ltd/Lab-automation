@@ -99,17 +99,17 @@ public class StaticServices {
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 
-        Page<TransactionEntity> transactions = transactionRepository.findTransactionsByLabAndDateRange(
+        Page<BillingEntity> billings = billingRepository.findBillingsByLabAndDateRange(
                 labId,
                 startDateTime,
                 endDateTime,
                 pageable
         );
 
-        List<LabStatisticsDTO> dtoList = transactions.getContent().stream()
-                .map(t -> {
+        List<LabStatisticsDTO> dtoList = billings.getContent().stream()
+                .map(billing -> {
                     try {
-                        return mapToLabStatisticsDTO(t);
+                        return mapBillingToLabStatisticsDTO(billing);
                     } catch (Exception ex) {
                         return null;
                     }
@@ -117,12 +117,81 @@ public class StaticServices {
                 .filter(dto -> dto != null)
                 .toList();
 
-        return new PageImpl<>(dtoList, pageable, transactions.getTotalElements());
+        return new PageImpl<>(dtoList, pageable, billings.getTotalElements());
     }
 
-    private LabStatisticsDTO mapToLabStatisticsDTO(TransactionEntity transaction) {
-        BillingEntity billing = transaction.getBilling();
+    /**
+     * Gets payment details by date range (past bills paid on filter date):
+     * - Includes ONLY billings created BEFORE the filter date
+     * - AND have transactions where transaction date is in the filter date range
+     * - Excludes bills created on the filter date
+     * - Excludes bills without transactions
+     * Results are sorted by most recent transaction date (descending)
+     */
+    @Transactional(readOnly = true)
+    public Page<LabStatisticsDTO> getPaymentDatewise(Long labId,
+                                                     LocalDate startDate,
+                                                     LocalDate endDate,
+                                                     User user,
+                                                     int page,
+                                                     int size) {
+        LocalDateTime startDateTime = (startDate != null ? startDate.atStartOfDay() : LocalDate.MIN.atStartOfDay());
+        LocalDateTime endDateTime = (endDate != null ? endDate.atTime(23, 59, 59) : LocalDate.MAX.atTime(23, 59, 59));
+
+        // First, get billings without explicit sorting (we'll sort in memory by most recent transaction date)
+        Pageable pageable = PageRequest.of(page, size);
+
+        Page<BillingEntity> billings = billingRepository.findBillingsByLabAndPaymentDateRange(
+                labId,
+                startDateTime,
+                endDateTime,
+                pageable
+        );
+
+        // Sort by most recent transaction date (if exists), else billing creation date
+        List<BillingEntity> sortedBillings = billings.getContent().stream()
+                .sorted((b1, b2) -> {
+                    LocalDateTime date1 = getMostRecentActivityDate(b1);
+                    LocalDateTime date2 = getMostRecentActivityDate(b2);
+                    return date2.compareTo(date1); // Descending order (newest first)
+                })
+                .toList();
+
+        List<LabStatisticsDTO> dtoList = sortedBillings.stream()
+                .map(billing -> {
+                    try {
+                        return mapBillingToLabStatisticsDTO(billing);
+                    } catch (Exception ex) {
+                        return null;
+                    }
+                })
+                .filter(dto -> dto != null)
+                .toList();
+
+        return new PageImpl<>(dtoList, pageable, billings.getTotalElements());
+    }
+
+    /**
+     * Gets the most recent activity date for a billing:
+     * - Returns the most recent transaction.createdAt if transactions exist
+     * - Returns billing.createdAt if no transactions exist
+     */
+    private LocalDateTime getMostRecentActivityDate(BillingEntity billing) {
+        if (billing.getTransactions() != null && !billing.getTransactions().isEmpty()) {
+            return billing.getTransactions().stream()
+                    .map(TransactionEntity::getCreatedAt)
+                    .filter(date -> date != null)
+                    .max(LocalDateTime::compareTo)
+                    .orElse(billing.getCreatedAt() != null ? billing.getCreatedAt() : LocalDateTime.MIN);
+        }
+        return billing.getCreatedAt() != null ? billing.getCreatedAt() : LocalDateTime.MIN;
+    }
+
+    private LabStatisticsDTO mapBillingToLabStatisticsDTO(BillingEntity billing) {
         VisitEntity visit = billing.getVisit();
+        if (visit == null) {
+            throw new IllegalStateException("Billing entity must have an associated visit");
+        }
 
 
 
@@ -224,8 +293,8 @@ public class StaticServices {
         billingDTO.setBillingId(billing.getId().intValue());
         billingDTO.setTotalAmount(billing.getTotalAmount().doubleValue());
         billingDTO.setPaymentStatus(billing.getPaymentStatus());
-        billingDTO.setPaymentMethod(transaction.getPaymentMethod());
-        billingDTO.setPaymentDate(transaction.getPaymentDate());
+        billingDTO.setPaymentMethod(billing.getPaymentMethod());
+        billingDTO.setPaymentDate(billing.getPaymentDate());
         billingDTO.setDiscount(billing.getDiscount().doubleValue());
         billingDTO.setNetAmount(billing.getNetAmount().doubleValue());
 
@@ -235,32 +304,59 @@ public class StaticServices {
         billingDTO.setBillingDate(billing.getCreatedAt() != null ? billing.getCreatedAt().toLocalDate().toString() : null);
         billingDTO.setCreatedAt(billing.getCreatedAt() != null ? billing.getCreatedAt().toString() : null);
         billingDTO.setUpdatedAt(billing.getUpdatedAt() != null ? billing.getUpdatedAt().toString() : null);
-        billingDTO.setDue_amount(transaction.getDueAmount() != null ? transaction.getDueAmount().doubleValue() : 0.0);
-        billingDTO.setReceived_amount(transaction.getReceivedAmount() != null ? transaction.getReceivedAmount().doubleValue() : 0.0);
         billingDTO.setDiscountReason(billing.getDiscountReason());
-        billingDTO.setPaymentMethod(transaction.getPaymentMethod());
 
+        // Calculate received_amount and due_amount from transactions if they exist
+        BigDecimal totalReceivedAmount = BigDecimal.ZERO;
+        BigDecimal totalDueAmount = BigDecimal.ZERO;
+        
+        if (billing.getTransactions() != null && !billing.getTransactions().isEmpty()) {
+            for (TransactionEntity transaction : billing.getTransactions()) {
+                if (transaction.getReceivedAmount() != null) {
+                    totalReceivedAmount = totalReceivedAmount.add(transaction.getReceivedAmount());
+                }
+                if (transaction.getDueAmount() != null) {
+                    totalDueAmount = totalDueAmount.add(transaction.getDueAmount());
+                }
+            }
+        } else {
+            // If no transactions, use billing's own received_amount and due_amount if available
+            totalReceivedAmount = billing.getReceivedAmount() != null ? billing.getReceivedAmount() : BigDecimal.ZERO;
+            totalDueAmount = billing.getDueAmount() != null ? billing.getDueAmount() : BigDecimal.ZERO;
+        }
+        
+        billingDTO.setReceived_amount(totalReceivedAmount.doubleValue());
+        billingDTO.setDue_amount(totalDueAmount.doubleValue());
 
-        // Transaction
-        LabStatisticsDTO.TransactionDTO trDTO = new LabStatisticsDTO.TransactionDTO();
-        trDTO.setId(transaction.getId().intValue());
-        trDTO.setPayment_method(transaction.getPaymentMethod());
-        trDTO.setUpi_id(transaction.getUpiId());
-        trDTO.setUpi_amount(transaction.getUpiAmount() != null ? transaction.getUpiAmount().doubleValue() : 0.0);
-        trDTO.setCard_amount(transaction.getCardAmount() != null ? transaction.getCardAmount().doubleValue() : 0.0);
-        trDTO.setCash_amount(transaction.getCashAmount() != null ? transaction.getCashAmount().doubleValue() : 0.0);
-        trDTO.setReceived_amount(transaction.getReceivedAmount() != null ? transaction.getReceivedAmount().doubleValue() : 0.0);
-        trDTO.setRefund_amount(transaction.getRefundAmount() != null ? transaction.getRefundAmount().doubleValue() : 0.0);
-        trDTO.setDue_amount(transaction.getDueAmount() != null ? transaction.getDueAmount().doubleValue() : 0.0);
-        trDTO.setPayment_date(transaction.getPaymentDate());
-        trDTO.setCreatedBy(transaction.getCreatedBy());
-        trDTO.setCreated_at(transaction.getCreatedAt() != null ? transaction.getCreatedAt().toString() : null);
-        trDTO.setBilling_id(transaction.getBilling() != null ? transaction.getBilling().getId().intValue() : null);
-        trDTO.setRemarks(transaction.getRemarks());
-
-
-
-        billingDTO.setTransactions(List.of(trDTO));
+        // Map Transactions - handle case where billing has no transactions
+        List<LabStatisticsDTO.TransactionDTO> transactionDTOs;
+        if (billing.getTransactions() != null && !billing.getTransactions().isEmpty()) {
+            transactionDTOs = billing.getTransactions().stream()
+                    .map(transaction -> {
+                        LabStatisticsDTO.TransactionDTO trDTO = new LabStatisticsDTO.TransactionDTO();
+                        trDTO.setId(transaction.getId().intValue());
+                        trDTO.setPayment_method(transaction.getPaymentMethod());
+                        trDTO.setUpi_id(transaction.getUpiId());
+                        trDTO.setUpi_amount(transaction.getUpiAmount() != null ? transaction.getUpiAmount().doubleValue() : 0.0);
+                        trDTO.setCard_amount(transaction.getCardAmount() != null ? transaction.getCardAmount().doubleValue() : 0.0);
+                        trDTO.setCash_amount(transaction.getCashAmount() != null ? transaction.getCashAmount().doubleValue() : 0.0);
+                        trDTO.setReceived_amount(transaction.getReceivedAmount() != null ? transaction.getReceivedAmount().doubleValue() : 0.0);
+                        trDTO.setRefund_amount(transaction.getRefundAmount() != null ? transaction.getRefundAmount().doubleValue() : 0.0);
+                        trDTO.setDue_amount(transaction.getDueAmount() != null ? transaction.getDueAmount().doubleValue() : 0.0);
+                        trDTO.setPayment_date(transaction.getPaymentDate());
+                        trDTO.setCreatedBy(transaction.getCreatedBy());
+                        trDTO.setCreated_at(transaction.getCreatedAt() != null ? transaction.getCreatedAt().toString() : null);
+                        trDTO.setBilling_id(billing.getId().intValue());
+                        trDTO.setRemarks(transaction.getRemarks());
+                        return trDTO;
+                    })
+                    .toList();
+        } else {
+            // No transactions - return empty array to maintain response structure
+            transactionDTOs = List.of();
+        }
+        
+        billingDTO.setTransactions(transactionDTOs);
 
         // Map test discounts
         if (billing.getTestDiscounts() != null && !billing.getTestDiscounts().isEmpty()) {
