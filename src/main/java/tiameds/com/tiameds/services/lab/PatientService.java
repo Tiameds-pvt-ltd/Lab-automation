@@ -29,6 +29,7 @@ public class PatientService {
     private final HealthPackageRepository packageRepository;
     private final InsuranceRepository insuranceRepository;
 
+
     @Autowired
     private final BillingRepository billingRepository;
     private final TestDiscountRepository testDiscountRepository;
