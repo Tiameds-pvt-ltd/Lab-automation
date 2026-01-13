@@ -1349,7 +1349,7 @@ public class UpdatePatientService {
         visit.setVisitCancellationBy(visitDTO.getVisitCancellationBy());
         visit.setVisitCancellationTime(visitDTO.getVisitCancellationTime());
         visit.setCreatedBy(currentUser);
-        LocalDateTime currentDateTime = ZonedDateTime.now(ZoneId.of("Asia/Kolkata")).toLocalDateTime();
+        Instant currentDateTime = Instant.now();
         visit.setVisitTime(currentDateTime); // Set visit time to current date and time
         if (visitDTO.getDoctorId() != null) {
             Optional<Doctors> doctorOpt = doctorRepository.findById(visitDTO.getDoctorId());

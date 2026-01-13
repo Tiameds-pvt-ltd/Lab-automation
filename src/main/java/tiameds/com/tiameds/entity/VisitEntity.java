@@ -9,8 +9,8 @@ import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -125,11 +125,11 @@ public class VisitEntity {
     private String visitCancellationBy;
 
     @Column(name = "visit_cancellation_time")
-    private LocalDateTime visitCancellationTime;
+    private Instant visitCancellationTime;
 
 //    visitTime
     @Column(name = "visit_time")
-    private LocalDateTime visitTime;
+    private Instant visitTime;
 
     @Column(name ="created_by")
     private String createdBy;
@@ -146,10 +146,10 @@ public class VisitEntity {
 
     @CreationTimestamp
     @Column(updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @UpdateTimestamp
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 
     @Column(name = "visit_code", unique = true)
     private String visitCode;

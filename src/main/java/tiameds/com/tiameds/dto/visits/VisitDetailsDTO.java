@@ -12,8 +12,8 @@ import tiameds.com.tiameds.entity.HealthPackage;
 import tiameds.com.tiameds.entity.Test;
 import tiameds.com.tiameds.entity.VisitEntity;
 
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -41,7 +41,7 @@ public class VisitDetailsDTO {
     private String visitCancellationReason;
     private LocalDate visitCancellationDate;
     private String visitCancellationBy;
-    private LocalDateTime visitCancellationTime;
+    private Instant visitCancellationTime;
     @JsonProperty("listofeachtestdiscount")
     private List<TestDiscountDTO> listOfEachTestDiscount;
     private List <VisitTestResultResponseDTO> testResult;

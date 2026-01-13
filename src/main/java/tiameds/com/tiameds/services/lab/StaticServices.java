@@ -14,8 +14,10 @@ import tiameds.com.tiameds.repository.*;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
@@ -50,15 +52,21 @@ public class StaticServices {
 
     @Transactional(readOnly = true)
     public StaticDto getStaticData(Long labId, String startDate, String endDate) {
-        LocalDateTime startDateTime = LocalDate.parse(startDate.trim(), DateTimeFormatter.ofPattern("yyyy-MM-dd")).atStartOfDay();
-        LocalDateTime endDateTime = LocalDate.parse(endDate.trim(), DateTimeFormatter.ofPattern("yyyy-MM-dd")).atTime(23, 59, 59);
+        LocalDate startLocalDate = LocalDate.parse(startDate.trim(), DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        LocalDate endLocalDate = LocalDate.parse(endDate.trim(), DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        // Convert to Instant for VisitEntity (which uses Instant)
+        Instant startDateTimeInstant = startLocalDate.atStartOfDay(ZoneId.of("Asia/Kolkata")).toInstant();
+        Instant endDateTimeInstant = endLocalDate.atTime(23, 59, 59).atZone(ZoneId.of("Asia/Kolkata")).toInstant();
+        // Convert to LocalDateTime for other entities (which still use LocalDateTime)
+        LocalDateTime startDateTime = startLocalDate.atStartOfDay();
+        LocalDateTime endDateTime = endLocalDate.atTime(23, 59, 59);
         // Fetch aggregated data in one query if possible
         long numberOfPatients = patientRepository.countByLabIdAndCreatedAtBetween(labId, startDateTime, endDateTime);
-        long numberOfVisits = visitRepository.countByLabIdAndCreatedAtBetween(labId, startDateTime, endDateTime);
+        long numberOfVisits = visitRepository.countByLabIdAndCreatedAtBetween(labId, startDateTimeInstant, endDateTimeInstant);
 
         // Use an Enum or Constants for status values
-        long collectedSamples = visitRepository.countByLabIdAndStatus(labId, "Collected", startDateTime, endDateTime);
-        long pendingSamples = visitRepository.countByLabIdAndStatus(labId, "Pending", startDateTime, endDateTime);
+        long collectedSamples = visitRepository.countByLabIdAndStatus(labId, "Collected", startDateTimeInstant, endDateTimeInstant);
+        long pendingSamples = visitRepository.countByLabIdAndStatus(labId, "Pending", startDateTimeInstant, endDateTimeInstant);
         long paidVisits = billingRepository.countByLabIdAndStatus(labId, "PAID", startDateTime, endDateTime);
 
         // Fetch sums safely
