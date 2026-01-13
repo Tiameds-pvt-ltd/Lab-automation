@@ -168,9 +168,6 @@ public class StaticController {
     }
 
 
-
-
-
     private Optional<User> getAuthenticatedUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
