@@ -10,7 +10,7 @@ import lombok.Setter;
 import tiameds.com.tiameds.entity.TransactionEntity;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Getter
 @Setter
@@ -59,7 +59,7 @@ public class TransactionDTO {
     private String createdBy;
 
     @JsonProperty("created_at")
-    private LocalDateTime createdAt;
+    private Instant createdAt;
     private String transactionCode;
 
     public TransactionDTO(TransactionEntity transaction) {

@@ -99,7 +99,7 @@ import lombok.Setter;
 import tiameds.com.tiameds.entity.BillingEntity;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.time.LocalTime;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -140,8 +140,8 @@ public class BillingDTO {
     private LocalTime billingTime;
     private String billingDate;
     private String updatedBy;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+    private Instant createdAt;
+    private Instant updatedAt;
     private Set<TransactionDTO> transactions;
 
     public BillingDTO(BillingEntity billing) {

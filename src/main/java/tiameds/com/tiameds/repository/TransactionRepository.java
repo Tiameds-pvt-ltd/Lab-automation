@@ -8,7 +8,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import tiameds.com.tiameds.entity.TransactionEntity;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Repository
 public interface TransactionRepository extends JpaRepository<TransactionEntity, Long> {
@@ -28,8 +28,8 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
                     "AND t.createdAt BETWEEN :startDate AND :endDate")
     Page<TransactionEntity> findTransactionsByLabAndDateRange(
             @Param("labId") Long labId,
-            @Param("startDate") LocalDateTime startDate,
-            @Param("endDate") LocalDateTime endDate,
+            @Param("startDate") Instant startDate,
+            @Param("endDate") Instant endDate,
             Pageable pageable
     );
 }
