@@ -73,6 +73,10 @@ public class TestReferenceServices {
                     // Add JSON fields
                     dto.setReportJson(TestReferenceEntity.getReportJson());
                     dto.setReferenceRanges(TestReferenceEntity.getReferenceRanges());
+                    dto.setDropdown(TestReferenceEntity.getDropdown());
+                    dto.setImpression(TestReferenceEntity.getImpression());
+                    dto.setDropdown(TestReferenceEntity.getDropdown());
+                    dto.setImpression(TestReferenceEntity.getImpression());
                     
                     return dto;
                 }).toList();
@@ -106,6 +110,10 @@ public class TestReferenceServices {
                     // Add JSON fields
                     dto.setReportJson(TestReferenceEntity.getReportJson());
                     dto.setReferenceRanges(TestReferenceEntity.getReferenceRanges());
+                    dto.setDropdown(TestReferenceEntity.getDropdown());
+                    dto.setImpression(TestReferenceEntity.getImpression());
+                    dto.setDropdown(TestReferenceEntity.getDropdown());
+                    dto.setImpression(TestReferenceEntity.getImpression());
                     
                     return dto;
                 }).toList();
@@ -263,6 +271,8 @@ public class TestReferenceServices {
         // Add JSON fields
         testReferenceEntity.setReportJson(testReferenceDTO.getReportJson());
         testReferenceEntity.setReferenceRanges(testReferenceDTO.getReferenceRanges());
+        testReferenceEntity.setDropdown(testReferenceDTO.getDropdown());
+        testReferenceEntity.setImpression(testReferenceDTO.getImpression());
         
         testReferenceEntity.setUpdatedBy(currentUser.getUsername());
         testReferenceRepository.save(testReferenceEntity);
@@ -292,6 +302,8 @@ public class TestReferenceServices {
         // Add JSON fields to response DTO
         dto.setReportJson(testReferenceEntity.getReportJson());
         dto.setReferenceRanges(testReferenceEntity.getReferenceRanges());
+        dto.setDropdown(testReferenceEntity.getDropdown());
+        dto.setImpression(testReferenceEntity.getImpression());
         
         return dto;
     }
@@ -423,6 +435,8 @@ public class TestReferenceServices {
         // Add JSON fields
         entity.setReportJson(testReferenceDTO.getReportJson());
         entity.setReferenceRanges(testReferenceDTO.getReferenceRanges());
+        entity.setDropdown(testReferenceDTO.getDropdown());
+        entity.setImpression(testReferenceDTO.getImpression());
         
         entity.setCreatedBy(currentUser.getUsername());
         entity.setUpdatedBy(currentUser.getUsername());
@@ -456,6 +470,8 @@ public class TestReferenceServices {
         // Add JSON fields to response DTO
         dto.setReportJson(saved.getReportJson());
         dto.setReferenceRanges(saved.getReferenceRanges());
+        dto.setDropdown(saved.getDropdown());
+        dto.setImpression(saved.getImpression());
         
         return dto;
     }
@@ -654,6 +670,8 @@ public class TestReferenceServices {
                     // Add JSON fields
                     dto.setReportJson(TestReferenceEntity.getReportJson());
                     dto.setReferenceRanges(TestReferenceEntity.getReferenceRanges());
+                    dto.setDropdown(TestReferenceEntity.getDropdown());
+                    dto.setImpression(TestReferenceEntity.getImpression());
 
                     return dto;
                 }).toList();
@@ -930,6 +948,34 @@ public class TestReferenceServices {
             }
         } else {
             entity.setReferenceRanges(null);
+        }
+        
+        // Process Dropdown
+        String dropdown = getStringOrBlank(record, "Dropdown");
+        if (!dropdown.isEmpty()) {
+            // Validate JSON format
+            if (isValidJson(dropdown)) {
+                entity.setDropdown(dropdown.trim());
+            } else {
+                LOGGER.warning("Invalid JSON in Dropdown column (record " + record.getRecordNumber() + "): " + dropdown);
+                entity.setDropdown(null);
+            }
+        } else {
+            entity.setDropdown(null);
+        }
+        
+        // Process Impression
+        String impression = getStringOrBlank(record, "Impression");
+        if (!impression.isEmpty()) {
+            // Validate JSON format
+            if (isValidJson(impression)) {
+                entity.setImpression(impression.trim());
+            } else {
+                LOGGER.warning("Invalid JSON in Impression column (record " + record.getRecordNumber() + "): " + impression);
+                entity.setImpression(null);
+            }
+        } else {
+            entity.setImpression(null);
         }
 
         // Audit fields

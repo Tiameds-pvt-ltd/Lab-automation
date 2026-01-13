@@ -30,4 +30,6 @@ public class TestReferenceDTO {
     // JSON fields
     private String reportJson;
     private String referenceRanges;
+    private String dropdown;
+    private String impression;
 }
