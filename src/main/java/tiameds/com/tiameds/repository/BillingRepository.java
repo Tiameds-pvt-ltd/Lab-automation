@@ -6,24 +6,24 @@ import org.springframework.data.repository.query.Param;
 import tiameds.com.tiameds.entity.BillingEntity;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
 
     @Query("SELECT COUNT(b) FROM BillingEntity b JOIN b.labs l WHERE l.id = :labId AND b.paymentStatus = :status AND b.createdAt BETWEEN :startDate AND :endDate")
-    long countByLabIdAndStatus(@Param("labId") Long labId, @Param("status") String status, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+    long countByLabIdAndStatus(@Param("labId") Long labId, @Param("status") String status, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
 
     @Query("SELECT SUM(b.totalAmount) FROM BillingEntity b JOIN b.labs l WHERE l.id = :labId AND b.createdAt BETWEEN :startDate AND :endDate")
-    BigDecimal sumTotalByLabId(@Param("labId") Long labId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+    BigDecimal sumTotalByLabId(@Param("labId") Long labId, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
 
     @Query("SELECT COUNT(b) FROM BillingEntity b JOIN b.labs l WHERE l.id = :labId AND b.createdAt BETWEEN :startDate AND :endDate")
-    long countByLabId(@Param("labId") Long labId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+    long countByLabId(@Param("labId") Long labId, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
 
     @Query("SELECT SUM(b.discount) FROM BillingEntity b JOIN b.labs l WHERE l.id = :labId AND b.discount > 0 AND b.createdAt BETWEEN :startDate AND :endDate")
-    BigDecimal sumDiscountByLabId(@Param("labId") Long labId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+    BigDecimal sumDiscountByLabId(@Param("labId") Long labId, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
 
     @Query("SELECT SUM(b.totalAmount) FROM BillingEntity b JOIN b.labs l WHERE l.id = :labId AND b.totalAmount > 0 AND b.createdAt BETWEEN :startDate AND :endDate")
-    BigDecimal sumGrossByLabId(@Param("labId") Long labId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+    BigDecimal sumGrossByLabId(@Param("labId") Long labId, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
 
     @Query(value = "SELECT DISTINCT b FROM BillingEntity b " +
             "JOIN b.labs l " +
@@ -38,8 +38,8 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
                     "AND b.createdAt BETWEEN :startDate AND :endDate")
     org.springframework.data.domain.Page<BillingEntity> findBillingsByLabAndDateRange(
             @Param("labId") Long labId,
-            @Param("startDate") LocalDateTime startDate,
-            @Param("endDate") LocalDateTime endDate,
+            @Param("startDate") Instant startDate,
+            @Param("endDate") Instant endDate,
             org.springframework.data.domain.Pageable pageable
     );
 
@@ -66,8 +66,8 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
                     "AND EXISTS (SELECT 1 FROM TransactionEntity t WHERE t.billing = b AND t.createdAt BETWEEN :startDate AND :endDate)")
     org.springframework.data.domain.Page<BillingEntity> findBillingsByLabAndPaymentDateRange(
             @Param("labId") Long labId,
-            @Param("startDate") LocalDateTime startDate,
-            @Param("endDate") LocalDateTime endDate,
+            @Param("startDate") Instant startDate,
+            @Param("endDate") Instant endDate,
             org.springframework.data.domain.Pageable pageable
     );
 

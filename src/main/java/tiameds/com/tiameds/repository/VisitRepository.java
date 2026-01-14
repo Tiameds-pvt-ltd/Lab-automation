@@ -10,10 +10,9 @@ import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.entity.PatientEntity;
 import tiameds.com.tiameds.entity.VisitEntity;
 
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 @Repository
 public interface VisitRepository extends JpaRepository<VisitEntity, Long> {
@@ -27,10 +26,10 @@ public interface VisitRepository extends JpaRepository<VisitEntity, Long> {
 
 
     @Query("SELECT COUNT(v) FROM VisitEntity v JOIN v.patient p JOIN p.labs l WHERE l.id = :labId AND v.createdAt BETWEEN :startDate AND :endDate")
-    long countByLabIdAndCreatedAtBetween(@Param("labId") Long labId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+    long countByLabIdAndCreatedAtBetween(@Param("labId") Long labId, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
 
     @Query("SELECT COUNT(v) FROM VisitEntity v JOIN v.patient p JOIN p.labs l WHERE l.id = :labId AND v.visitStatus = :status AND v.createdAt BETWEEN :startDate AND :endDate")
-    long countByLabIdAndStatus(@Param("labId") Long labId, @Param("status") String status, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+    long countByLabIdAndStatus(@Param("labId") Long labId, @Param("status") String status, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
 
     List<VisitEntity> findAllByPatient_LabsAndVisitDateBetween(Lab lab, LocalDate startDate, LocalDate endDate);
 

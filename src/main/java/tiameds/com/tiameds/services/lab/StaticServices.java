@@ -14,8 +14,10 @@ import tiameds.com.tiameds.repository.*;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
@@ -50,26 +52,32 @@ public class StaticServices {
 
     @Transactional(readOnly = true)
     public StaticDto getStaticData(Long labId, String startDate, String endDate) {
-        LocalDateTime startDateTime = LocalDate.parse(startDate.trim(), DateTimeFormatter.ofPattern("yyyy-MM-dd")).atStartOfDay();
-        LocalDateTime endDateTime = LocalDate.parse(endDate.trim(), DateTimeFormatter.ofPattern("yyyy-MM-dd")).atTime(23, 59, 59);
+        LocalDate startLocalDate = LocalDate.parse(startDate.trim(), DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        LocalDate endLocalDate = LocalDate.parse(endDate.trim(), DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        // Convert to Instant for entities (which use Instant)
+        Instant startDateTimeInstant = startLocalDate.atStartOfDay(ZoneId.of("Asia/Kolkata")).toInstant();
+        Instant endDateTimeInstant = endLocalDate.atTime(23, 59, 59).atZone(ZoneId.of("Asia/Kolkata")).toInstant();
+        // Convert to LocalDateTime for other entities (which still use LocalDateTime)
+        LocalDateTime startDateTime = startLocalDate.atStartOfDay();
+        LocalDateTime endDateTime = endLocalDate.atTime(23, 59, 59);
         // Fetch aggregated data in one query if possible
-        long numberOfPatients = patientRepository.countByLabIdAndCreatedAtBetween(labId, startDateTime, endDateTime);
-        long numberOfVisits = visitRepository.countByLabIdAndCreatedAtBetween(labId, startDateTime, endDateTime);
+        long numberOfPatients = patientRepository.countByLabIdAndCreatedAtBetween(labId, startDateTimeInstant, endDateTimeInstant);
+        long numberOfVisits = visitRepository.countByLabIdAndCreatedAtBetween(labId, startDateTimeInstant, endDateTimeInstant);
 
         // Use an Enum or Constants for status values
-        long collectedSamples = visitRepository.countByLabIdAndStatus(labId, "Collected", startDateTime, endDateTime);
-        long pendingSamples = visitRepository.countByLabIdAndStatus(labId, "Pending", startDateTime, endDateTime);
-        long paidVisits = billingRepository.countByLabIdAndStatus(labId, "PAID", startDateTime, endDateTime);
+        long collectedSamples = visitRepository.countByLabIdAndStatus(labId, "Collected", startDateTimeInstant, endDateTimeInstant);
+        long pendingSamples = visitRepository.countByLabIdAndStatus(labId, "Pending", startDateTimeInstant, endDateTimeInstant);
+        long paidVisits = billingRepository.countByLabIdAndStatus(labId, "PAID", startDateTimeInstant, endDateTimeInstant);
 
         // Fetch sums safely
-        BigDecimal totalSales = Optional.ofNullable(billingRepository.sumTotalByLabId(labId, startDateTime, endDateTime))
+        BigDecimal totalSales = Optional.ofNullable(billingRepository.sumTotalByLabId(labId, startDateTimeInstant, endDateTimeInstant))
                 .orElse(BigDecimal.ZERO);
-        BigDecimal totalDiscounts = Optional.ofNullable(billingRepository.sumDiscountByLabId(labId, startDateTime, endDateTime))
+        BigDecimal totalDiscounts = Optional.ofNullable(billingRepository.sumDiscountByLabId(labId, startDateTimeInstant, endDateTimeInstant))
                 .orElse(BigDecimal.ZERO);
-        BigDecimal totalGrossSales = Optional.ofNullable(billingRepository.sumGrossByLabId(labId, startDateTime, endDateTime))
+        BigDecimal totalGrossSales = Optional.ofNullable(billingRepository.sumGrossByLabId(labId, startDateTimeInstant, endDateTimeInstant))
                 .orElse(BigDecimal.ZERO);
 
-        long productsSold = Optional.ofNullable(billingRepository.countByLabId(labId, startDateTime, endDateTime))
+        long productsSold = Optional.ofNullable(billingRepository.countByLabId(labId, startDateTimeInstant, endDateTimeInstant))
                 .orElse(0L);
         long averageOrderValue = (productsSold > 0) ? totalSales.divide(BigDecimal.valueOf(productsSold), RoundingMode.HALF_UP).longValue() : 0;
 
@@ -94,8 +102,8 @@ public class StaticServices {
                                                          User user,
                                                          int page,
                                                          int size) {
-        LocalDateTime startDateTime = (startDate != null ? startDate.atStartOfDay() : LocalDate.MIN.atStartOfDay());
-        LocalDateTime endDateTime = (endDate != null ? endDate.atTime(23, 59, 59) : LocalDate.MAX.atTime(23, 59, 59));
+        Instant startDateTime = (startDate != null ? startDate.atStartOfDay(ZoneId.of("Asia/Kolkata")).toInstant() : LocalDate.MIN.atStartOfDay(ZoneId.of("Asia/Kolkata")).toInstant());
+        Instant endDateTime = (endDate != null ? endDate.atTime(23, 59, 59).atZone(ZoneId.of("Asia/Kolkata")).toInstant() : LocalDate.MAX.atTime(23, 59, 59).atZone(ZoneId.of("Asia/Kolkata")).toInstant());
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 
@@ -135,8 +143,8 @@ public class StaticServices {
                                                      User user,
                                                      int page,
                                                      int size) {
-        LocalDateTime startDateTime = (startDate != null ? startDate.atStartOfDay() : LocalDate.MIN.atStartOfDay());
-        LocalDateTime endDateTime = (endDate != null ? endDate.atTime(23, 59, 59) : LocalDate.MAX.atTime(23, 59, 59));
+        Instant startDateTime = (startDate != null ? startDate.atStartOfDay(ZoneId.of("Asia/Kolkata")).toInstant() : LocalDate.MIN.atStartOfDay(ZoneId.of("Asia/Kolkata")).toInstant());
+        Instant endDateTime = (endDate != null ? endDate.atTime(23, 59, 59).atZone(ZoneId.of("Asia/Kolkata")).toInstant() : LocalDate.MAX.atTime(23, 59, 59).atZone(ZoneId.of("Asia/Kolkata")).toInstant());
 
         // First, get billings without explicit sorting (we'll sort in memory by most recent transaction date)
         Pageable pageable = PageRequest.of(page, size);
@@ -151,8 +159,8 @@ public class StaticServices {
         // Sort by most recent transaction date (if exists), else billing creation date
         List<BillingEntity> sortedBillings = billings.getContent().stream()
                 .sorted((b1, b2) -> {
-                    LocalDateTime date1 = getMostRecentActivityDate(b1);
-                    LocalDateTime date2 = getMostRecentActivityDate(b2);
+                    Instant date1 = getMostRecentActivityDate(b1);
+                    Instant date2 = getMostRecentActivityDate(b2);
                     return date2.compareTo(date1); // Descending order (newest first)
                 })
                 .toList();
@@ -176,15 +184,15 @@ public class StaticServices {
      * - Returns the most recent transaction.createdAt if transactions exist
      * - Returns billing.createdAt if no transactions exist
      */
-    private LocalDateTime getMostRecentActivityDate(BillingEntity billing) {
+    private Instant getMostRecentActivityDate(BillingEntity billing) {
         if (billing.getTransactions() != null && !billing.getTransactions().isEmpty()) {
             return billing.getTransactions().stream()
                     .map(TransactionEntity::getCreatedAt)
                     .filter(date -> date != null)
-                    .max(LocalDateTime::compareTo)
-                    .orElse(billing.getCreatedAt() != null ? billing.getCreatedAt() : LocalDateTime.MIN);
+                    .max(Instant::compareTo)
+                    .orElse(billing.getCreatedAt() != null ? billing.getCreatedAt() : Instant.MIN);
         }
-        return billing.getCreatedAt() != null ? billing.getCreatedAt() : LocalDateTime.MIN;
+        return billing.getCreatedAt() != null ? billing.getCreatedAt() : Instant.MIN;
     }
 
     private LabStatisticsDTO mapBillingToLabStatisticsDTO(BillingEntity billing) {
@@ -300,8 +308,8 @@ public class StaticServices {
 
         billingDTO.setCreatedBy(billing.getCreatedBy());
         billingDTO.setUpdatedBy(billing.getUpdatedBy());
-        billingDTO.setBillingTime(billing.getCreatedAt() != null ? billing.getCreatedAt().toLocalTime().toString() : null);
-        billingDTO.setBillingDate(billing.getCreatedAt() != null ? billing.getCreatedAt().toLocalDate().toString() : null);
+        billingDTO.setBillingTime(billing.getCreatedAt() != null ? billing.getCreatedAt().atZone(ZoneId.of("Asia/Kolkata")).toLocalTime().toString() : null);
+        billingDTO.setBillingDate(billing.getCreatedAt() != null ? billing.getCreatedAt().atZone(ZoneId.of("Asia/Kolkata")).toLocalDate().toString() : null);
         billingDTO.setCreatedAt(billing.getCreatedAt() != null ? billing.getCreatedAt().toString() : null);
         billingDTO.setUpdatedAt(billing.getUpdatedAt() != null ? billing.getUpdatedAt().toString() : null);
         billingDTO.setDiscountReason(billing.getDiscountReason());

@@ -88,6 +88,14 @@ public class TestReferenceEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     private String referenceRanges;
 
+    @Column(columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private String dropdown;
+
+    @Column(columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private String impression;
+
     @ManyToMany(mappedBy = "testReferences", fetch = FetchType.EAGER, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JsonBackReference
     private Set<Lab> labs = new HashSet<>();

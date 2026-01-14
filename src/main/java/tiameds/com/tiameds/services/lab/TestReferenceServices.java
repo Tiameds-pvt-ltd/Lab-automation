@@ -102,25 +102,29 @@ public class TestReferenceServices {
                     dto.setUpdatedBy(TestReferenceEntity.getUpdatedBy());
                     dto.setCreatedAt(TestReferenceEntity.getCreatedAt());
                     dto.setUpdatedAt(TestReferenceEntity.getUpdatedAt());
-
+                    
                     // Add JSON fields
                     dto.setReportJson(TestReferenceEntity.getReportJson());
                     dto.setReferenceRanges(TestReferenceEntity.getReferenceRanges());
+                    dto.setDropdown(TestReferenceEntity.getDropdown());
+                    dto.setImpression(TestReferenceEntity.getImpression());
+                    dto.setDropdown(TestReferenceEntity.getDropdown());
+                    dto.setImpression(TestReferenceEntity.getImpression());
 
                     return dto;
                 }).toList();
-
+        
         // Calculate pagination
         int totalElements = allTestReferences.size();
         int totalPages = (int) Math.ceil((double) totalElements / size);
         int start = page * size;
         int end = Math.min(start + size, totalElements);
-
+        
         // Get paginated subset
-        List<TestReferenceDTO> paginatedReferences = start < totalElements
+        List<TestReferenceDTO> paginatedReferences = start < totalElements 
                 ? allTestReferences.subList(start, end)
                 : new ArrayList<>();
-
+        
         // Build response with pagination metadata
         Map<String, Object> response = new HashMap<>();
         response.put("content", paginatedReferences);
@@ -130,20 +134,20 @@ public class TestReferenceServices {
         response.put("totalPages", totalPages);
         response.put("hasNext", page < totalPages - 1);
         response.put("hasPrevious", page > 0);
-
+        
         return response;
     }
 
     public TestReferenceDTO updateTestReference(Lab lab, Long testReferenceId, TestReferenceDTO testReferenceDTO, User currentUser) {
         LOGGER.info("Attempting to update test reference with ID: " + testReferenceId + " or code: " + (testReferenceDTO != null ? testReferenceDTO.getTestReferenceCode() : null) + " for lab ID: " + lab.getId());
-
+        
         // Validate parameters
         if (testReferenceDTO == null) {
             throw new RuntimeException("Test reference DTO cannot be null.");
         }
-
+        
         TestReferenceEntity testReferenceEntity = null;
-
+        
         // Production-ready approach: Prefer testReferenceCode over ID to avoid JavaScript precision issues
         if (testReferenceDTO.getTestReferenceCode() != null && !testReferenceDTO.getTestReferenceCode().trim().isEmpty()) {
             LOGGER.info("Using test reference code for lookup: " + testReferenceDTO.getTestReferenceCode());
@@ -157,41 +161,41 @@ public class TestReferenceServices {
                         .filter(ref -> testReferenceDTO.getTestReferenceCode().equals(ref.getTestReferenceCode()))
                 .findFirst()
                         .orElse(null);
-
+                
                 if (testReferenceEntity != null) {
                     LOGGER.info("Found test reference by code in lab collection: " + testReferenceDTO.getTestReferenceCode() + " with ID: " + testReferenceEntity.getId());
                 }
             }
         }
-
+        
         // Fallback to ID lookup if code not provided or not found
         if (testReferenceEntity == null) {
             if (testReferenceId == null) {
                 throw new RuntimeException("Either test reference ID or test reference code must be provided.");
             }
-
+            
             // Check if ID might be a JavaScript precision issue (larger than safe integer)
             if (testReferenceId > 9007199254740991L) {
                 LOGGER.warning("Test reference ID " + testReferenceId + " exceeds JavaScript safe integer limit (9007199254740991). Consider using testReferenceCode instead.");
             }
-
+            
             // Try to find test reference using EntityManager first (bypasses cache issues)
             testReferenceEntity = entityManager.find(TestReferenceEntity.class, testReferenceId);
-
+            
             // If not found with EntityManager, try repository
             if (testReferenceEntity == null) {
                 LOGGER.info("EntityManager.find returned null, trying repository.findById");
                 Optional<TestReferenceEntity> testReferenceOptional = testReferenceRepository.findById(testReferenceId);
                 if (testReferenceOptional.isEmpty()) {
                     LOGGER.warning("Test reference not found with ID: " + testReferenceId + " for lab ID: " + lab.getId());
-
+                    
                     // Check for orphaned relationships
                     int linkCount = labTestReferenceLinkRepository.unlinkLabFromReference(lab.getId(), testReferenceId);
                     if (linkCount > 0) {
                         LOGGER.warning("Found orphaned relationship in join table for test reference ID: " + testReferenceId + ". Entity was deleted but relationship remained.");
                         throw new RuntimeException("Test reference with ID " + testReferenceId + " was deleted but relationship still exists. Please refresh and try again.");
                     }
-
+                    
                     // Get list of actual test references for this lab
                     List<TestReferenceEntity> labTestReferences = new ArrayList<>(lab.getTestReferences());
                     List<Long> actualIds = labTestReferences.stream()
@@ -199,12 +203,12 @@ public class TestReferenceServices {
                             .sorted()
                             .toList();
                     LOGGER.warning("Lab " + lab.getId() + " has " + actualIds.size() + " test references. Requested ID " + testReferenceId + " not found.");
-
+                    
                     // Try to find closest matching ID (handles JavaScript precision issues)
                     // JavaScript precision issues typically cause differences of 1-100 in the last digits
                     TestReferenceEntity closestEntity = null;
                     long minDifference = Long.MAX_VALUE;
-
+                    
                     for (TestReferenceEntity entity : labTestReferences) {
                         long difference = Math.abs(entity.getId() - testReferenceId);
                         // Only consider IDs that are very close (within 1000 difference)
@@ -214,7 +218,7 @@ public class TestReferenceServices {
                             closestEntity = entity;
                         }
                     }
-
+                    
                     if (closestEntity != null) {
                         LOGGER.warning("Found closest matching ID: " + closestEntity.getId() + " (difference: " + minDifference + "). This suggests a JavaScript precision issue.");
                         testReferenceEntity = closestEntity;
@@ -230,19 +234,19 @@ public class TestReferenceServices {
                 }
             }
         }
-
+        
         LOGGER.info("Found test reference: " + testReferenceEntity.getTestName() + " with " + testReferenceEntity.getLabs().size() + " associated labs");
 
         // Verify the test reference belongs to this lab
         // Check if the test reference's labs contain this lab
         boolean belongsToLab = testReferenceEntity.getLabs().stream()
                 .anyMatch(l -> l.getId() == lab.getId());
-
+        
         if (!belongsToLab) {
             LOGGER.warning("Test reference " + testReferenceId + " does not belong to lab " + lab.getId());
             throw new RuntimeException("Test reference does not belong to the specified lab.");
         }
-
+        
         // Update the entity fields
         testReferenceEntity.setCategory(testReferenceDTO.getCategory());
         testReferenceEntity.setTestName(testReferenceDTO.getTestName());
@@ -259,16 +263,18 @@ public class TestReferenceServices {
         if (testReferenceDTO.getMaxAgeUnit() != null && !testReferenceDTO.getMaxAgeUnit().isEmpty()) {
         testReferenceEntity.setMaxAgeUnit(AgeUnit.valueOf(testReferenceDTO.getMaxAgeUnit()));
         }
-
+        
         // Add JSON fields
         testReferenceEntity.setReportJson(testReferenceDTO.getReportJson());
         testReferenceEntity.setReferenceRanges(testReferenceDTO.getReferenceRanges());
-        
+        testReferenceEntity.setDropdown(testReferenceDTO.getDropdown());
+        testReferenceEntity.setImpression(testReferenceDTO.getImpression());
+
         testReferenceEntity.setUpdatedBy(currentUser.getUsername());
         testReferenceRepository.save(testReferenceEntity);
-
+        
         LOGGER.info("Successfully updated test reference with ID: " + testReferenceId);
-
+        
         // Map to DTO for response
         TestReferenceDTO dto = new TestReferenceDTO();
         dto.setId(testReferenceEntity.getId());
@@ -292,15 +298,17 @@ public class TestReferenceServices {
         // Add JSON fields to response DTO
         dto.setReportJson(testReferenceEntity.getReportJson());
         dto.setReferenceRanges(testReferenceEntity.getReferenceRanges());
-        
+        dto.setDropdown(testReferenceEntity.getDropdown());
+        dto.setImpression(testReferenceEntity.getImpression());
+
         return dto;
     }
 
     public void deleteTestReference(Lab lab, Long testReferenceId, String testReferenceCode) {
         LOGGER.info("Attempting to delete test reference with ID: " + testReferenceId + " or code: " + testReferenceCode + " for lab ID: " + lab.getId());
-
+        
         TestReferenceEntity testReferenceEntity = null;
-
+        
         // Production-ready approach: Prefer testReferenceCode over ID to avoid JavaScript precision issues
         if (testReferenceCode != null && !testReferenceCode.trim().isEmpty()) {
             LOGGER.info("Using test reference code for lookup: " + testReferenceCode);
@@ -316,28 +324,28 @@ public class TestReferenceServices {
                         .orElse(null);
             }
         }
-
+        
         // Fallback to ID lookup if code not provided or not found
         if (testReferenceEntity == null) {
             if (testReferenceId == null) {
                 throw new RuntimeException("Either test reference ID or test reference code must be provided.");
             }
-
+            
             // Check if ID might be a JavaScript precision issue (larger than safe integer)
             if (testReferenceId > 9007199254740991L) {
                 LOGGER.warning("Test reference ID " + testReferenceId + " exceeds JavaScript safe integer limit (9007199254740991). Consider using testReferenceCode instead.");
             }
-
+        
         // Try to find test reference using EntityManager first (bypasses cache issues)
             testReferenceEntity = entityManager.find(TestReferenceEntity.class, testReferenceId);
-
+        
         // If not found with EntityManager, try repository
         if (testReferenceEntity == null) {
             LOGGER.info("EntityManager.find returned null, trying repository.findById");
             Optional<TestReferenceEntity> testReferenceOptional = testReferenceRepository.findById(testReferenceId);
             if (testReferenceOptional.isEmpty()) {
                 LOGGER.warning("Test reference not found with ID: " + testReferenceId + ". Checking if relationship exists in join table.");
-
+                
                 // Check if relationship exists in join table (orphaned relationship)
                 // If relationship exists but entity doesn't, clean up the orphaned relationship
                 int deletedLinks = labTestReferenceLinkRepository.unlinkLabFromReference(lab.getId(), testReferenceId);
@@ -346,7 +354,7 @@ public class TestReferenceServices {
                     // Return successfully - the orphaned relationship has been cleaned up
                     return;
                 }
-
+                
                     // Get list of actual test references for this lab
                     List<TestReferenceEntity> labTestReferences = new ArrayList<>(lab.getTestReferences());
                     List<Long> actualIds = labTestReferences.stream()
@@ -354,12 +362,12 @@ public class TestReferenceServices {
                             .sorted()
                             .toList();
                     LOGGER.warning("Lab " + lab.getId() + " has " + actualIds.size() + " test references. Requested ID " + testReferenceId + " not found.");
-
+                    
                     // Try to find closest matching ID (handles JavaScript precision issues)
                     // JavaScript precision issues typically cause differences of 1-100 in the last digits
                     TestReferenceEntity closestEntity = null;
                     long minDifference = Long.MAX_VALUE;
-
+                    
                     for (TestReferenceEntity entity : labTestReferences) {
                         long difference = Math.abs(entity.getId() - testReferenceId);
                         // Only consider IDs that are very close (within 1000 difference)
@@ -369,7 +377,7 @@ public class TestReferenceServices {
                             closestEntity = entity;
                         }
                     }
-
+                    
                     if (closestEntity != null) {
                         LOGGER.warning("Found closest matching ID: " + closestEntity.getId() + " (difference: " + minDifference + "). This suggests a JavaScript precision issue.");
                         testReferenceEntity = closestEntity;
@@ -385,14 +393,14 @@ public class TestReferenceServices {
                 }
             }
         }
-
+        
         LOGGER.info("Found test reference: " + testReferenceEntity.getTestName() + " with " + testReferenceEntity.getLabs().size() + " associated labs");
 
         // Verify the test reference belongs to this lab
         // Check if the test reference's labs contain this lab (EAGER loaded)
         boolean belongsToLab = testReferenceEntity.getLabs().stream()
                 .anyMatch(l -> l.getId() == lab.getId());
-
+        
         if (!belongsToLab) {
             LOGGER.warning("Test reference " + testReferenceId + " does not belong to lab " + lab.getId());
             throw new RuntimeException("Test reference does not belong to the specified lab.");
@@ -423,16 +431,18 @@ public class TestReferenceServices {
         // Add JSON fields
         entity.setReportJson(testReferenceDTO.getReportJson());
         entity.setReferenceRanges(testReferenceDTO.getReferenceRanges());
-        
+        entity.setDropdown(testReferenceDTO.getDropdown());
+        entity.setImpression(testReferenceDTO.getImpression());
+
         entity.setCreatedBy(currentUser.getUsername());
         entity.setUpdatedBy(currentUser.getUsername());
         entity.setTestReferenceCode(generateUniqueReferenceCode(lab.getId()));
         TestReferenceEntity saved = testReferenceRepository.save(entity);
-
+        
         // Use the bidirectional helper method to maintain consistency in memory
         // This updates both lab.getTestReferences() and saved.getLabs()
         lab.addTestReference(saved);
-
+        
         // Also update the join table via native query as a safety net
         // (ON CONFLICT DO NOTHING handles duplicates gracefully)
         labTestReferenceLinkRepository.linkLabToReference(lab.getId(), saved.getId());
@@ -456,7 +466,9 @@ public class TestReferenceServices {
         // Add JSON fields to response DTO
         dto.setReportJson(saved.getReportJson());
         dto.setReferenceRanges(saved.getReferenceRanges());
-        
+        dto.setDropdown(saved.getDropdown());
+        dto.setImpression(saved.getImpression());
+
         return dto;
     }
 
@@ -628,7 +640,7 @@ public class TestReferenceServices {
                     if (matches) {
                         LOGGER.info("Match found: DB='" + testReferenceEntity.getTestName() + "' normalized='" + normalizedDbValue + "' search='" + normalizedSearchTerm + "'");
                     }
-                    
+
                     return matches;
                 })
                 .sorted(Comparator.comparingLong(TestReferenceEntity::getId))
@@ -654,6 +666,8 @@ public class TestReferenceServices {
                     // Add JSON fields
                     dto.setReportJson(TestReferenceEntity.getReportJson());
                     dto.setReferenceRanges(TestReferenceEntity.getReferenceRanges());
+                    dto.setDropdown(TestReferenceEntity.getDropdown());
+                    dto.setImpression(TestReferenceEntity.getImpression());
 
                     return dto;
                 }).toList();
@@ -930,6 +944,34 @@ public class TestReferenceServices {
             }
         } else {
             entity.setReferenceRanges(null);
+        }
+
+        // Process Dropdown
+        String dropdown = getStringOrBlank(record, "Dropdown");
+        if (!dropdown.isEmpty()) {
+            // Validate JSON format
+            if (isValidJson(dropdown)) {
+                entity.setDropdown(dropdown.trim());
+            } else {
+                LOGGER.warning("Invalid JSON in Dropdown column (record " + record.getRecordNumber() + "): " + dropdown);
+                entity.setDropdown(null);
+            }
+        } else {
+            entity.setDropdown(null);
+        }
+
+        // Process Impression
+        String impression = getStringOrBlank(record, "Impression");
+        if (!impression.isEmpty()) {
+            // Validate JSON format
+            if (isValidJson(impression)) {
+                entity.setImpression(impression.trim());
+            } else {
+                LOGGER.warning("Invalid JSON in Impression column (record " + record.getRecordNumber() + "): " + impression);
+                entity.setImpression(null);
+            }
+        } else {
+            entity.setImpression(null);
         }
 
         // Audit fields

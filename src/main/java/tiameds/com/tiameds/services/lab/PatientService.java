@@ -29,6 +29,7 @@ public class PatientService {
     private final HealthPackageRepository packageRepository;
     private final InsuranceRepository insuranceRepository;
 
+
     @Autowired
     private final BillingRepository billingRepository;
     private final TestDiscountRepository testDiscountRepository;
@@ -219,7 +220,7 @@ public class PatientService {
         visit.setVisitCancellationBy(visitDTO.getVisitCancellationBy());
         visit.setVisitCancellationTime(visitDTO.getVisitCancellationTime());
         visit.setCreatedBy(currentUser);
-        LocalDateTime currentDateTime = ZonedDateTime.now(ZoneId.of("Asia/Kolkata")).toLocalDateTime();
+        Instant currentDateTime = Instant.now();
         visit.setVisitTime(currentDateTime); // Set visit time to current date and time
         if (visitDTO.getDoctorId() != null) {
             Optional<Doctors> doctorOpt = doctorRepository.findById(visitDTO.getDoctorId());
@@ -358,7 +359,10 @@ public class PatientService {
         // Update visit cancellation details
         visit.setVisitCancellationReason(cancellationData.getVisitCancellationReason());
         visit.setVisitCancellationDate(LocalDate.parse(cancellationData.getVisitCancellationDate()));
-        visit.setVisitCancellationTime(LocalDateTime.of(LocalDate.parse(cancellationData.getVisitCancellationDate()), LocalTime.parse(cancellationData.getVisitCancellationTime())));
+        Instant cancellationTime = LocalDateTime.of(LocalDate.parse(cancellationData.getVisitCancellationDate()), LocalTime.parse(cancellationData.getVisitCancellationTime()))
+                .atZone(ZoneId.of("Asia/Kolkata"))
+                .toInstant();
+        visit.setVisitCancellationTime(cancellationTime);
 
         visit.setVisitStatus("CANCELLED");
         visit.setUpdatedBy(username);

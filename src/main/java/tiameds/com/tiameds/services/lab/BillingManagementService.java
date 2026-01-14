@@ -1410,8 +1410,8 @@ import tiameds.com.tiameds.repository.BillingRepository;
 import tiameds.com.tiameds.repository.TransactionRepository;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 
@@ -1760,7 +1760,7 @@ public class BillingManagementService {
         refundTransaction.setPaymentDate(LocalDate.now().toString());
         refundTransaction.setRemarks(remarks);
         refundTransaction.setCreatedBy(username);
-        refundTransaction.setCreatedAt(LocalDateTime.now());
+        refundTransaction.setCreatedAt(Instant.now());
 
         // Set zero amounts for payment methods
         refundTransaction.setUpiId("");
@@ -1787,7 +1787,7 @@ public class BillingManagementService {
         transaction.setPaymentDate(LocalDate.now().toString());
         transaction.setRemarks("Payment via " + paymentMethod);
         transaction.setCreatedBy(username);
-        transaction.setCreatedAt(LocalDateTime.now());
+        transaction.setCreatedAt(Instant.now());
 
         // Set payment method amounts
         transaction.setUpiId(upiId != null ? upiId : "");

@@ -6,8 +6,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import tiameds.com.tiameds.entity.*;
 
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -33,7 +33,7 @@ public class VisitDTO {
     private String visitCancellationReason;
     private LocalDate visitCancellationDate;
     private String visitCancellationBy;
-    private LocalDateTime visitCancellationTime;
+    private Instant visitCancellationTime;
     @JsonProperty("listofeachtestdiscount")
     private List<TestDiscountDTO> listOfEachTestDiscount;
     @JsonProperty("testResult")
