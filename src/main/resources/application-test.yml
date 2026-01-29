@@ -91,7 +91,7 @@ security-scanning:
     report-path: ${OWASP_DC_REPORT_PATH:./reports/dependency-check-report.html}
 
 
-security:
+security: 
   jwt:
     issuer: ${JWT_ISSUER:tiameds-lab-automation}
     audience: ${JWT_AUDIENCE:tiameds-clients}

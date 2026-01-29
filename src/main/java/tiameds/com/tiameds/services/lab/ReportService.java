@@ -117,6 +117,44 @@ public class ReportService {
         return ApiResponseHelper.successResponse("Report fetched successfully", reportEntities);
     }
 
+    public ResponseEntity<?> getReportByReportId(Long reportId, Long labId) {
+        Optional<ReportEntity> optionalReport = reportRepository.findById(reportId);
+        if (optionalReport.isEmpty()) {
+            return ApiResponseHelper.errorResponse("Report not found", HttpStatus.NOT_FOUND);
+        }
+
+        ReportEntity report = optionalReport.get();
+
+        // Ensure report belongs to the requested lab
+        if (report.getLabId() == null || !report.getLabId().equals(labId)) {
+            return ApiResponseHelper.errorResponse("Report not found for this lab", HttpStatus.NOT_FOUND);
+        }
+
+        String patientCode = null;
+        String visitCode = null;
+        if (report.getVisitId() != null) {
+            Optional<VisitEntity> visitOptional = visitRepository.findById(report.getVisitId());
+            if (visitOptional.isPresent()) {
+                VisitEntity visit = visitOptional.get();
+                visitCode = visit.getVisitCode();
+                if (visit.getPatient() != null) {
+                    patientCode = visit.getPatient().getPatientCode();
+                }
+            }
+        }
+
+        // Enrich single report entity in the same way as list-based getReport
+        report.setTestRows(buildTestRows(report));
+        report.setPatientCode(patientCode);
+        report.setVisitCode(visitCode);
+        if (report.getCreatedAt() != null) {
+            ZonedDateTime istDateTime = report.getCreatedAt().atZone(ZoneId.of("Asia/Kolkata"));
+            report.setCreatedDateTime(istDateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
+        }
+
+        return ApiResponseHelper.successResponse("Report fetched successfully", report);
+    }
+
     public ResponseEntity<?> updateReports(List<ReportDto> reportDtoList, User user) {
         List<ReportEntity> updatedReports = new ArrayList<>();
 
