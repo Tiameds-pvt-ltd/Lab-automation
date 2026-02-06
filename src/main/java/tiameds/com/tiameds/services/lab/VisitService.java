@@ -466,7 +466,9 @@ public class VisitService {
 
         List<VisitEntity> visits = visitRepository.findAllByPatient_LabsAndVisitDateBetween(
                 labOptional.get(), startDate, endDate
-        );
+        ).stream()
+                .filter(visit -> "Pending".equalsIgnoreCase(visit.getVisitStatus()))
+                .collect(Collectors.toList());
 
         List<PatientDetailsDto> result = visits.stream()
                 .map(visit -> {
@@ -483,14 +485,15 @@ public class VisitService {
                     // Map visit details
                     VisitDetailDto visitDetailDto = new VisitDetailDto();
                     visitDetailDto.setVisitId(visit.getVisitId());
+                    visitDetailDto.setVisitCode(visit.getVisitCode());
                     visitDetailDto.setVisitDate(visit.getVisitDate());
                     visitDetailDto.setVisitType(visit.getVisitType());
                     visitDetailDto.setVisitStatus(visit.getVisitStatus());
                     visitDetailDto.setDoctorId(visit.getDoctor() != null ? visit.getDoctor().getId() : null);
 
-                    // Map test and package IDs
-                    visitDetailDto.setTestIds(visit.getTests().stream()
-                            .map(Test::getId)
+                    // Map tests with id+name (avoid duplicate testIds list)
+                    visitDetailDto.setTests(visit.getTests().stream()
+                            .map(test -> new TestSummaryDto(test.getId(), test.getName()))
                             .collect(Collectors.toList()));
                     visitDetailDto.setPackageIds(visit.getPackages().stream()
                             .map(HealthPackage::getId)

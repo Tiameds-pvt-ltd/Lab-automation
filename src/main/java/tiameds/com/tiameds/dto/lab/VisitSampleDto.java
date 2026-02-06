@@ -5,8 +5,6 @@ import lombok.Data;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 
 @Data
@@ -21,8 +19,9 @@ public class VisitSampleDto {
     private String visitType;
     private String doctorName;
     private String visitStatus;
+    private String visitCode;
     private Set<String> sampleNames;
-    private List<Long> testIds;
+    private List<TestSummaryDto> tests;
     private List<Long> packageIds;
     private List<VisitTestResultResponseDTO> testResult;
 
@@ -37,7 +36,8 @@ public class VisitSampleDto {
                           String visitStatus,
                           String visitType,
                           String doctorName,
-                          Set<String> sampleNames, List<Long> testIds, List<Long> packageIds,
+                          String visitCode,
+                          Set<String> sampleNames, List<TestSummaryDto> tests, List<Long> packageIds,
                           List<VisitTestResultResponseDTO> testResult) {
         this.visitId = visitId;
         this.patientname = patientname;
@@ -47,8 +47,9 @@ public class VisitSampleDto {
         this.email = email;
         this.visitDate = visitDate;
         this.visitStatus = visitStatus;
+        this.visitCode = visitCode;
         this.sampleNames = sampleNames;
-        this.testIds = testIds;
+        this.tests = tests;
         this.packageIds = packageIds;
         this.testResult = testResult;
         this.visitType = visitType;

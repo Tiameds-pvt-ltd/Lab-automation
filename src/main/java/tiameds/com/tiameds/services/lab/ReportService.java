@@ -155,34 +155,61 @@ public class ReportService {
         return ApiResponseHelper.successResponse("Report fetched successfully", report);
     }
 
-    public ResponseEntity<?> updateReports(List<ReportDto> reportDtoList, User user) {
+    public ResponseEntity<?> updateReports(List<ReportDto> reportDtoList, User user, Long labId) {
         List<ReportEntity> updatedReports = new ArrayList<>();
 
+        Map<Long, List<ReportDto>> reportGroups = new LinkedHashMap<>();
         for (ReportDto reportDto : reportDtoList) {
             if (reportDto.getReportId() == null) {
                 return ApiResponseHelper.errorResponse("Report ID is required for update", HttpStatus.BAD_REQUEST);
             }
+            reportGroups.computeIfAbsent(reportDto.getReportId(), key -> new ArrayList<>()).add(reportDto);
+        }
 
-            Optional<ReportEntity> optionalReport = reportRepository.findById(reportDto.getReportId());
+        for (Map.Entry<Long, List<ReportDto>> entry : reportGroups.entrySet()) {
+            Long reportId = entry.getKey();
+            List<ReportDto> reportDtos = entry.getValue();
+            ReportDto firstReport = reportDtos.get(0);
+
+            Optional<ReportEntity> optionalReport = reportRepository.findById(reportId);
             if (optionalReport.isEmpty()) {
-                return ApiResponseHelper.errorResponse("Report not found with ID: " + reportDto.getReportId(), HttpStatus.NOT_FOUND);
+                return ApiResponseHelper.errorResponse("Report not found with ID: " + reportId, HttpStatus.NOT_FOUND);
             }
 
             ReportEntity reportEntity = optionalReport.get();
+            if (reportEntity.getLabId() == null || !reportEntity.getLabId().equals(labId)) {
+                return ApiResponseHelper.errorResponse("Report not found for this lab", HttpStatus.NOT_FOUND);
+            }
 
             // Update fields
-            reportEntity.setTestName(reportDto.getTestName());
-            reportEntity.setTestCategory(reportDto.getTestCategory());
-            reportEntity.setPatientName(reportDto.getPatientName());
-            reportEntity.setReferenceDescription(reportDto.getReferenceDescription());
-            reportEntity.setReferenceRange(reportDto.getReferenceRange());
-            reportEntity.setReferenceAgeRange(reportDto.getReferenceAgeRange());
-            reportEntity.setEnteredValue(reportDto.getEnteredValue());
-            reportEntity.setUnit(reportDto.getUnit());
+            reportEntity.setTestName(firstReport.getTestName());
+            reportEntity.setTestCategory(firstReport.getTestCategory());
+            reportEntity.setPatientName(firstReport.getPatientName());
+            reportEntity.setReferenceDescription(firstReport.getReferenceDescription());
+            reportEntity.setReferenceRange(firstReport.getReferenceRange());
+            reportEntity.setReferenceAgeRange(firstReport.getReferenceAgeRange());
+            reportEntity.setEnteredValue(firstReport.getEnteredValue());
+            reportEntity.setDescription(firstReport.getDescription());
+            reportEntity.setRemarks(firstReport.getRemarks());
+            reportEntity.setComments(firstReport.getComments());
+            reportEntity.setUnit(firstReport.getUnit());
             // JSON fields
-            reportEntity.setReportJson(reportDto.getReportJson());
-            reportEntity.setReferenceRanges(reportDto.getReferenceRanges());
-            reportEntity.setCreatedBy(user.getId());
+            reportEntity.setReportJson(firstReport.getReportJson());
+            reportEntity.setReferenceRanges(firstReport.getReferenceRanges());
+            reportEntity.setUpdatedBy(user.getId());
+
+            List<TestRow> testRows = new ArrayList<>();
+            for (ReportDto reportDto : reportDtos) {
+                TestRow testRow = new TestRow(
+                        resolveTestParameter(reportDto),
+                        reportDto.getReferenceRange(),
+                        reportDto.getEnteredValue(),
+                        reportDto.getUnit(),
+                        reportDto.getReferenceAgeRange()
+                );
+                testRows.add(testRow);
+            }
+            reportEntity.setTestRows(testRows);
 
             updatedReports.add(reportEntity);
         }
