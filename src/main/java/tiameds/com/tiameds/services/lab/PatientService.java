@@ -209,7 +209,14 @@ public class PatientService {
         String visitCode = sequenceGeneratorService.generateCode(lab.getId(), EntityType.VISIT);
         visit.setVisitCode(visitCode);
         
-        visit.setVisitDate(visitDTO.getVisitDate());
+        Instant currentDateTime = Instant.now();
+        visit.setVisitTime(currentDateTime); // Set visit time to current date and time
+        if (visitDTO.getVisitDate() != null) {
+            visit.setVisitDate(visitDTO.getVisitDate());
+        } else {
+            LocalDate istDate = currentDateTime.atZone(ZoneId.of("Asia/Kolkata")).toLocalDate();
+            visit.setVisitDate(istDate);
+        }
         visit.setVisitType(visitDTO.getVisitType());
         visit.setVisitStatus(visitDTO.getVisitStatus());
         visit.setVisitDescription(visitDTO.getVisitDescription());
@@ -220,8 +227,6 @@ public class PatientService {
         visit.setVisitCancellationBy(visitDTO.getVisitCancellationBy());
         visit.setVisitCancellationTime(visitDTO.getVisitCancellationTime());
         visit.setCreatedBy(currentUser);
-        Instant currentDateTime = Instant.now();
-        visit.setVisitTime(currentDateTime); // Set visit time to current date and time
         if (visitDTO.getDoctorId() != null) {
             Optional<Doctors> doctorOpt = doctorRepository.findById(visitDTO.getDoctorId());
             if (doctorOpt.isPresent()) {
