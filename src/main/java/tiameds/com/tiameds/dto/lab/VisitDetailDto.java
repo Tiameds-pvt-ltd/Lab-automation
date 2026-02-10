@@ -16,11 +16,13 @@ import java.util.List;
 @NoArgsConstructor
 public class VisitDetailDto {
     private Long visitId;
+    private String visitCode;
     private LocalDate visitDate;
     private String visitType; // IN-PATIENT, OUT-PATIENT, EMERGENCY
     private String visitStatus; // ACTIVE, DISCHARGED, CANCELLED
     private Long doctorId;
     private List<Long> testIds;
+    private List<TestSummaryDto> tests;
     private List<Long> packageIds;
 
     @JsonProperty("listofeachtestdiscount")

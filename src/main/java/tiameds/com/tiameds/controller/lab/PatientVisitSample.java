@@ -13,9 +13,11 @@ import org.springframework.web.bind.annotation.*;
 import tiameds.com.tiameds.audit.AuditLogService;
 import tiameds.com.tiameds.audit.helpers.FieldChangeTracker;
 import tiameds.com.tiameds.dto.lab.PatientVisitSampleDto;
+import tiameds.com.tiameds.dto.lab.TestSummaryDto;
 import tiameds.com.tiameds.dto.lab.VisitSampleDto;
 import tiameds.com.tiameds.dto.lab.VisitTestResultResponseDTO;
 import tiameds.com.tiameds.entity.*;
+import tiameds.com.tiameds.repository.ReportRepository;
 import tiameds.com.tiameds.repository.SampleAssocationRepository;
 import tiameds.com.tiameds.repository.VisitRepository;
 import tiameds.com.tiameds.services.auth.MyUserDetails;
@@ -28,6 +30,7 @@ import tiameds.com.tiameds.repository.LabRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 
@@ -39,6 +42,7 @@ public class PatientVisitSample {
     private final SampleAssocationRepository sampleAssocationRepository;
     private final LabAccessableFilter labAccessableFilter;
     private final LabRepository labRepository;
+    private final ReportRepository reportRepository;
     private final AuditLogService auditLogService;
     private final FieldChangeTracker fieldChangeTracker;
     private final SequenceGeneratorService sequenceGeneratorService;
@@ -48,6 +52,7 @@ public class PatientVisitSample {
                               SampleAssocationRepository sampleAssocationRepository,
                               LabAccessableFilter labAccessableFilter,
                               LabRepository labRepository,
+                              ReportRepository reportRepository,
                               AuditLogService auditLogService,
                               FieldChangeTracker fieldChangeTracker,
                               SequenceGeneratorService sequenceGeneratorService,
@@ -56,6 +61,7 @@ public class PatientVisitSample {
         this.sampleAssocationRepository = sampleAssocationRepository;
         this.labAccessableFilter = labAccessableFilter;
         this.labRepository = labRepository;
+        this.reportRepository = reportRepository;
         this.auditLogService = auditLogService;
         this.fieldChangeTracker = fieldChangeTracker;
         this.sequenceGeneratorService = sequenceGeneratorService;
@@ -282,30 +288,59 @@ public class PatientVisitSample {
                 lab, startDate, endDate, visitStatus);
 
         List<VisitSampleDto> visitSamples = visits.stream()
-                .map(visit -> new VisitSampleDto(
-                        visit.getVisitId(),
-                        visit.getPatient().getFirstName() + " " + visit.getPatient().getLastName(),
-                        visit.getPatient().getGender(),
-                        visit.getPatient().getDateOfBirth().toString(),
-                        visit.getPatient().getPhone(),
-                        visit.getPatient().getEmail(),
-                        visit.getVisitDate(),
-                        visit.getVisitStatus(),
-                        visit.getVisitType(),
-                        visit.getDoctor() != null ? visit.getDoctor().getName() : null, // Handle potential null doctor
-                        visit.getSamples().stream()
-                                .map(SampleEntity::getName)
-                                .collect(Collectors.toSet()),
-                        visit.getTests().stream()
-                                .map(test -> test.getId())
-                                .collect(Collectors.toList()),
-                        visit.getPackages().stream()
-                                .map(pkg -> pkg.getId())
-                                .collect(Collectors.toList()),
-                        visit.getTestResults().stream()
-                                .map(VisitTestResultResponseDTO::new)
-                                .collect(Collectors.toList())
-                ))
+                .map(visit -> {
+                    Map<String, List<Long>> reportIdsByTestName = reportRepository
+                            .findByVisitIdAndLabId(visit.getVisitId(), labId)
+                            .stream()
+                            .filter(report -> report.getTestName() != null)
+                            .collect(Collectors.groupingBy(
+                                    report -> normalizeReportTestName(report.getTestName()),
+                                    Collectors.collectingAndThen(
+                                            Collectors.mapping(ReportEntity::getReportId, Collectors.toCollection(LinkedHashSet::new)),
+                                            ArrayList::new
+                                    )
+                            ));
+
+                    List<VisitTestResultResponseDTO> testResults = visit.getTestResults().stream()
+                            .map(result -> {
+                                VisitTestResultResponseDTO dto = new VisitTestResultResponseDTO(result);
+                                String testName = result.getTest() != null ? result.getTest().getName() : null;
+                                String normalizedTestName = normalizeReportTestName(testName);
+                                Long reportId = normalizedTestName != null
+                                        ? reportIdsByTestName.getOrDefault(normalizedTestName, Collections.emptyList())
+                                            .stream()
+                                            .findFirst()
+                                            .orElse(null)
+                                        : null;
+                                dto.setReportId(reportId);
+                                return dto;
+                            })
+                            .collect(Collectors.toList());
+
+                    return new VisitSampleDto(
+                            visit.getVisitId(),
+                            visit.getPatient().getFirstName() + " " + visit.getPatient().getLastName(),
+                            visit.getPatient().getGender(),
+                            visit.getPatient().getDateOfBirth().toString(),
+                            visit.getPatient().getPhone(),
+                            visit.getPatient().getEmail(),
+                            visit.getVisitDate(),
+                            visit.getVisitStatus(),
+                            visit.getVisitType(),
+                            visit.getDoctor() != null ? visit.getDoctor().getName() : null, // Handle potential null doctor
+                            visit.getVisitCode(),
+                            visit.getSamples().stream()
+                                    .map(SampleEntity::getName)
+                                    .collect(Collectors.toSet()),
+                            visit.getTests().stream()
+                                    .map(test -> new TestSummaryDto(test.getId(), test.getName()))
+                                    .collect(Collectors.toList()),
+                            visit.getPackages().stream()
+                                    .map(pkg -> pkg.getId())
+                                    .collect(Collectors.toList()),
+                            testResults
+                    );
+                })
                 .collect(Collectors.toList());
 
         return ApiResponseHelper.successResponse("Visits filtered by date and status", visitSamples);
@@ -405,6 +440,13 @@ public class PatientVisitSample {
 
     private String normalizeSampleName(String sampleName) {
         return sampleName == null ? "" : sampleName.trim();
+    }
+
+    private String normalizeReportTestName(String testName) {
+        if (testName == null) {
+            return null;
+        }
+        return testName.trim().replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
     }
 
     private Map<String, Object> toAuditMap(VisitEntity visit) {

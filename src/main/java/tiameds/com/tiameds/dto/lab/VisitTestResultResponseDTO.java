@@ -21,6 +21,7 @@ public class VisitTestResultResponseDTO {
     private String updatedBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private Long reportId;
 
     public VisitTestResultResponseDTO(VisitTestResult visitTestResult) {
         this.id = visitTestResult.getId();

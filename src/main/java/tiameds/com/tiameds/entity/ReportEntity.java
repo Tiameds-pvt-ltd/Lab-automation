@@ -56,7 +56,7 @@ public class ReportEntity {
     private String unit;
 
     // new fields added
-    @Column(name = "description",length = 500)
+    @Column(name = "description",length = 4000)
     private String description;
 
     @Column(name = "remarks" , length = 300)

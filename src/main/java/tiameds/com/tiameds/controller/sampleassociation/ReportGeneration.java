@@ -224,6 +224,10 @@ public class ReportGeneration {
         if (lab.isEmpty()) {
             return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
         }
+        boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+        if (!isAccessible) {
+            return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+        }
 
         if (!currentUser.get().getLabs().contains(lab.get())) {
             return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
@@ -245,7 +249,7 @@ public class ReportGeneration {
         }
 
         // Call the service to update reports
-        ResponseEntity<?> response = reportService.updateReports(reportDtoList, currentUser.get());
+        ResponseEntity<?> response = reportService.updateReports(reportDtoList, currentUser.get(), labId);
 
         // Capture new state after modification
         List<Map<String, Object>> newReports = new ArrayList<>();
@@ -509,6 +513,114 @@ public class ReportGeneration {
             return userService.findByUsername(username);
         }
         return Optional.empty();
+    }
+
+
+
+    // get report data by report id and lab id
+
+    @Transactional
+    @GetMapping("{labId}/report/by-id/{reportId}")
+    public ResponseEntity<?> getReportByReportId(
+            @PathVariable Long labId,
+            @PathVariable Long reportId) {
+
+        Optional<User> currentUser = getAuthenticatedUser();
+        if (currentUser.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+        }
+        Optional<Lab> lab = labRepository.findById(labId);
+        if (lab.isEmpty()) {
+            return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
+        }
+        boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+        if (!isAccessible) {
+            return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+        }
+
+        if (!currentUser.get().getLabs().contains(lab.get())) {
+            return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
+        }
+
+        // Ensure report id is valid
+        if (reportId == null) {
+            return ApiResponseHelper.errorResponse("Report ID cannot be empty", HttpStatus.BAD_REQUEST);
+        }
+        return reportService.getReportByReportId(reportId, labId);
+    }
+
+    // update report data by report id and lab id
+    @Transactional
+    @PutMapping("{labId}/report/by-id/{reportId}")
+    public ResponseEntity<?> updateReportByReportId(
+            @PathVariable Long labId,
+            @PathVariable Long reportId,
+            @RequestBody List<ReportDto> reportDtoList,
+            HttpServletRequest request) {
+
+        Optional<User> currentUser = getAuthenticatedUser();
+        if (currentUser.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+        }
+
+        Optional<Lab> lab = labRepository.findById(labId);
+        if (lab.isEmpty()) {
+            return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
+        }
+        boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+        if (!isAccessible) {
+            return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+        }
+
+        if (!currentUser.get().getLabs().contains(lab.get())) {
+            return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
+        }
+
+        if (reportId == null) {
+            return ApiResponseHelper.errorResponse("Report ID cannot be empty", HttpStatus.BAD_REQUEST);
+        }
+        if (reportDtoList == null || reportDtoList.isEmpty()) {
+            return ApiResponseHelper.errorResponse("Report list cannot be empty", HttpStatus.BAD_REQUEST);
+        }
+
+        // Capture old state before modification for audit
+        Optional<ReportEntity> oldReportOpt = reportRepository.findById(reportId);
+        if (oldReportOpt.isEmpty()) {
+            return ApiResponseHelper.errorResponse("Report not found", HttpStatus.NOT_FOUND);
+        }
+        if (oldReportOpt.get().getLabId() == null || !oldReportOpt.get().getLabId().equals(labId)) {
+            return ApiResponseHelper.errorResponse("Report not found for this lab", HttpStatus.NOT_FOUND);
+        }
+        Map<String, Object> oldData = toReportAuditMap(oldReportOpt.get());
+
+        // Ensure DTO list has the correct reportId
+        for (ReportDto reportDto : reportDtoList) {
+            reportDto.setReportId(reportId);
+        }
+
+        // Reuse existing service method for updating reports
+        ResponseEntity<?> response = reportService.updateReports(reportDtoList, currentUser.get(), labId);
+
+        // Capture new state after modification
+        Map<String, Object> newData = null;
+        Optional<ReportEntity> newReportOpt = reportRepository.findById(reportId);
+        if (newReportOpt.isPresent()) {
+            newData = toReportAuditMap(newReportOpt.get());
+        }
+
+        // Log audit for this update
+        logReportAudit(
+                labId,
+                "REPORT_UPDATE",
+                oldData,
+                newData,
+                "Updated report " + reportId,
+                currentUser.get(),
+                request,
+                String.valueOf(reportId)
+        );
+
+        return response;
     }
 
 }

@@ -1,6 +1,7 @@
 -- Migration script to add JSON support to super_admin_test_referance table
 -- This script adds the Remarks and ReportJson columns to support JSON data storage
 
+
 -- Add Remarks column
 ALTER TABLE super_admin_test_referance 
 ADD COLUMN IF NOT EXISTS remarks VARCHAR(500);
