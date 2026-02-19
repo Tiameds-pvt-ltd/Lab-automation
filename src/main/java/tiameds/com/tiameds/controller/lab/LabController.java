@@ -7,9 +7,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
-import tiameds.com.tiameds.dto.lab.LabListDTO;
+import tiameds.com.tiameds.dto.lab.LabListFullDTO;
+import tiameds.com.tiameds.dto.lab.LabMemberDTO;
 import tiameds.com.tiameds.dto.lab.LabRequestDTO;
+import tiameds.com.tiameds.dto.lab.LabLogoUploadRequestDTO;
+import tiameds.com.tiameds.dto.lab.LabLogoUploadResponseDTO;
 import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.repository.LabRepository;
@@ -19,6 +23,7 @@ import tiameds.com.tiameds.dto.lab.LabCreationResponseDTO;
 import tiameds.com.tiameds.services.lab.LabCreationService;
 import tiameds.com.tiameds.services.lab.LabDefaultDataService;
 import tiameds.com.tiameds.services.lab.UserLabService;
+import tiameds.com.tiameds.services.lab.LabService;
 import tiameds.com.tiameds.utils.ApiResponse;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
@@ -40,47 +45,25 @@ public class LabController {
     private final LabDefaultDataService labDefaultDataService;
     private final UserService userService;
     private final LabCreationService labCreationService;
+    private final LabService labService;
 
     public LabController(UserLabService userLabService,
                          LabRepository labRepository,
                          LabAccessableFilter labAccessableFilter,
                          LabDefaultDataService labDefaultDataService,
                          UserService userService,
-                         LabCreationService labCreationService) {
+                         LabCreationService labCreationService,
+                         LabService labService) {
         this.userLabService = userLabService;
         this.labRepository = labRepository;
         this.labAccessableFilter = labAccessableFilter;
         this.labDefaultDataService = labDefaultDataService;
         this.userService = userService;
         this.labCreationService = labCreationService;
+        this.labService = labService;
     }
 
     // ---------- Get all labs created by the user ----------
-    @GetMapping("/get-labs")
-    public ResponseEntity<?> getLabsCreatedByUser() {
-        Optional<User> currentUserOptional = getAuthenticatedUser();
-        if (currentUserOptional.isEmpty()) {
-            return ApiResponseHelper.successResponseWithDataAndMessage("User not found", HttpStatus.UNAUTHORIZED, null);
-        }
-        User currentUser = currentUserOptional.get();
-        List<Lab> labs = labRepository.findByCreatedBy(currentUser);
-        if (labs.isEmpty()) {
-            return ApiResponseHelper.successResponseWithDataAndMessage("No labs found", HttpStatus.OK, null);
-        }
-        List<LabListDTO> labListDTOs = labs.stream()
-                .map(lab -> new LabListDTO(
-                        lab.getId(),
-                        lab.getName(),
-                        lab.getAddress(),
-                        lab.getCity(),
-                        lab.getState(),
-                        lab.getIsActive(),
-                        lab.getDescription(),
-                        lab.getCreatedBy().getUsername()
-                ))
-                .toList();
-        return ApiResponseHelper.successResponseWithDataAndMessage("Labs fetched successfully", HttpStatus.OK, labListDTOs);
-    }
 
 
     @DeleteMapping("/delete-lab/{labId}")
@@ -248,6 +231,7 @@ public class LabController {
         lab.getMembers().add(userToAdd);
         labRepository.save(lab);
     }
+
     private Optional<User> getAuthenticatedUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
@@ -264,5 +248,91 @@ public class LabController {
             return userService.findByUsername(username);
         }
         return Optional.empty();
+    }
+
+
+    @Transactional
+    @GetMapping("/get-labs")
+    public ResponseEntity<?> getLabsCreatedByUser() {
+        Optional<User> currentUserOptional = getAuthenticatedUser();
+        if (currentUserOptional.isEmpty()) {
+            return ApiResponseHelper.successResponseWithDataAndMessage("User not found", HttpStatus.UNAUTHORIZED, null);
+        }
+        User currentUser = currentUserOptional.get();
+        List<LabListFullDTO> labListDTOs = labService.getLabsCreatedByUser(currentUser);
+        if (labListDTOs.isEmpty()) {
+            return ApiResponseHelper.successResponseWithDataAndMessage("No labs found", HttpStatus.OK, null);
+        }
+        return ApiResponseHelper.successResponseWithDataAndMessage("Labs fetched successfully", HttpStatus.OK, labListDTOs);
+    }
+
+    @PostMapping("/lab-logo/upload-url")
+    public ResponseEntity<?> getLabLogoUploadUrl(@RequestBody LabLogoUploadRequestDTO requestDTO) {
+        Optional<User> currentUserOptional = getAuthenticatedUser();
+        if (currentUserOptional.isEmpty()) {
+            return ApiResponseHelper.successResponseWithDataAndMessage("User not found", HttpStatus.UNAUTHORIZED, null);
+        }
+        try {
+            LabLogoUploadResponseDTO response = labService.createLabLogoUploadUrl(currentUserOptional.get(), requestDTO);
+            return ApiResponseHelper.successResponseWithDataAndMessage("Upload URL generated successfully", HttpStatus.OK, response);
+        } catch (IllegalArgumentException e) {
+            return ApiResponseHelper.successResponseWithDataAndMessage(e.getMessage(), HttpStatus.BAD_REQUEST, null);
+        } catch (IllegalStateException e) {
+            HttpStatus status = e.getMessage() != null && e.getMessage().toLowerCase().contains("configured")
+                    ? HttpStatus.INTERNAL_SERVER_ERROR
+                    : HttpStatus.UNAUTHORIZED;
+            return ApiResponseHelper.successResponseWithDataAndMessage(e.getMessage(), status, null);
+        }
+    }
+
+
+    //--------------------- Get lab by ID --------------------
+    @GetMapping("/get-lab-by-id/{labId}")
+    public ResponseEntity<?> getLabById(@PathVariable Long labId) {
+        Optional<User> currentUserOptional = getAuthenticatedUser();
+        if (currentUserOptional.isEmpty()) {
+            return ApiResponseHelper.successResponseWithDataAndMessage("User not found", HttpStatus.UNAUTHORIZED, null);
+        }
+        User currentUser = currentUserOptional.get();
+        Optional<Lab> labOptional = labRepository.findLabWithMembers(labId);
+        if (labOptional.isEmpty()) {
+            return ApiResponseHelper.successResponseWithDataAndMessage("Lab not found", HttpStatus.NOT_FOUND, null);
+        }
+        Lab lab = labOptional.get();
+        boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+        if (!isAccessible) {
+            return ApiResponseHelper.successResponseWithDataAndMessage("Lab not accessible", HttpStatus.UNAUTHORIZED, null);
+        }
+        if (!lab.getMembers().contains(currentUser)) {
+            return ApiResponseHelper.successResponseWithDataAndMessage("User is not a member of this lab", HttpStatus.UNAUTHORIZED, null);
+        }
+        LabListFullDTO labDetails = labService.toLabListFullDTO(lab);
+        return ApiResponseHelper.successResponseWithDataAndMessage("Lab fetched successfully", HttpStatus.OK, labDetails);
+    }
+
+    //----------------------- update lab by id --------------------
+    @PutMapping("/update-lab-by-id/{labId}")
+    public ResponseEntity<?> updateLabById(@PathVariable Long labId, @RequestBody LabRequestDTO labRequestDTO) {
+        Optional<User> currentUserOptional = getAuthenticatedUser();
+        if (currentUserOptional.isEmpty()) {
+            return ApiResponseHelper.successResponseWithDataAndMessage("User not found", HttpStatus.UNAUTHORIZED, null);
+        }
+        User currentUser = currentUserOptional.get();
+        LabService.UpdateLabResult result = labService.updateLabById(currentUser, labId, labRequestDTO);
+        return ApiResponseHelper.successResponseWithDataAndMessage(result.getMessage(), result.getStatus(), result.getData());
+    }
+
+    //  get all members of a lab
+    @GetMapping("/get-all-members-of-a-lab/{labId}")
+    public ResponseEntity<?> getAllMembersOfALab(@PathVariable Long labId) {
+        Optional<User> currentUserOptional = getAuthenticatedUser();
+        if (currentUserOptional.isEmpty()) {
+            return ApiResponseHelper.successResponseWithDataAndMessage("User not found", HttpStatus.UNAUTHORIZED, null);
+        }
+        List<LabMemberDTO> members = labService.getAllMembersOfALab(labId);
+        if (members.isEmpty()) {
+            return ApiResponseHelper.successResponseWithDataAndMessage("No members found", HttpStatus.OK, null);
+        }
+        return ApiResponseHelper.successResponseWithDataAndMessage("Members fetched successfully", HttpStatus.OK, members);
     }
 }

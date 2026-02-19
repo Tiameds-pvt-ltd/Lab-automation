@@ -168,6 +168,22 @@
         {
           "name": "JWT_SUBJECT_ENCRYPTION_KEY",
           "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedlabsecret-SM3XcQ:JWT_SUBJECT_ENCRYPTION_KEY::"
+        },
+        {
+          "name":"AWS_S3_BUCKET",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedlabsecret-SM3XcQ:AWS_S3_BUCKET::"
+        },
+        {
+          "name": "AWS_REGION",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedlabsecret-SM3XcQ:AWS_REGION::"
+        },
+        {
+          "name": "AWS_S3_CDN_BASE_URL",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedlabsecret-SM3XcQ:AWS_S3_CDN_BASE_URL::"
+        },
+        {
+          "name": "AWS_S3_PRESIGN_EXPIRY_MINUTES",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:tiamedlabsecret-SM3XcQ:AWS_S3_PRESIGN_EXPIRY_MINUTES::"
         }
       ],
       "ulimits": [],

@@ -105,3 +105,11 @@ security:
     cookie-path: ${JWT_COOKIE_PATH:/}
     cookie-secure: ${JWT_COOKIE_SECURE:true}
     same-site: ${JWT_COOKIE_SAMESITE:None}
+
+# S3 upload configuration
+aws:
+  s3:
+    bucket: ${AWS_S3_BUCKET:}
+    region: ${AWS_REGION:}
+    cdn-base-url: ${AWS_S3_CDN_BASE_URL:}
+    presign-expiry-minutes: ${AWS_S3_PRESIGN_EXPIRY_MINUTES:10}
