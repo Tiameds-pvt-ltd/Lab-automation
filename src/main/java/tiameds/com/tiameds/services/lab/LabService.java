@@ -128,9 +128,9 @@ public class LabService {
             return new UpdateLabResult(HttpStatus.NOT_FOUND, "Lab not found", null);
         }
         boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
-        if (!isAccessible) {
-            return new UpdateLabResult(HttpStatus.UNAUTHORIZED, "Lab not accessible", null);
-        }
+//        if (!isAccessible) {
+//            return new UpdateLabResult(HttpStatus.UNAUTHORIZED, "Lab not accessible", null);
+//        }
         if (!userRepository.existsByIdAndLabsId(currentUser.getId(), labId)) {
             return new UpdateLabResult(HttpStatus.UNAUTHORIZED, "User is not a member of this lab", null);
         }
@@ -179,10 +179,10 @@ public class LabService {
             throw new IllegalStateException("S3 bucket and region must be configured");
         }
         Long labId = request.getLabId();
-        boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
-        if (!isAccessible) {
-            throw new IllegalStateException("Lab not accessible");
-        }
+//        boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+//        if (!isAccessible) {
+//            throw new IllegalStateException("Lab not accessible");
+//        }
         if (!userRepository.existsByIdAndLabsId(currentUser.getId(), labId)) {
             throw new IllegalStateException("User is not a member of this lab");
         }
