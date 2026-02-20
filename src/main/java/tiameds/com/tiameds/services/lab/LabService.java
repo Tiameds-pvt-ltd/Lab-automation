@@ -193,7 +193,7 @@ public class LabService {
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                 .bucket(s3Bucket)
                 .key(key)
-                .contentType(request.getFileType())
+//                .contentType(request.getFileType())
                 .build();
 
         try (S3Presigner presigner = S3Presigner.builder()
