@@ -212,8 +212,11 @@ public class LabService {
 
     private String buildFileUrl(String key) {
         if (s3CdnBaseUrl != null && !s3CdnBaseUrl.isBlank()) {
-            String base = s3CdnBaseUrl.endsWith("/") ? s3CdnBaseUrl.substring(0, s3CdnBaseUrl.length() - 1) : s3CdnBaseUrl;
-            return base + "/" + key;
+            String base = s3CdnBaseUrl.trim();
+            if (base.startsWith("http://") || base.startsWith("https://")) {
+                String normalizedBase = base.endsWith("/") ? base.substring(0, base.length() - 1) : base;
+                return normalizedBase + "/" + key;
+            }
         }
         return "https://" + s3Bucket + ".s3." + s3Region + ".amazonaws.com/" + key;
     }
