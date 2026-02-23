@@ -1,6 +1,5 @@
 -- Migration script to add lab_id column to lab_audit_logs table
 -- This column is required for tracking which lab performed the audit action
-
 ALTER TABLE lab_audit_logs 
 ADD COLUMN IF NOT EXISTS lab_id VARCHAR(255) NOT NULL DEFAULT '';
 
