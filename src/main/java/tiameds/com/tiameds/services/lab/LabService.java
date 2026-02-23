@@ -5,6 +5,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
@@ -21,6 +23,7 @@ import tiameds.com.tiameds.repository.UserRepository;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
 
 import java.time.Duration;
+import java.net.URI;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -127,21 +130,23 @@ public class LabService {
         if (lab == null) {
             return new UpdateLabResult(HttpStatus.NOT_FOUND, "Lab not found", null);
         }
-        boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
-//        if (!isAccessible) {
-//            return new UpdateLabResult(HttpStatus.UNAUTHORIZED, "Lab not accessible", null);
-//        }
+        // if (!labAccessableFilter.isLabAccessible(labId)) {
+        //     return new UpdateLabResult(HttpStatus.UNAUTHORIZED, "Lab not accessible", null);
+        // }
         if (!userRepository.existsByIdAndLabsId(currentUser.getId(), labId)) {
             return new UpdateLabResult(HttpStatus.UNAUTHORIZED, "User is not a member of this lab", null);
         }
+        // Capture old logo URL so we can delete it after a successful update.
+        String oldLogoUrl = lab.getLabLogo();
         lab.setName(labRequestDTO.getName());
         lab.setAddress(labRequestDTO.getAddress());
         lab.setCity(labRequestDTO.getCity());
         lab.setState(labRequestDTO.getState());
         lab.setIsActive(labRequestDTO.getIsActive());
         lab.setDescription(labRequestDTO.getDescription());
-        if (labRequestDTO.getLabLogo() != null && !labRequestDTO.getLabLogo().isBlank()) {
-            lab.setLabLogo(labRequestDTO.getLabLogo());
+        String newLogoUrl = labRequestDTO.getLabLogo();
+        if (newLogoUrl != null && !newLogoUrl.isBlank()) {
+            lab.setLabLogo(newLogoUrl);
         }
         lab.setLicenseNumber(labRequestDTO.getLicenseNumber());
         lab.setLabType(labRequestDTO.getLabType());
@@ -161,6 +166,12 @@ public class LabService {
         lab.setLabAccreditation(labRequestDTO.getLabAccreditation());
         lab.setDataPrivacyAgreement(labRequestDTO.getDataPrivacyAgreement());
         labRepository.save(lab);
+        // Best-effort cleanup: delete previous logo only after DB update succeeds.
+        if (newLogoUrl != null && !newLogoUrl.isBlank()
+                && oldLogoUrl != null && !oldLogoUrl.isBlank()
+                && !oldLogoUrl.equals(newLogoUrl)) {
+            deleteS3ObjectByUrl(oldLogoUrl);
+        }
         return new UpdateLabResult(HttpStatus.OK, "Lab updated successfully", toLabListFullDTO(lab));
     }
 
@@ -225,6 +236,62 @@ public class LabService {
         String normalized = fileName.replace("\\", "/");
         String baseName = normalized.substring(normalized.lastIndexOf("/") + 1);
         return baseName.replaceAll("[^a-zA-Z0-9._-]", "_");
+    }
+
+    /**
+     * Deletes an S3 object from an absolute S3 URL.
+     * This is best-effort cleanup so the update flow never fails if delete fails.
+     */
+    private void deleteS3ObjectByUrl(String fileUrl) {
+        try {
+            String key = extractS3Key(fileUrl);
+            if (key == null || key.isBlank()) {
+                return;
+            }
+            try (S3Client s3Client = S3Client.builder()
+                    .region(Region.of(s3Region))
+                    .build()) {
+                DeleteObjectRequest request = DeleteObjectRequest.builder()
+                        .bucket(s3Bucket)
+                        .key(key)
+                        .build();
+                s3Client.deleteObject(request);
+            }
+        } catch (Exception ignored) {
+            // Intentionally swallow exceptions to avoid breaking the update flow.
+        }
+    }
+
+    /**
+     * Extracts the S3 object key from standard S3 URLs.
+     * Supports:
+     * 1) https://<bucket>.s3.<region>.amazonaws.com/<key>
+     * 2) https://s3.<region>.amazonaws.com/<bucket>/<key>
+     */
+    private String extractS3Key(String fileUrl) {
+        URI uri = URI.create(fileUrl);
+        String host = uri.getHost();
+        if (host == null) {
+            return null;
+        }
+        String path = uri.getPath() == null ? "" : uri.getPath();
+        if (host.startsWith(s3Bucket + ".s3.")) {
+            return path.startsWith("/") ? path.substring(1) : path;
+        }
+        if (host.startsWith("s3.") || host.startsWith("s3-") || host.equals("s3.amazonaws.com")) {
+            String trimmed = path.startsWith("/") ? path.substring(1) : path;
+            if (!trimmed.startsWith(s3Bucket + "/")) {
+                return null;
+            }
+            return trimmed.substring((s3Bucket + "/").length());
+        }
+        if (fileUrl.contains(".amazonaws.com/")) {
+            String[] parts = fileUrl.split("\\.amazonaws\\.com/", 2);
+            if (parts.length == 2) {
+                return parts[1];
+            }
+        }
+        return null;
     }
 
     public static class UpdateLabResult {
