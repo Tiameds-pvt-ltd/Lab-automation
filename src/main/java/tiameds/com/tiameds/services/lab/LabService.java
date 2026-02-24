@@ -104,7 +104,7 @@ public class LabService {
         if (lab == null) {
             return Collections.emptyList();
         }
-        Set<User> members = lab.getMembers();
+        Set<User> members = lab.getMembers();   
         if (members == null || members.isEmpty()) {
             return Collections.emptyList();
         }
