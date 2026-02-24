@@ -6,6 +6,8 @@ The **Report Settings** feature allows lab administrators to configure how lab r
 
 ---
 
+
+
 ## 1. What Gets Stored in the Database
 
 ### 1.1 Table: `report_settings`
