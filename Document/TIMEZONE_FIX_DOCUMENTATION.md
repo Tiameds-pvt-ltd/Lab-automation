@@ -1,11 +1,11 @@
 # Timezone Fix Documentation
 
+
 ## Overview
 
 This document describes the timezone handling fix implemented for the Lab Automation system to resolve timestamp display issues across different environments (local development, testing, and production/AWS).
 
 ## Problem Statement
-
 
 ### Issue
 The application was displaying timestamps **5.5 hours earlier** than the actual creation time in the UI, particularly noticeable in AWS/production environments.
