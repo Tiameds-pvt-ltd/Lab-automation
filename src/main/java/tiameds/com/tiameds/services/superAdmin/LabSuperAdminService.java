@@ -30,7 +30,8 @@ public class LabSuperAdminService {
                         lab.getState(),
                         lab.getIsActive(),
                         lab.getDescription(),
-                        lab.getCreatedByName()
+                        lab.getCreatedByName(),
+                        lab.getLabPhone()
                 ))
                 .collect(Collectors.toList());
     }
