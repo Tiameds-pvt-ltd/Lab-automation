@@ -62,7 +62,8 @@ public class LabForAll {
                         lab.getState(),
                         lab.getIsActive(),
                         lab.getDescription(),
-                        lab.getCreatedBy().getUsername()
+                        lab.getCreatedBy().getUsername(),
+                        lab.getLabPhone()
                 ))
                 .toList();
         return ApiResponseHelper.successResponseWithDataAndMessage("Labs fetched successfully", HttpStatus.OK, labListDTOs);

@@ -16,4 +16,5 @@ public class LabListDTO {
     private Boolean isActive;
     private String description;
     private String createdByName;
+    private String labPhone;
 }
