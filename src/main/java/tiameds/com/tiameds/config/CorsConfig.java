@@ -16,10 +16,11 @@ public class CorsConfig {
 
         // Allow these domains
         configuration.setAllowedOrigins(List.of(
+                "https://lab-dev.tiameds.ai",
                 "https://lab-test-env.tiameds.ai",
                 "http://localhost:3000",
-                "https://tiameds-lab-app-7lkk.vercel.app",
-                "https://lab-dev.tiameds.ai"
+                "https://tiameds-lab-app-7lkk.vercel.app"
+//                "https://lab-dev.tiameds.ai"
         ));
 
         // Allowed methods
