@@ -223,6 +223,35 @@ public class SuperAdminStatsController {
         return ApiResponseHelper.successResponse("Pending samples retrieved successfully", Map.of("pendingSamples", pendingSamples));
     }
 
+    @GetMapping("/tests-by-category")
+    public ResponseEntity<?> getTestsByCategory(
+            @RequestHeader("Authorization") String token,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate) {
+        Optional<User> userOptional = userAuthService.authenticateUser(token);
+        if (userOptional.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
+        }
+
+        User currentUser = userOptional.get();
+        List<TestRepository.TestsByCategoryProjection> categories;
+        if (startDate != null && endDate != null) {
+            categories = testRepository.getTestsByCategoryWithDateRange(currentUser.getId(), toStart(startDate), toEnd(endDate));
+        } else {
+            categories = testRepository.getTestsByCategory(currentUser.getId());
+        }
+
+        long total = categories.stream()
+                .mapToLong(TestRepository.TestsByCategoryProjection::getTestCount)
+                .sum();
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("total", total);
+        response.put("categories", categories);
+
+        return ApiResponseHelper.successResponse("Tests by category retrieved successfully", response);
+    }
+
     @GetMapping("/revenue-trend")
     public ResponseEntity<?> getRevenueTrend(
             @RequestHeader("Authorization") String token,
