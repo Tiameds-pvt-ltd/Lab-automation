@@ -4,9 +4,11 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import tiameds.com.tiameds.entity.BillingEntity;
+import tiameds.com.tiameds.entity.User;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 
 public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
 
@@ -24,6 +26,53 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
 
     @Query("SELECT SUM(b.totalAmount) FROM BillingEntity b JOIN b.labs l WHERE l.id = :labId AND b.totalAmount > 0 AND b.createdAt BETWEEN :startDate AND :endDate")
     BigDecimal sumGrossByLabId(@Param("labId") Long labId, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
+
+    @Query("SELECT COALESCE(SUM(b.totalAmount), 0) FROM BillingEntity b JOIN b.labs l WHERE l.createdBy = :createdBy")
+    BigDecimal sumTotalRevenueByLabsCreatedBy(@Param("createdBy") User createdBy);
+
+    @Query("SELECT COALESCE(SUM(b.totalAmount), 0) FROM BillingEntity b JOIN b.labs l WHERE l.createdBy = :createdBy AND b.createdAt BETWEEN :startDate AND :endDate")
+    BigDecimal sumTotalRevenueByLabsCreatedByAndCreatedAtBetween(@Param("createdBy") User createdBy, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
+
+    @Query(value = "SELECT DATE(b.created_at) AS date, COALESCE(SUM(b.total_amount), 0) AS revenue " +
+            "FROM billing b " +
+            "JOIN lab_billing lb ON b.billing_id = lb.billing_id " +
+            "JOIN labs l ON lb.lab_id = l.lab_id " +
+            "WHERE l.created_by = :createdById " +
+            "AND b.created_at BETWEEN :startDate AND :endDate " +
+            "GROUP BY DATE(b.created_at) " +
+            "ORDER BY DATE(b.created_at)", nativeQuery = true)
+    List<DailyRevenueProjection> getDailyRevenueTrend(@Param("createdById") Long createdById, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
+
+    interface DailyRevenueProjection {
+        String getDate();
+        BigDecimal getRevenue();
+    }
+
+    @Query(value = "SELECT l.name AS labName, COALESCE(SUM(b.total_amount), 0) AS revenue " +
+            "FROM billing b " +
+            "JOIN lab_billing lb ON b.billing_id = lb.billing_id " +
+            "JOIN labs l ON lb.lab_id = l.lab_id " +
+            "WHERE l.created_by = :createdById " +
+            "AND b.created_at BETWEEN :startDate AND :endDate " +
+            "GROUP BY l.lab_id, l.name " +
+            "ORDER BY revenue DESC " +
+            "LIMIT 8", nativeQuery = true)
+    List<RevenueByLabProjection> getRevenueByLab(@Param("createdById") Long createdById, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
+
+    @Query(value = "SELECT l.name AS labName, COALESCE(SUM(b.total_amount), 0) AS revenue " +
+            "FROM billing b " +
+            "JOIN lab_billing lb ON b.billing_id = lb.billing_id " +
+            "JOIN labs l ON lb.lab_id = l.lab_id " +
+            "WHERE l.created_by = :createdById " +
+            "GROUP BY l.lab_id, l.name " +
+            "ORDER BY revenue DESC " +
+            "LIMIT 8", nativeQuery = true)
+    List<RevenueByLabProjection> getRevenueByLabAllTime(@Param("createdById") Long createdById);
+
+    interface RevenueByLabProjection {
+        String getLabName();
+        BigDecimal getRevenue();
+    }
 
     @Query(value = "SELECT DISTINCT b FROM BillingEntity b " +
             "JOIN b.labs l " +

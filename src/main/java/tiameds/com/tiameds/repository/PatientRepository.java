@@ -37,5 +37,5 @@ public interface PatientRepository extends JpaRepository<PatientEntity, Long> {
     @Query("SELECT p FROM PatientEntity p JOIN p.labs l WHERE p.phone LIKE CONCAT(:phonePrefix, '%') AND l.id = :labId")
     List<PatientEntity> findByPhoneStartingWithAndLabId(@Param("phonePrefix") String phonePrefix, @Param("labId") Long labId);
 
-
+    boolean existsByPatientIdAndLabsId(Long patientId, Long labId);
 }

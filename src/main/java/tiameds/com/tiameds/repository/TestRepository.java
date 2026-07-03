@@ -6,6 +6,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.entity.Test;
+import tiameds.com.tiameds.entity.User;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -22,4 +23,10 @@ public interface TestRepository extends JpaRepository<Test, Long> {
 
     @Query("SELECT COUNT(t) FROM Test t JOIN t.labs l WHERE l.id = :labId AND t.createdAt BETWEEN :startDate AND :endDate")
     long countByLabId(@Param("labId") Long labId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
+    @Query("SELECT COUNT(DISTINCT t) FROM Test t JOIN t.labs l WHERE l.createdBy = :createdBy")
+    long countByLabsCreatedBy(@Param("createdBy") User createdBy);
+
+    @Query("SELECT COUNT(DISTINCT t) FROM Test t JOIN t.labs l WHERE l.createdBy = :createdBy AND t.createdAt BETWEEN :startDate AND :endDate")
+    long countByLabsCreatedByAndCreatedAtBetween(@Param("createdBy") User createdBy, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 }

@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.entity.User;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -32,5 +33,9 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
     @Query("SELECT l FROM Lab l JOIN l.members m WHERE m.id = :userId")
     Set<Lab> findLabsByUserId(@Param("userId") Long userId);
 
+    long countByCreatedBy(User createdBy);
+
+    @Query("SELECT COUNT(l) FROM Lab l WHERE l.createdBy = :createdBy AND l.createdAt BETWEEN :startDate AND :endDate")
+    long countByCreatedByAndCreatedAtBetween(@Param("createdBy") User createdBy, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 }
 

@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 import tiameds.com.tiameds.entity.User;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -30,4 +31,11 @@ public interface UserRepository extends CrudRepository<User, Long> {
     List<User> findByLabsId(Long labId);
 
     boolean existsByIdAndLabsId(Long userId, Long labId);
+
+    long countByRolesName(String roleName);
+
+    long countByRolesNameAndCreatedBy(String roleName, User createdBy);
+
+    @Query("SELECT COUNT(u) FROM User u JOIN u.roles r WHERE r.name = :roleName AND u.createdBy = :createdBy AND u.createdAt BETWEEN :startDate AND :endDate")
+    long countByRolesNameAndCreatedByAndCreatedAtBetween(@Param("roleName") String roleName, @Param("createdBy") User createdBy, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 }

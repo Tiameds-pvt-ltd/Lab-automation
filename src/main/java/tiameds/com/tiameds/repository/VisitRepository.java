@@ -14,6 +14,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 
+import tiameds.com.tiameds.entity.User;
+
 @Repository
 public interface VisitRepository extends JpaRepository<VisitEntity, Long> {
 
@@ -43,4 +45,10 @@ public interface VisitRepository extends JpaRepository<VisitEntity, Long> {
 
 
     List<VisitEntity> findAllByPatient_LabsAndVisitDateBetweenAndVisitStatusIn(Lab lab, LocalDate startDate, LocalDate endDate, List<String> visitStatus);
+
+    @Query("SELECT COUNT(v) FROM VisitEntity v JOIN v.labs l WHERE l.createdBy = :createdBy AND v.visitStatus = 'Pending'")
+    long countPendingVisitsByLabsCreatedBy(@Param("createdBy") User createdBy);
+
+    @Query("SELECT COUNT(v) FROM VisitEntity v JOIN v.labs l WHERE l.createdBy = :createdBy AND v.visitStatus = 'Pending' AND v.createdAt BETWEEN :startDate AND :endDate")
+    long countPendingVisitsByLabsCreatedByAndCreatedAtBetween(@Param("createdBy") User createdBy, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
 }
