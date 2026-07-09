@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.*;
 import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.repository.BillingRepository;
+import tiameds.com.tiameds.repository.DoctorRepository;
 import tiameds.com.tiameds.repository.LabRepository;
 import tiameds.com.tiameds.repository.PatientRepository;
 import tiameds.com.tiameds.repository.TestRepository;
@@ -18,12 +19,16 @@ import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.UserAuthService;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -41,6 +46,7 @@ public class SuperAdminStatsController {
     private final BillingRepository billingRepository;
     private final VisitSampleRepository visitSampleRepository;
     private final VisitRepository visitRepository;
+    private final DoctorRepository doctorRepository;
     private final UserAuthService userAuthService;
 
     public SuperAdminStatsController(LabRepository labRepository,
@@ -51,6 +57,7 @@ public class SuperAdminStatsController {
                                      BillingRepository billingRepository,
                                      VisitSampleRepository visitSampleRepository,
                                      VisitRepository visitRepository,
+                                     DoctorRepository doctorRepository,
                                      UserAuthService userAuthService) {
         this.labRepository = labRepository;
         this.patientRepository = patientRepository;
@@ -60,6 +67,7 @@ public class SuperAdminStatsController {
         this.billingRepository = billingRepository;
         this.visitSampleRepository = visitSampleRepository;
         this.visitRepository = visitRepository;
+        this.doctorRepository = doctorRepository;
         this.userAuthService = userAuthService;
     }
 
@@ -351,6 +359,94 @@ public class SuperAdminStatsController {
         } catch (Exception e) {
             return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
         }
+    }
+
+    @GetMapping("/lab-performance")
+    public ResponseEntity<?> getLabPerformanceSummary(
+            @RequestHeader("Authorization") String token,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate,
+            @RequestParam(defaultValue = "10") int limit) {
+        Optional<User> userOptional = userAuthService.authenticateUser(token);
+        if (userOptional.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
+        }
+
+        User currentUser = userOptional.get();
+        List<LabRepository.LabPerformanceSummaryProjection> results;
+
+        if (startDate != null && endDate != null) {
+            Instant start = toInstantStart(startDate);
+            Instant end   = toInstantEnd(endDate);
+
+            long periodDays = ChronoUnit.DAYS.between(startDate, endDate) + 1;
+            LocalDate prevEnd   = startDate.minusDays(1);
+            LocalDate prevStart = prevEnd.minusDays(periodDays - 1);
+
+            results = labRepository.getLabPerformanceSummary(
+                    currentUser.getId(), start, end,
+                    toInstantStart(prevStart), toInstantEnd(prevEnd), limit);
+        } else {
+            results = labRepository.getLabPerformanceSummaryAllTime(currentUser.getId(), limit);
+        }
+
+        List<Map<String, Object>> labs = new ArrayList<>();
+        for (int i = 0; i < results.size(); i++) {
+            LabRepository.LabPerformanceSummaryProjection row = results.get(i);
+            BigDecimal revenue  = row.getRevenue()         != null ? row.getRevenue()         : BigDecimal.ZERO;
+            BigDecimal prevRev  = row.getPreviousRevenue() != null ? row.getPreviousRevenue() : BigDecimal.ZERO;
+
+            Double growthPct = null;
+            if (startDate != null && endDate != null) {
+                if (prevRev.compareTo(BigDecimal.ZERO) > 0) {
+                    growthPct = revenue.subtract(prevRev)
+                            .divide(prevRev, 4, RoundingMode.HALF_UP)
+                            .multiply(BigDecimal.valueOf(100))
+                            .setScale(1, RoundingMode.HALF_UP)
+                            .doubleValue();
+                } else {
+                    growthPct = revenue.compareTo(BigDecimal.ZERO) > 0 ? 100.0 : 0.0;
+                }
+            }
+
+            Map<String, Object> lab = new LinkedHashMap<>();
+            lab.put("rank", i + 1);
+            lab.put("labId", row.getLabId());
+            lab.put("labName", row.getLabName());
+            lab.put("revenue", revenue);
+            lab.put("tests", row.getTestCount());
+            lab.put("patients", row.getPatientCount());
+            lab.put("pendingSamples", row.getPendingSamples());
+            lab.put("avgTatHours", row.getAvgTatHours());
+            lab.put("reportsGenerated", row.getReportsGenerated());
+            lab.put("growthPct", growthPct);
+            labs.add(lab);
+        }
+
+        return ApiResponseHelper.successResponse("Lab performance summary retrieved successfully", labs);
+    }
+
+    @GetMapping("/top-referring-doctors")
+    public ResponseEntity<?> getTopReferringDoctors(
+            @RequestHeader("Authorization") String token,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate,
+            @RequestParam(defaultValue = "10") int limit) {
+        Optional<User> userOptional = userAuthService.authenticateUser(token);
+        if (userOptional.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
+        }
+
+        User currentUser = userOptional.get();
+        List<DoctorRepository.TopReferringDoctorProjection> doctors;
+        if (startDate != null && endDate != null) {
+            doctors = doctorRepository.getTopReferringDoctorsWithDateRange(
+                    currentUser.getId(), toInstantStart(startDate), toInstantEnd(endDate), limit);
+        } else {
+            doctors = doctorRepository.getTopReferringDoctors(currentUser.getId(), limit);
+        }
+
+        return ApiResponseHelper.successResponse("Top referring doctors retrieved successfully", doctors);
     }
 
     private LocalDateTime toStart(LocalDate date) {
