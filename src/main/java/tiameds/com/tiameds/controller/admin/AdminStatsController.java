@@ -222,11 +222,11 @@ public class AdminStatsController {
         ResponseEntity<?> err = authenticate(token, labId, u, l);
         if (err != null) return err;
 
-        List<TestRepository.TestsByCategoryProjection> categories = (startDate != null && endDate != null)
-                ? testRepository.getTestsByCategoryByLabIdWithDateRange(labId, toStart(startDate), toEnd(endDate))
-                : testRepository.getTestsByCategoryByLabId(labId);
+        List<VisitTestResultRepository.TestsByCategoryProjection> categories = (startDate != null && endDate != null)
+                ? visitTestResultRepository.getPatientTestsByCategoryByLabIdWithDateRange(labId, toStart(startDate), toEnd(endDate))
+                : visitTestResultRepository.getPatientTestsByCategoryByLabId(labId);
 
-        long total = categories.stream().mapToLong(TestRepository.TestsByCategoryProjection::getTestCount).sum();
+        long total = categories.stream().mapToLong(VisitTestResultRepository.TestsByCategoryProjection::getTestCount).sum();
 
         Map<String, Object> response = new HashMap<>();
         response.put("total", total);

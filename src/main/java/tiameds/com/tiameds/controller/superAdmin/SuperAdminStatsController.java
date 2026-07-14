@@ -242,15 +242,15 @@ public class SuperAdminStatsController {
         }
 
         User currentUser = userOptional.get();
-        List<TestRepository.TestsByCategoryProjection> categories;
+        List<VisitTestResultRepository.TestsByCategoryProjection> categories;
         if (startDate != null && endDate != null) {
-            categories = testRepository.getTestsByCategoryWithDateRange(currentUser.getId(), toStart(startDate), toEnd(endDate));
+            categories = visitTestResultRepository.getPatientTestsByCategoryBySuperAdminWithDateRange(currentUser.getId(), toStart(startDate), toEnd(endDate));
         } else {
-            categories = testRepository.getTestsByCategory(currentUser.getId());
+            categories = visitTestResultRepository.getPatientTestsByCategoryBySuperAdmin(currentUser.getId());
         }
 
         long total = categories.stream()
-                .mapToLong(TestRepository.TestsByCategoryProjection::getTestCount)
+                .mapToLong(VisitTestResultRepository.TestsByCategoryProjection::getTestCount)
                 .sum();
 
         Map<String, Object> response = new HashMap<>();

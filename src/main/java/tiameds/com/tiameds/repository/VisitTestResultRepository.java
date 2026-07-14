@@ -6,8 +6,10 @@ import org.springframework.data.repository.query.Param;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.entity.VisitTestResult;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 public interface VisitTestResultRepository extends JpaRepository<VisitTestResult , Long> {
@@ -64,9 +66,55 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
     @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit.labs l WHERE l.id = :labId AND vtr.reportStatus = 'Completed' AND vtr.createdAt BETWEEN :startDate AND :endDate")
     long countCompletedReportsByLabIdAndCreatedAtBetween(@Param("labId") Long labId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 
+    // Patient-ordered tests grouped by category — super admin scope
+    @Query(value = "SELECT t.category AS category, COUNT(*) AS testCount, SUM(t.price) AS revenue " +
+            "FROM visit_test_result vtr " +
+            "JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
+            "JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
+            "JOIN labs l ON lv.lab_id = l.lab_id " +
+            "JOIN tests t ON vtr.test_id = t.test_id " +
+            "WHERE l.created_by = :createdById " +
+            "GROUP BY t.category ORDER BY testCount DESC", nativeQuery = true)
+    List<TestsByCategoryProjection> getPatientTestsByCategoryBySuperAdmin(@Param("createdById") Long createdById);
+
+    @Query(value = "SELECT t.category AS category, COUNT(*) AS testCount, SUM(t.price) AS revenue " +
+            "FROM visit_test_result vtr " +
+            "JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
+            "JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
+            "JOIN labs l ON lv.lab_id = l.lab_id " +
+            "JOIN tests t ON vtr.test_id = t.test_id " +
+            "WHERE l.created_by = :createdById " +
+            "AND vtr.created_at BETWEEN :startDate AND :endDate " +
+            "GROUP BY t.category ORDER BY testCount DESC", nativeQuery = true)
+    List<TestsByCategoryProjection> getPatientTestsByCategoryBySuperAdminWithDateRange(@Param("createdById") Long createdById, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
+    // Patient-ordered tests grouped by category — lab admin scope
+    @Query(value = "SELECT t.category AS category, COUNT(*) AS testCount, SUM(t.price) AS revenue " +
+            "FROM visit_test_result vtr " +
+            "JOIN lab_visit lv ON vtr.visit_id = lv.visit_id " +
+            "JOIN tests t ON vtr.test_id = t.test_id " +
+            "WHERE lv.lab_id = :labId " +
+            "GROUP BY t.category ORDER BY testCount DESC", nativeQuery = true)
+    List<TestsByCategoryProjection> getPatientTestsByCategoryByLabId(@Param("labId") Long labId);
+
+    @Query(value = "SELECT t.category AS category, COUNT(*) AS testCount, SUM(t.price) AS revenue " +
+            "FROM visit_test_result vtr " +
+            "JOIN lab_visit lv ON vtr.visit_id = lv.visit_id " +
+            "JOIN tests t ON vtr.test_id = t.test_id " +
+            "WHERE lv.lab_id = :labId " +
+            "AND vtr.created_at BETWEEN :startDate AND :endDate " +
+            "GROUP BY t.category ORDER BY testCount DESC", nativeQuery = true)
+    List<TestsByCategoryProjection> getPatientTestsByCategoryByLabIdWithDateRange(@Param("labId") Long labId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
     @Query(value = "SELECT AVG(EXTRACT(EPOCH FROM (r.created_at - v.created_at)) / 3600.0) FROM lab_report r JOIN patient_visits v ON r.visit_id = v.visit_id WHERE r.lab_id = :labId", nativeQuery = true)
     Double getAvgTatHoursByLabId(@Param("labId") Long labId);
 
     @Query(value = "SELECT AVG(EXTRACT(EPOCH FROM (r.created_at - v.created_at)) / 3600.0) FROM lab_report r JOIN patient_visits v ON r.visit_id = v.visit_id WHERE r.lab_id = :labId AND v.created_at BETWEEN :startDate AND :endDate", nativeQuery = true)
     Double getAvgTatHoursByLabIdAndDateRange(@Param("labId") Long labId, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
+
+    interface TestsByCategoryProjection {
+        String getCategory();
+        Long getTestCount();
+        BigDecimal getRevenue();
+    }
 }
