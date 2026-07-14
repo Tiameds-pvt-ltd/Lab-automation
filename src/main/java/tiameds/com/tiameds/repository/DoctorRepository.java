@@ -60,6 +60,35 @@ public interface DoctorRepository extends JpaRepository<Doctors, Long> {
                                                                            @Param("endDate") Instant endDate,
                                                                            @Param("limit") int limit);
 
+    @Query(value = "SELECT d.doctor_id AS doctorId, d.name AS doctorName, d.speciality AS speciality, " +
+            "COUNT(DISTINCT lv.lab_id) AS labCount, " +
+            "COUNT(DISTINCT v.patient_id) AS patientCount, " +
+            "COALESCE(SUM(b.total_amount), 0) AS revenue " +
+            "FROM doctors d " +
+            "JOIN patient_visits v ON v.doctor_id = d.doctor_id " +
+            "JOIN lab_visit lv ON lv.visit_id = v.visit_id " +
+            "LEFT JOIN billing b ON v.billing_id = b.billing_id " +
+            "WHERE lv.lab_id = :labId " +
+            "GROUP BY d.doctor_id, d.name, d.speciality " +
+            "ORDER BY revenue DESC " +
+            "LIMIT :limit", nativeQuery = true)
+    List<TopReferringDoctorProjection> getTopReferringDoctorsByLabId(@Param("labId") Long labId, @Param("limit") int limit);
+
+    @Query(value = "SELECT d.doctor_id AS doctorId, d.name AS doctorName, d.speciality AS speciality, " +
+            "COUNT(DISTINCT lv.lab_id) AS labCount, " +
+            "COUNT(DISTINCT v.patient_id) AS patientCount, " +
+            "COALESCE(SUM(b.total_amount), 0) AS revenue " +
+            "FROM doctors d " +
+            "JOIN patient_visits v ON v.doctor_id = d.doctor_id " +
+            "JOIN lab_visit lv ON lv.visit_id = v.visit_id " +
+            "LEFT JOIN billing b ON v.billing_id = b.billing_id " +
+            "WHERE lv.lab_id = :labId " +
+            "AND v.created_at BETWEEN :startDate AND :endDate " +
+            "GROUP BY d.doctor_id, d.name, d.speciality " +
+            "ORDER BY revenue DESC " +
+            "LIMIT :limit", nativeQuery = true)
+    List<TopReferringDoctorProjection> getTopReferringDoctorsByLabIdWithDateRange(@Param("labId") Long labId, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate, @Param("limit") int limit);
+
     interface TopReferringDoctorProjection {
         Long getDoctorId();
         String getDoctorName();

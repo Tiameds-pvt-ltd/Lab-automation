@@ -164,9 +164,9 @@ public class SuperAdminStatsController {
         User currentUser = userOptional.get();
         long totalTests;
         if (startDate != null && endDate != null) {
-            totalTests = testRepository.countByLabsCreatedByAndCreatedAtBetween(currentUser, toStart(startDate), toEnd(endDate));
+            totalTests = visitTestResultRepository.countAllTestsByLabsCreatedByAndCreatedAtBetween(currentUser, toStart(startDate), toEnd(endDate));
         } else {
-            totalTests = testRepository.countByLabsCreatedBy(currentUser);
+            totalTests = visitTestResultRepository.countAllTestsByLabsCreatedBy(currentUser);
         }
         return ApiResponseHelper.successResponse("Total tests retrieved successfully", Map.of("totalTests", totalTests));
     }

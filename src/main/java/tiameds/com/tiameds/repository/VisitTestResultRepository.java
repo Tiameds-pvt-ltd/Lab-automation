@@ -6,6 +6,7 @@ import org.springframework.data.repository.query.Param;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.entity.VisitTestResult;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -36,10 +37,36 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
     @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit.labs l WHERE vtr.visit.patient.patientId = :patientId AND l.id = :labId AND vtr.testStatus = 'CANCELLED' AND vtr.createdAt BETWEEN :startDate AND :endDate")
     long countCancelledByPatientIdAndLabIdAndCreatedAtBetween(@Param("patientId") Long patientId, @Param("labId") Long labId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 
+    // Count all patient-ordered tests across all labs created by a superadmin
+    @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit.labs l WHERE l.createdBy = :createdBy")
+    long countAllTestsByLabsCreatedBy(@Param("createdBy") User createdBy);
+
+    @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit.labs l WHERE l.createdBy = :createdBy AND vtr.createdAt BETWEEN :startDate AND :endDate")
+    long countAllTestsByLabsCreatedByAndCreatedAtBetween(@Param("createdBy") User createdBy, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
     // Count completed reports across all labs created by a superadmin
     @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit.labs l WHERE l.createdBy = :createdBy AND vtr.reportStatus = 'Completed'")
     long countCompletedReportsByLabsCreatedBy(@Param("createdBy") User createdBy);
 
     @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit.labs l WHERE l.createdBy = :createdBy AND vtr.reportStatus = 'Completed' AND vtr.createdAt BETWEEN :startDate AND :endDate")
     long countCompletedReportsByLabsCreatedByAndCreatedAtBetween(@Param("createdBy") User createdBy, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
+    // Count all patient-ordered tests for a specific lab
+    @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit.labs l WHERE l.id = :labId")
+    long countAllTestsByLabId(@Param("labId") Long labId);
+
+    @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit.labs l WHERE l.id = :labId AND vtr.createdAt BETWEEN :startDate AND :endDate")
+    long countAllTestsByLabIdAndCreatedAtBetween(@Param("labId") Long labId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
+    @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit.labs l WHERE l.id = :labId AND vtr.reportStatus = 'Completed'")
+    long countCompletedReportsByLabId(@Param("labId") Long labId);
+
+    @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit.labs l WHERE l.id = :labId AND vtr.reportStatus = 'Completed' AND vtr.createdAt BETWEEN :startDate AND :endDate")
+    long countCompletedReportsByLabIdAndCreatedAtBetween(@Param("labId") Long labId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
+    @Query(value = "SELECT AVG(EXTRACT(EPOCH FROM (r.created_at - v.created_at)) / 3600.0) FROM lab_report r JOIN patient_visits v ON r.visit_id = v.visit_id WHERE r.lab_id = :labId", nativeQuery = true)
+    Double getAvgTatHoursByLabId(@Param("labId") Long labId);
+
+    @Query(value = "SELECT AVG(EXTRACT(EPOCH FROM (r.created_at - v.created_at)) / 3600.0) FROM lab_report r JOIN patient_visits v ON r.visit_id = v.visit_id WHERE r.lab_id = :labId AND v.created_at BETWEEN :startDate AND :endDate", nativeQuery = true)
+    Double getAvgTatHoursByLabIdAndDateRange(@Param("labId") Long labId, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
 }

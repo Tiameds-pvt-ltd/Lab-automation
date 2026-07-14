@@ -21,6 +21,9 @@ public interface TestRepository extends JpaRepository<Test, Long> {
 
     java.util.Optional<Test> findTopByTestCodeStartingWithOrderByTestCodeDesc(String testCodePrefix);
 
+    @Query("SELECT COUNT(t) FROM Test t JOIN t.labs l WHERE l.id = :labId")
+    long countByLabIdAllTime(@Param("labId") Long labId);
+
     @Query("SELECT COUNT(t) FROM Test t JOIN t.labs l WHERE l.id = :labId AND t.createdAt BETWEEN :startDate AND :endDate")
     long countByLabId(@Param("labId") Long labId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 
@@ -48,6 +51,23 @@ public interface TestRepository extends JpaRepository<Test, Long> {
             "GROUP BY t.category " +
             "ORDER BY testCount DESC", nativeQuery = true)
     List<TestsByCategoryProjection> getTestsByCategoryWithDateRange(@Param("createdById") Long createdById, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
+    @Query(value = "SELECT t.category AS category, COUNT(DISTINCT t.test_id) AS testCount " +
+            "FROM tests t " +
+            "JOIN lab_tests lt ON t.test_id = lt.test_id " +
+            "WHERE lt.lab_id = :labId " +
+            "GROUP BY t.category " +
+            "ORDER BY testCount DESC", nativeQuery = true)
+    List<TestsByCategoryProjection> getTestsByCategoryByLabId(@Param("labId") Long labId);
+
+    @Query(value = "SELECT t.category AS category, COUNT(DISTINCT t.test_id) AS testCount " +
+            "FROM tests t " +
+            "JOIN lab_tests lt ON t.test_id = lt.test_id " +
+            "WHERE lt.lab_id = :labId " +
+            "AND t.created_at BETWEEN :startDate AND :endDate " +
+            "GROUP BY t.category " +
+            "ORDER BY testCount DESC", nativeQuery = true)
+    List<TestsByCategoryProjection> getTestsByCategoryByLabIdWithDateRange(@Param("labId") Long labId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 
     interface TestsByCategoryProjection {
         String getCategory();

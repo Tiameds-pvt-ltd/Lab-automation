@@ -16,6 +16,9 @@ public interface PatientRepository extends JpaRepository<PatientEntity, Long> {
     List<PatientEntity> findAllByLabsId(Long labId);
     Optional<PatientEntity> findByPhoneOrEmail(String phone, String email);
 
+    @Query("SELECT COUNT(p) FROM PatientEntity p JOIN p.labs l WHERE l.id = :labId")
+    long countByLabId(@Param("labId") Long labId);
+
     @Query("SELECT COUNT(p) FROM PatientEntity p JOIN p.labs l WHERE l.id = :labId AND p.createdAt BETWEEN :startDate AND :endDate")
     long countByLabIdAndCreatedAtBetween(@Param("labId") Long labId, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
 
