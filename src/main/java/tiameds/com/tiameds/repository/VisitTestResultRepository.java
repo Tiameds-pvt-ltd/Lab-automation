@@ -66,44 +66,30 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
     @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit.labs l WHERE l.id = :labId AND vtr.reportStatus = 'Completed' AND vtr.createdAt BETWEEN :startDate AND :endDate")
     long countCompletedReportsByLabIdAndCreatedAtBetween(@Param("labId") Long labId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 
-    // Patient-ordered tests grouped by category — super admin scope
-    @Query(value = "SELECT t.category AS category, COUNT(*) AS testCount, SUM(t.price) AS revenue " +
-            "FROM visit_test_result vtr " +
-            "JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
-            "JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
-            "JOIN labs l ON lv.lab_id = l.lab_id " +
-            "JOIN tests t ON vtr.test_id = t.test_id " +
-            "WHERE l.created_by = :createdById " +
-            "GROUP BY t.category ORDER BY testCount DESC", nativeQuery = true)
+    // Patient-ordered tests grouped by category — super admin scope (all categories shown, 0 if no orders)
+    @Query(value = "SELECT cats.category AS category, COALESCE(vtr_agg.testCount, 0) AS testCount, COALESCE(vtr_agg.revenue, 0) AS revenue " +
+            "FROM (SELECT DISTINCT t.category FROM tests t JOIN lab_tests lt ON t.test_id = lt.test_id JOIN labs l ON lt.lab_id = l.lab_id WHERE l.created_by = :createdById) cats " +
+            "LEFT JOIN (SELECT t.category, COUNT(*) AS testCount, SUM(t.price) AS revenue FROM visit_test_result vtr JOIN patient_visits pv ON vtr.visit_id = pv.visit_id JOIN lab_visit lv ON pv.visit_id = lv.visit_id JOIN labs l ON lv.lab_id = l.lab_id JOIN tests t ON vtr.test_id = t.test_id WHERE l.created_by = :createdById GROUP BY t.category) vtr_agg ON vtr_agg.category = cats.category " +
+            "ORDER BY testCount DESC", nativeQuery = true)
     List<TestsByCategoryProjection> getPatientTestsByCategoryBySuperAdmin(@Param("createdById") Long createdById);
 
-    @Query(value = "SELECT t.category AS category, COUNT(*) AS testCount, SUM(t.price) AS revenue " +
-            "FROM visit_test_result vtr " +
-            "JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
-            "JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
-            "JOIN labs l ON lv.lab_id = l.lab_id " +
-            "JOIN tests t ON vtr.test_id = t.test_id " +
-            "WHERE l.created_by = :createdById " +
-            "AND vtr.created_at BETWEEN :startDate AND :endDate " +
-            "GROUP BY t.category ORDER BY testCount DESC", nativeQuery = true)
+    @Query(value = "SELECT cats.category AS category, COALESCE(vtr_agg.testCount, 0) AS testCount, COALESCE(vtr_agg.revenue, 0) AS revenue " +
+            "FROM (SELECT DISTINCT t.category FROM tests t JOIN lab_tests lt ON t.test_id = lt.test_id JOIN labs l ON lt.lab_id = l.lab_id WHERE l.created_by = :createdById) cats " +
+            "LEFT JOIN (SELECT t.category, COUNT(*) AS testCount, SUM(t.price) AS revenue FROM visit_test_result vtr JOIN patient_visits pv ON vtr.visit_id = pv.visit_id JOIN lab_visit lv ON pv.visit_id = lv.visit_id JOIN labs l ON lv.lab_id = l.lab_id JOIN tests t ON vtr.test_id = t.test_id WHERE l.created_by = :createdById AND vtr.created_at BETWEEN :startDate AND :endDate GROUP BY t.category) vtr_agg ON vtr_agg.category = cats.category " +
+            "ORDER BY testCount DESC", nativeQuery = true)
     List<TestsByCategoryProjection> getPatientTestsByCategoryBySuperAdminWithDateRange(@Param("createdById") Long createdById, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 
-    // Patient-ordered tests grouped by category — lab admin scope
-    @Query(value = "SELECT t.category AS category, COUNT(*) AS testCount, SUM(t.price) AS revenue " +
-            "FROM visit_test_result vtr " +
-            "JOIN lab_visit lv ON vtr.visit_id = lv.visit_id " +
-            "JOIN tests t ON vtr.test_id = t.test_id " +
-            "WHERE lv.lab_id = :labId " +
-            "GROUP BY t.category ORDER BY testCount DESC", nativeQuery = true)
+    // Patient-ordered tests grouped by category — lab admin scope (all categories shown, 0 if no orders)
+    @Query(value = "SELECT cats.category AS category, COALESCE(vtr_agg.testCount, 0) AS testCount, COALESCE(vtr_agg.revenue, 0) AS revenue " +
+            "FROM (SELECT DISTINCT t.category FROM tests t JOIN lab_tests lt ON t.test_id = lt.test_id WHERE lt.lab_id = :labId) cats " +
+            "LEFT JOIN (SELECT t.category, COUNT(*) AS testCount, SUM(t.price) AS revenue FROM visit_test_result vtr JOIN lab_visit lv ON vtr.visit_id = lv.visit_id JOIN tests t ON vtr.test_id = t.test_id WHERE lv.lab_id = :labId GROUP BY t.category) vtr_agg ON vtr_agg.category = cats.category " +
+            "ORDER BY testCount DESC", nativeQuery = true)
     List<TestsByCategoryProjection> getPatientTestsByCategoryByLabId(@Param("labId") Long labId);
 
-    @Query(value = "SELECT t.category AS category, COUNT(*) AS testCount, SUM(t.price) AS revenue " +
-            "FROM visit_test_result vtr " +
-            "JOIN lab_visit lv ON vtr.visit_id = lv.visit_id " +
-            "JOIN tests t ON vtr.test_id = t.test_id " +
-            "WHERE lv.lab_id = :labId " +
-            "AND vtr.created_at BETWEEN :startDate AND :endDate " +
-            "GROUP BY t.category ORDER BY testCount DESC", nativeQuery = true)
+    @Query(value = "SELECT cats.category AS category, COALESCE(vtr_agg.testCount, 0) AS testCount, COALESCE(vtr_agg.revenue, 0) AS revenue " +
+            "FROM (SELECT DISTINCT t.category FROM tests t JOIN lab_tests lt ON t.test_id = lt.test_id WHERE lt.lab_id = :labId) cats " +
+            "LEFT JOIN (SELECT t.category, COUNT(*) AS testCount, SUM(t.price) AS revenue FROM visit_test_result vtr JOIN lab_visit lv ON vtr.visit_id = lv.visit_id JOIN tests t ON vtr.test_id = t.test_id WHERE lv.lab_id = :labId AND vtr.created_at BETWEEN :startDate AND :endDate GROUP BY t.category) vtr_agg ON vtr_agg.category = cats.category " +
+            "ORDER BY testCount DESC", nativeQuery = true)
     List<TestsByCategoryProjection> getPatientTestsByCategoryByLabIdWithDateRange(@Param("labId") Long labId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 
     @Query(value = "SELECT AVG(EXTRACT(EPOCH FROM (r.created_at - v.created_at)) / 3600.0) FROM lab_report r JOIN patient_visits v ON r.visit_id = v.visit_id WHERE r.lab_id = :labId", nativeQuery = true)
