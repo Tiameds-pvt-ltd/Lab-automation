@@ -8,6 +8,7 @@ import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.repository.BillingRepository;
 import tiameds.com.tiameds.repository.DoctorRepository;
+import tiameds.com.tiameds.repository.HealthPackageRepository;
 import tiameds.com.tiameds.repository.LabRepository;
 import tiameds.com.tiameds.repository.PatientRepository;
 import tiameds.com.tiameds.repository.TestRepository;
@@ -47,6 +48,7 @@ public class SuperAdminStatsController {
     private final VisitSampleRepository visitSampleRepository;
     private final VisitRepository visitRepository;
     private final DoctorRepository doctorRepository;
+    private final HealthPackageRepository healthPackageRepository;
     private final UserAuthService userAuthService;
 
     public SuperAdminStatsController(LabRepository labRepository,
@@ -58,6 +60,7 @@ public class SuperAdminStatsController {
                                      VisitSampleRepository visitSampleRepository,
                                      VisitRepository visitRepository,
                                      DoctorRepository doctorRepository,
+                                     HealthPackageRepository healthPackageRepository,
                                      UserAuthService userAuthService) {
         this.labRepository = labRepository;
         this.patientRepository = patientRepository;
@@ -68,6 +71,7 @@ public class SuperAdminStatsController {
         this.visitSampleRepository = visitSampleRepository;
         this.visitRepository = visitRepository;
         this.doctorRepository = doctorRepository;
+        this.healthPackageRepository = healthPackageRepository;
         this.userAuthService = userAuthService;
     }
 
@@ -464,6 +468,52 @@ public class SuperAdminStatsController {
         }
 
         return ApiResponseHelper.successResponse("Top referring doctors retrieved successfully", doctors);
+    }
+
+    @GetMapping("/packages-summary")
+    public ResponseEntity<?> getPackagesSummary(
+            @RequestHeader("Authorization") String token,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate) {
+        Optional<User> userOptional = userAuthService.authenticateUser(token);
+        if (userOptional.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
+        }
+
+        User currentUser = userOptional.get();
+        List<HealthPackageRepository.PackageSummaryProjection> packages;
+        if (startDate != null && endDate != null) {
+            packages = healthPackageRepository.getPackageSummaryBySuperAdminWithDateRange(
+                    currentUser.getId(), toInstantStart(startDate), toInstantEnd(endDate));
+        } else {
+            packages = healthPackageRepository.getPackageSummaryBySuperAdmin(currentUser.getId());
+        }
+
+        long totalVisits     = packages.stream().mapToLong(p -> p.getVisitCount() != null ? p.getVisitCount() : 0L).sum();
+        BigDecimal totalRevenue  = packages.stream().map(HealthPackageRepository.PackageSummaryProjection::getRevenue).filter(v -> v != null).reduce(BigDecimal.ZERO, BigDecimal::add).setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal totalDiscount = packages.stream().map(HealthPackageRepository.PackageSummaryProjection::getDiscount).filter(v -> v != null).reduce(BigDecimal.ZERO, BigDecimal::add).setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal totalPaid     = packages.stream().map(HealthPackageRepository.PackageSummaryProjection::getPaidRevenue).filter(v -> v != null).reduce(BigDecimal.ZERO, BigDecimal::add).setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal totalDue      = packages.stream().map(HealthPackageRepository.PackageSummaryProjection::getDueRevenue).filter(v -> v != null).reduce(BigDecimal.ZERO, BigDecimal::add).setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal totalCash     = packages.stream().map(HealthPackageRepository.PackageSummaryProjection::getCashRevenue).filter(v -> v != null).reduce(BigDecimal.ZERO, BigDecimal::add).setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal totalUpi      = packages.stream().map(HealthPackageRepository.PackageSummaryProjection::getUpiRevenue).filter(v -> v != null).reduce(BigDecimal.ZERO, BigDecimal::add).setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal totalCard     = packages.stream().map(HealthPackageRepository.PackageSummaryProjection::getCardRevenue).filter(v -> v != null).reduce(BigDecimal.ZERO, BigDecimal::add).setScale(2, java.math.RoundingMode.HALF_UP);
+
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("totalPackages",  packages.size());
+        summary.put("totalVisits",    totalVisits);
+        summary.put("totalRevenue",   totalRevenue);
+        summary.put("totalDiscount",  totalDiscount);
+        summary.put("totalPaid",      totalPaid);
+        summary.put("totalDue",       totalDue);
+        summary.put("totalCash",      totalCash);
+        summary.put("totalUpi",       totalUpi);
+        summary.put("totalCard",      totalCard);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("summary",  summary);
+        response.put("packages", packages);
+
+        return ApiResponseHelper.successResponse("Packages summary retrieved successfully", response);
     }
 
     private LocalDateTime toStart(LocalDate date) {
