@@ -103,4 +103,125 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
         Long getTestCount();
         BigDecimal getRevenue();
     }
+
+    @Query(value =
+        "SELECT cats.category AS category, " +
+        "COALESCE(vtr_agg.testCount, 0) AS testCount, " +
+        "ROUND(COALESCE(vtr_agg.revenue, 0), 2) AS revenue, " +
+        "ROUND(COALESCE(vtr_agg.discount, 0), 2) AS discount, " +
+        "ROUND(COALESCE(vtr_agg.paidRevenue, 0), 2) AS paidRevenue, " +
+        "ROUND(COALESCE(vtr_agg.dueRevenue, 0), 2) AS dueRevenue, " +
+        "ROUND(COALESCE(vtr_agg.cashRevenue, 0), 2) AS cashRevenue, " +
+        "ROUND(COALESCE(vtr_agg.upiRevenue, 0), 2) AS upiRevenue, " +
+        "ROUND(COALESCE(vtr_agg.cardRevenue, 0), 2) AS cardRevenue " +
+        "FROM (SELECT DISTINCT t.category FROM tests t JOIN lab_tests lt ON t.test_id = lt.test_id JOIN labs l ON lt.lab_id = l.lab_id WHERE l.created_by = :createdById) cats " +
+        "LEFT JOIN ( " +
+        "  SELECT t.category, " +
+        "    COUNT(*) AS testCount, " +
+        "    SUM(t.price) AS revenue, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount, 0) IS NULL THEN 0 " +
+        "             ELSE t.price * COALESCE(b.discount, 0) / b.total_amount END) AS discount, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.net_amount, 0) IS NULL THEN 0 " +
+        "             ELSE t.price * COALESCE(b.actual_received_amount, 0) / b.net_amount END) AS paidRevenue, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL THEN t.price " +
+        "             WHEN NULLIF(b.net_amount, 0) IS NULL THEN t.price " +
+        "             ELSE t.price * COALESCE(b.due_amount, 0) / b.net_amount END) AS dueRevenue, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.net_amount, 0) IS NULL THEN 0 ELSE " +
+        "          t.price * CASE WHEN bt_agg.billing_id IS NOT NULL THEN COALESCE(bt_agg.cash_total, 0) " +
+        "                         WHEN UPPER(b.payment_method) = 'CASH' THEN COALESCE(b.actual_received_amount, 0) " +
+        "                         ELSE 0 END / b.net_amount END) AS cashRevenue, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.net_amount, 0) IS NULL THEN 0 ELSE " +
+        "          t.price * CASE WHEN bt_agg.billing_id IS NOT NULL THEN COALESCE(bt_agg.upi_total, 0) " +
+        "                         WHEN UPPER(b.payment_method) = 'UPI' THEN COALESCE(b.actual_received_amount, 0) " +
+        "                         ELSE 0 END / b.net_amount END) AS upiRevenue, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.net_amount, 0) IS NULL THEN 0 ELSE " +
+        "          t.price * CASE WHEN bt_agg.billing_id IS NOT NULL THEN COALESCE(bt_agg.card_total, 0) " +
+        "                         WHEN UPPER(b.payment_method) = 'CARD' THEN COALESCE(b.actual_received_amount, 0) " +
+        "                         ELSE 0 END / b.net_amount END) AS cardRevenue " +
+        "  FROM visit_test_result vtr " +
+        "  JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
+        "  JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
+        "  JOIN labs l ON lv.lab_id = l.lab_id " +
+        "  JOIN tests t ON vtr.test_id = t.test_id " +
+        "  LEFT JOIN billing b ON pv.billing_id = b.billing_id " +
+        "  LEFT JOIN ( " +
+        "    SELECT bt.billing_id, " +
+        "      COALESCE(SUM(bt.cash_amount), 0) AS cash_total, " +
+        "      COALESCE(SUM(bt.upi_amount), 0) AS upi_total, " +
+        "      COALESCE(SUM(bt.card_amount), 0) AS card_total " +
+        "    FROM billing_transaction bt GROUP BY bt.billing_id " +
+        "  ) bt_agg ON bt_agg.billing_id = b.billing_id " +
+        "  WHERE l.created_by = :createdById " +
+        "  GROUP BY t.category " +
+        ") vtr_agg ON vtr_agg.category = cats.category " +
+        "ORDER BY testCount DESC", nativeQuery = true)
+    List<TestsByCategoryDetailedProjection> getPatientTestsByCategoryDetailedBySuperAdmin(@Param("createdById") Long createdById);
+
+    @Query(value =
+        "SELECT cats.category AS category, " +
+        "COALESCE(vtr_agg.testCount, 0) AS testCount, " +
+        "ROUND(COALESCE(vtr_agg.revenue, 0), 2) AS revenue, " +
+        "ROUND(COALESCE(vtr_agg.discount, 0), 2) AS discount, " +
+        "ROUND(COALESCE(vtr_agg.paidRevenue, 0), 2) AS paidRevenue, " +
+        "ROUND(COALESCE(vtr_agg.dueRevenue, 0), 2) AS dueRevenue, " +
+        "ROUND(COALESCE(vtr_agg.cashRevenue, 0), 2) AS cashRevenue, " +
+        "ROUND(COALESCE(vtr_agg.upiRevenue, 0), 2) AS upiRevenue, " +
+        "ROUND(COALESCE(vtr_agg.cardRevenue, 0), 2) AS cardRevenue " +
+        "FROM (SELECT DISTINCT t.category FROM tests t JOIN lab_tests lt ON t.test_id = lt.test_id JOIN labs l ON lt.lab_id = l.lab_id WHERE l.created_by = :createdById) cats " +
+        "LEFT JOIN ( " +
+        "  SELECT t.category, " +
+        "    COUNT(*) AS testCount, " +
+        "    SUM(t.price) AS revenue, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount, 0) IS NULL THEN 0 " +
+        "             ELSE t.price * COALESCE(b.discount, 0) / b.total_amount END) AS discount, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.net_amount, 0) IS NULL THEN 0 " +
+        "             ELSE t.price * COALESCE(b.actual_received_amount, 0) / b.net_amount END) AS paidRevenue, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL THEN t.price " +
+        "             WHEN NULLIF(b.net_amount, 0) IS NULL THEN t.price " +
+        "             ELSE t.price * COALESCE(b.due_amount, 0) / b.net_amount END) AS dueRevenue, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.net_amount, 0) IS NULL THEN 0 ELSE " +
+        "          t.price * CASE WHEN bt_agg.billing_id IS NOT NULL THEN COALESCE(bt_agg.cash_total, 0) " +
+        "                         WHEN UPPER(b.payment_method) = 'CASH' THEN COALESCE(b.actual_received_amount, 0) " +
+        "                         ELSE 0 END / b.net_amount END) AS cashRevenue, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.net_amount, 0) IS NULL THEN 0 ELSE " +
+        "          t.price * CASE WHEN bt_agg.billing_id IS NOT NULL THEN COALESCE(bt_agg.upi_total, 0) " +
+        "                         WHEN UPPER(b.payment_method) = 'UPI' THEN COALESCE(b.actual_received_amount, 0) " +
+        "                         ELSE 0 END / b.net_amount END) AS upiRevenue, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.net_amount, 0) IS NULL THEN 0 ELSE " +
+        "          t.price * CASE WHEN bt_agg.billing_id IS NOT NULL THEN COALESCE(bt_agg.card_total, 0) " +
+        "                         WHEN UPPER(b.payment_method) = 'CARD' THEN COALESCE(b.actual_received_amount, 0) " +
+        "                         ELSE 0 END / b.net_amount END) AS cardRevenue " +
+        "  FROM visit_test_result vtr " +
+        "  JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
+        "  JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
+        "  JOIN labs l ON lv.lab_id = l.lab_id " +
+        "  JOIN tests t ON vtr.test_id = t.test_id " +
+        "  LEFT JOIN billing b ON pv.billing_id = b.billing_id " +
+        "  LEFT JOIN ( " +
+        "    SELECT bt.billing_id, " +
+        "      COALESCE(SUM(bt.cash_amount), 0) AS cash_total, " +
+        "      COALESCE(SUM(bt.upi_amount), 0) AS upi_total, " +
+        "      COALESCE(SUM(bt.card_amount), 0) AS card_total " +
+        "    FROM billing_transaction bt GROUP BY bt.billing_id " +
+        "  ) bt_agg ON bt_agg.billing_id = b.billing_id " +
+        "  WHERE l.created_by = :createdById AND vtr.created_at BETWEEN :startDate AND :endDate " +
+        "  GROUP BY t.category " +
+        ") vtr_agg ON vtr_agg.category = cats.category " +
+        "ORDER BY testCount DESC", nativeQuery = true)
+    List<TestsByCategoryDetailedProjection> getPatientTestsByCategoryDetailedBySuperAdminWithDateRange(
+            @Param("createdById") Long createdById,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
+
+    interface TestsByCategoryDetailedProjection {
+        String getCategory();
+        Long getTestCount();
+        BigDecimal getRevenue();
+        BigDecimal getDiscount();
+        BigDecimal getPaidRevenue();
+        BigDecimal getDueRevenue();
+        BigDecimal getCashRevenue();
+        BigDecimal getUpiRevenue();
+        BigDecimal getCardRevenue();
+    }
 }

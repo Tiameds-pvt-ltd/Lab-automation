@@ -242,19 +242,36 @@ public class SuperAdminStatsController {
         }
 
         User currentUser = userOptional.get();
-        List<VisitTestResultRepository.TestsByCategoryProjection> categories;
+        List<VisitTestResultRepository.TestsByCategoryDetailedProjection> categories;
         if (startDate != null && endDate != null) {
-            categories = visitTestResultRepository.getPatientTestsByCategoryBySuperAdminWithDateRange(currentUser.getId(), toStart(startDate), toEnd(endDate));
+            categories = visitTestResultRepository.getPatientTestsByCategoryDetailedBySuperAdminWithDateRange(currentUser.getId(), toStart(startDate), toEnd(endDate));
         } else {
-            categories = visitTestResultRepository.getPatientTestsByCategoryBySuperAdmin(currentUser.getId());
+            categories = visitTestResultRepository.getPatientTestsByCategoryDetailedBySuperAdmin(currentUser.getId());
         }
 
-        long total = categories.stream()
-                .mapToLong(VisitTestResultRepository.TestsByCategoryProjection::getTestCount)
+        long totalTests = categories.stream()
+                .mapToLong(VisitTestResultRepository.TestsByCategoryDetailedProjection::getTestCount)
                 .sum();
+        BigDecimal totalRevenue    = categories.stream().map(VisitTestResultRepository.TestsByCategoryDetailedProjection::getRevenue).filter(v -> v != null).reduce(BigDecimal.ZERO, BigDecimal::add).setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal totalDiscount   = categories.stream().map(VisitTestResultRepository.TestsByCategoryDetailedProjection::getDiscount).filter(v -> v != null).reduce(BigDecimal.ZERO, BigDecimal::add).setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal totalPaid       = categories.stream().map(VisitTestResultRepository.TestsByCategoryDetailedProjection::getPaidRevenue).filter(v -> v != null).reduce(BigDecimal.ZERO, BigDecimal::add).setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal totalDue        = categories.stream().map(VisitTestResultRepository.TestsByCategoryDetailedProjection::getDueRevenue).filter(v -> v != null).reduce(BigDecimal.ZERO, BigDecimal::add).setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal totalCash       = categories.stream().map(VisitTestResultRepository.TestsByCategoryDetailedProjection::getCashRevenue).filter(v -> v != null).reduce(BigDecimal.ZERO, BigDecimal::add).setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal totalUpi        = categories.stream().map(VisitTestResultRepository.TestsByCategoryDetailedProjection::getUpiRevenue).filter(v -> v != null).reduce(BigDecimal.ZERO, BigDecimal::add).setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal totalCard       = categories.stream().map(VisitTestResultRepository.TestsByCategoryDetailedProjection::getCardRevenue).filter(v -> v != null).reduce(BigDecimal.ZERO, BigDecimal::add).setScale(2, java.math.RoundingMode.HALF_UP);
+
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("totalTests",    totalTests);
+        summary.put("totalRevenue",  totalRevenue);
+        summary.put("totalDiscount", totalDiscount);
+        summary.put("totalPaid",     totalPaid);
+        summary.put("totalDue",      totalDue);
+        summary.put("totalCash",     totalCash);
+        summary.put("totalUpi",      totalUpi);
+        summary.put("totalCard",     totalCard);
 
         Map<String, Object> response = new HashMap<>();
-        response.put("total", total);
+        response.put("summary", summary);
         response.put("categories", categories);
 
         return ApiResponseHelper.successResponse("Tests by category retrieved successfully", response);
