@@ -52,45 +52,67 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
         BigDecimal getRevenue();
     }
 
-    @Query(value = "SELECT l.name AS labName, COALESCE(SUM(b.total_amount), 0) AS revenue " +
-            "FROM billing b " +
-            "JOIN lab_billing lb ON b.billing_id = lb.billing_id " +
-            "JOIN labs l ON lb.lab_id = l.lab_id " +
+    @Query(value = "SELECT l.name AS labName, " +
+            "COALESCE(SUM(b.total_amount), 0) AS revenue, " +
+            "COALESCE(SUM(b.discount), 0) AS discount, " +
+            "COALESCE(SUM(CASE WHEN pv.visit_id IS NOT NULL THEN hp.price::numeric ELSE 0 END), 0) AS packageRevenue " +
+            "FROM labs l " +
+            "LEFT JOIN lab_billing lb ON lb.lab_id = l.lab_id " +
+            "LEFT JOIN billing b ON b.billing_id = lb.billing_id AND b.payment_status = 'PAID' AND b.created_at BETWEEN :startDate AND :endDate " +
+            "LEFT JOIN lab_packages lp ON lp.lab_id = l.lab_id " +
+            "LEFT JOIN health_packages hp ON hp.package_id = lp.package_id " +
+            "LEFT JOIN patient_visit_packages pvp ON pvp.package_id = hp.package_id " +
+            "LEFT JOIN patient_visits pv ON pv.visit_id = pvp.visit_id AND pv.created_at BETWEEN :startDate AND :endDate " +
             "WHERE l.created_by = :createdById " +
-            "AND b.payment_status = 'PAID' " +
-            "AND b.created_at BETWEEN :startDate AND :endDate " +
             "GROUP BY l.lab_id, l.name " +
             "ORDER BY revenue DESC " +
             "LIMIT 8", nativeQuery = true)
     List<RevenueByLabProjection> getRevenueByLab(@Param("createdById") Long createdById, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
 
-    @Query(value = "SELECT l.name AS labName, COALESCE(SUM(b.total_amount), 0) AS revenue " +
-            "FROM billing b " +
-            "JOIN lab_billing lb ON b.billing_id = lb.billing_id " +
-            "JOIN labs l ON lb.lab_id = l.lab_id " +
+    @Query(value = "SELECT l.name AS labName, " +
+            "COALESCE(SUM(b.total_amount), 0) AS revenue, " +
+            "COALESCE(SUM(b.discount), 0) AS discount, " +
+            "COALESCE(SUM(CASE WHEN pv.visit_id IS NOT NULL THEN hp.price::numeric ELSE 0 END), 0) AS packageRevenue " +
+            "FROM labs l " +
+            "LEFT JOIN lab_billing lb ON lb.lab_id = l.lab_id " +
+            "LEFT JOIN billing b ON b.billing_id = lb.billing_id AND b.payment_status = 'PAID' " +
+            "LEFT JOIN lab_packages lp ON lp.lab_id = l.lab_id " +
+            "LEFT JOIN health_packages hp ON hp.package_id = lp.package_id " +
+            "LEFT JOIN patient_visit_packages pvp ON pvp.package_id = hp.package_id " +
+            "LEFT JOIN patient_visits pv ON pv.visit_id = pvp.visit_id " +
             "WHERE l.created_by = :createdById " +
-            "AND b.payment_status = 'PAID' " +
             "GROUP BY l.lab_id, l.name " +
             "ORDER BY revenue DESC " +
             "LIMIT 8", nativeQuery = true)
     List<RevenueByLabProjection> getRevenueByLabAllTime(@Param("createdById") Long createdById);
 
-    @Query(value = "SELECT l.name AS labName, COALESCE(SUM(b.total_amount), 0) AS revenue " +
-            "FROM billing b " +
-            "JOIN lab_billing lb ON b.billing_id = lb.billing_id " +
-            "JOIN labs l ON lb.lab_id = l.lab_id " +
+    @Query(value = "SELECT l.name AS labName, " +
+            "COALESCE(SUM(b.total_amount), 0) AS revenue, " +
+            "COALESCE(SUM(b.discount), 0) AS discount, " +
+            "COALESCE(SUM(CASE WHEN pv.visit_id IS NOT NULL THEN hp.price::numeric ELSE 0 END), 0) AS packageRevenue " +
+            "FROM labs l " +
+            "JOIN lab_billing lb ON lb.lab_id = l.lab_id " +
+            "LEFT JOIN billing b ON b.billing_id = lb.billing_id AND b.payment_status = 'PAID' " +
+            "LEFT JOIN lab_packages lp ON lp.lab_id = l.lab_id " +
+            "LEFT JOIN health_packages hp ON hp.package_id = lp.package_id " +
+            "LEFT JOIN patient_visit_packages pvp ON pvp.package_id = hp.package_id " +
+            "LEFT JOIN patient_visits pv ON pv.visit_id = pvp.visit_id " +
             "WHERE lb.lab_id = :labId " +
-            "AND b.payment_status = 'PAID' " +
             "GROUP BY l.lab_id, l.name", nativeQuery = true)
     java.util.Optional<RevenueByLabProjection> getRevenueByLabId(@Param("labId") Long labId);
 
-    @Query(value = "SELECT l.name AS labName, COALESCE(SUM(b.total_amount), 0) AS revenue " +
-            "FROM billing b " +
-            "JOIN lab_billing lb ON b.billing_id = lb.billing_id " +
-            "JOIN labs l ON lb.lab_id = l.lab_id " +
+    @Query(value = "SELECT l.name AS labName, " +
+            "COALESCE(SUM(b.total_amount), 0) AS revenue, " +
+            "COALESCE(SUM(b.discount), 0) AS discount, " +
+            "COALESCE(SUM(CASE WHEN pv.visit_id IS NOT NULL THEN hp.price::numeric ELSE 0 END), 0) AS packageRevenue " +
+            "FROM labs l " +
+            "JOIN lab_billing lb ON lb.lab_id = l.lab_id " +
+            "LEFT JOIN billing b ON b.billing_id = lb.billing_id AND b.payment_status = 'PAID' AND b.created_at BETWEEN :startDate AND :endDate " +
+            "LEFT JOIN lab_packages lp ON lp.lab_id = l.lab_id " +
+            "LEFT JOIN health_packages hp ON hp.package_id = lp.package_id " +
+            "LEFT JOIN patient_visit_packages pvp ON pvp.package_id = hp.package_id " +
+            "LEFT JOIN patient_visits pv ON pv.visit_id = pvp.visit_id AND pv.created_at BETWEEN :startDate AND :endDate " +
             "WHERE lb.lab_id = :labId " +
-            "AND b.payment_status = 'PAID' " +
-            "AND b.created_at BETWEEN :startDate AND :endDate " +
             "GROUP BY l.lab_id, l.name", nativeQuery = true)
     java.util.Optional<RevenueByLabProjection> getRevenueByLabIdAndDateRange(@Param("labId") Long labId, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
 
@@ -107,6 +129,8 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
     interface RevenueByLabProjection {
         String getLabName();
         BigDecimal getRevenue();
+        BigDecimal getDiscount();
+        BigDecimal getPackageRevenue();
     }
 
     @Query(value =
