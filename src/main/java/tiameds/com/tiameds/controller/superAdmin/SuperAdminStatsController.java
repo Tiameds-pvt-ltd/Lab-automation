@@ -33,6 +33,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 
 @RestController
 @RequestMapping("/lab-super-admin/stats")
@@ -470,6 +471,124 @@ public class SuperAdminStatsController {
         return ApiResponseHelper.successResponse("Top referring doctors retrieved successfully", doctors);
     }
 
+    @GetMapping("/detailed-billing")
+    public ResponseEntity<?> getDetailedBilling(
+            @RequestHeader("Authorization") String token,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate) {
+        Optional<User> userOptional = userAuthService.authenticateUser(token);
+        if (userOptional.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
+        }
+
+        User currentUser = userOptional.get();
+        Long userId = currentUser.getId();
+
+        List<BillingRepository.DetailedBillingSummaryProjection> summaryList;
+        List<BillingRepository.BillingByStatusProjection> byStatus;
+        List<VisitTestResultRepository.TestsByCategoryDetailedProjection> testCategories;
+        List<HealthPackageRepository.PackageSummaryProjection> packages;
+
+        if (startDate != null && endDate != null) {
+            Instant iStart = toInstantStart(startDate);
+            Instant iEnd   = toInstantEnd(endDate);
+            summaryList    = billingRepository.getDetailedBillingSummaryWithDateRange(userId, iStart, iEnd);
+            byStatus       = billingRepository.getBillingByStatusWithDateRange(userId, iStart, iEnd);
+            testCategories = visitTestResultRepository.getPatientTestsByCategoryDetailedBySuperAdminWithDateRange(userId, toStart(startDate), toEnd(endDate));
+            packages       = healthPackageRepository.getPackageSummaryBySuperAdminWithDateRange(userId, iStart, iEnd);
+        } else {
+            summaryList    = billingRepository.getDetailedBillingSummary(userId);
+            byStatus       = billingRepository.getBillingByStatus(userId);
+            testCategories = visitTestResultRepository.getPatientTestsByCategoryDetailedBySuperAdmin(userId);
+            packages       = healthPackageRepository.getPackageSummaryBySuperAdmin(userId);
+        }
+
+        BillingRepository.DetailedBillingSummaryProjection raw = summaryList.isEmpty() ? null : summaryList.get(0);
+
+        // Top-level billing summary
+        // grossBilled  = total_amount (sum of test + package prices before discount)
+        // totalDiscount = discount applied
+        // netBilled    = net_amount = grossBilled - discount (what patient actually owes)
+        // totalPaid    = actual_received_amount (cumulative, updated per transaction)
+        // totalDue     = due_amount (decreases as more payments arrive)
+        Map<String, Object> paymentMode = new LinkedHashMap<>();
+        paymentMode.put("cash", safe(raw != null ? raw.getTotalCash() : null));
+        paymentMode.put("upi",  safe(raw != null ? raw.getTotalUpi()  : null));
+        paymentMode.put("card", safe(raw != null ? raw.getTotalCard() : null));
+
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("totalBillings", raw != null ? raw.getTotalBillings() : 0L);
+        summary.put("grossBilled",   safe(raw != null ? raw.getGrossRevenue()  : null));
+        summary.put("totalDiscount", safe(raw != null ? raw.getTotalDiscount() : null));
+        summary.put("totalGst",      safe(raw != null ? raw.getTotalGst()      : null));
+        summary.put("netBilled",     safe(raw != null ? raw.getNetRevenue()    : null));
+        summary.put("totalPaid",     safe(raw != null ? raw.getTotalPaid()     : null));
+        summary.put("totalDue",      safe(raw != null ? raw.getTotalDue()      : null));
+        summary.put("paymentMode",   paymentMode);
+
+        // Breakdown by payment status (PAID / PARTIAL / PENDING)
+        List<Map<String, Object>> statusBreakdown = new ArrayList<>();
+        for (BillingRepository.BillingByStatusProjection s : byStatus) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("status",      s.getStatus());
+            row.put("count",       s.getBillingCount());
+            row.put("grossBilled", safe(s.getGrossRevenue()));
+            row.put("discount",    safe(s.getTotalDiscount()));
+            row.put("gst",         safe(s.getTotalGst()));
+            row.put("netBilled",   safe(s.getNetRevenue()));
+            row.put("paid",        safe(s.getTotalPaid()));
+            row.put("due",         safe(s.getTotalDue()));
+            statusBreakdown.add(row);
+        }
+
+        // Test-category billing breakdown
+        long       tcTests    = testCategories.stream().mapToLong(VisitTestResultRepository.TestsByCategoryDetailedProjection::getTestCount).sum();
+        BigDecimal tcRevenue  = sumField(testCategories, VisitTestResultRepository.TestsByCategoryDetailedProjection::getRevenue);
+        BigDecimal tcDiscount = sumField(testCategories, VisitTestResultRepository.TestsByCategoryDetailedProjection::getDiscount);
+        BigDecimal tcPaid     = sumField(testCategories, VisitTestResultRepository.TestsByCategoryDetailedProjection::getPaidRevenue);
+        BigDecimal tcDue      = sumField(testCategories, VisitTestResultRepository.TestsByCategoryDetailedProjection::getDueRevenue);
+        BigDecimal tcCash     = sumField(testCategories, VisitTestResultRepository.TestsByCategoryDetailedProjection::getCashRevenue);
+        BigDecimal tcUpi      = sumField(testCategories, VisitTestResultRepository.TestsByCategoryDetailedProjection::getUpiRevenue);
+        BigDecimal tcCard     = sumField(testCategories, VisitTestResultRepository.TestsByCategoryDetailedProjection::getCardRevenue);
+
+        Map<String, Object> testsSummary = new LinkedHashMap<>();
+        testsSummary.put("totalCategories", testCategories.size());
+        testsSummary.put("totalTests",  tcTests);
+        testsSummary.put("grossBilled", tcRevenue);
+        testsSummary.put("discount",    tcDiscount);
+        testsSummary.put("paid",        tcPaid);
+        testsSummary.put("due",         tcDue);
+        testsSummary.put("paymentMode", Map.of("cash", tcCash, "upi", tcUpi, "card", tcCard));
+
+        // Package billing breakdown
+        BigDecimal pkgRevenue  = sumField(packages, HealthPackageRepository.PackageSummaryProjection::getRevenue);
+        BigDecimal pkgDiscount = sumField(packages, HealthPackageRepository.PackageSummaryProjection::getDiscount);
+        BigDecimal pkgPaid     = sumField(packages, HealthPackageRepository.PackageSummaryProjection::getPaidRevenue);
+        BigDecimal pkgDue      = sumField(packages, HealthPackageRepository.PackageSummaryProjection::getDueRevenue);
+        BigDecimal pkgCash     = sumField(packages, HealthPackageRepository.PackageSummaryProjection::getCashRevenue);
+        BigDecimal pkgUpi      = sumField(packages, HealthPackageRepository.PackageSummaryProjection::getUpiRevenue);
+        BigDecimal pkgCard     = sumField(packages, HealthPackageRepository.PackageSummaryProjection::getCardRevenue);
+
+        Map<String, Object> packageSummary = new LinkedHashMap<>();
+        packageSummary.put("totalPackages", packages.size());
+        packageSummary.put("totalVisits",   packages.stream().mapToLong(p -> p.getVisitCount() != null ? p.getVisitCount() : 0L).sum());
+        packageSummary.put("grossBilled",   pkgRevenue);
+        packageSummary.put("discount",      pkgDiscount);
+        packageSummary.put("paid",          pkgPaid);
+        packageSummary.put("due",           pkgDue);
+        packageSummary.put("paymentMode",   Map.of("cash", pkgCash, "upi", pkgUpi, "card", pkgCard));
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("summary",          summary);
+        response.put("byPaymentStatus",  statusBreakdown);
+        response.put("testsSummary",     testsSummary);
+        response.put("testCategories",   testCategories);
+        response.put("packageSummary",   packageSummary);
+        response.put("packages",         packages);
+
+        return ApiResponseHelper.successResponse("Detailed billing retrieved successfully", response);
+    }
+
     @GetMapping("/packages-summary")
     public ResponseEntity<?> getPackagesSummary(
             @RequestHeader("Authorization") String token,
@@ -514,6 +633,110 @@ public class SuperAdminStatsController {
         response.put("packages", packages);
 
         return ApiResponseHelper.successResponse("Packages summary retrieved successfully", response);
+    }
+
+    @GetMapping("/earnings-by-category")
+    public ResponseEntity<?> getEarningsByCategory(
+            @RequestHeader("Authorization") String token,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate) {
+        Optional<User> userOptional = userAuthService.authenticateUser(token);
+        if (userOptional.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
+        }
+
+        User currentUser = userOptional.get();
+        List<VisitTestResultRepository.TestEarningsByTestProjection> rows;
+        if (startDate != null && endDate != null) {
+            rows = visitTestResultRepository.getEarningsByTestBySuperAdminWithDateRange(
+                    currentUser.getId(), toStart(startDate), toEnd(endDate));
+        } else {
+            rows = visitTestResultRepository.getEarningsByTestBySuperAdmin(currentUser.getId());
+        }
+
+        // Group rows by category
+        Map<String, List<VisitTestResultRepository.TestEarningsByTestProjection>> byCategory = new LinkedHashMap<>();
+        for (VisitTestResultRepository.TestEarningsByTestProjection row : rows) {
+            byCategory.computeIfAbsent(row.getCategory(), k -> new ArrayList<>()).add(row);
+        }
+
+        BigDecimal grandTotalEarnings = BigDecimal.ZERO;
+        BigDecimal grandTotalPaid     = BigDecimal.ZERO;
+        BigDecimal grandTotalDue      = BigDecimal.ZERO;
+        long       grandTotalTests    = 0;
+
+        List<Map<String, Object>> categories = new ArrayList<>();
+        for (Map.Entry<String, List<VisitTestResultRepository.TestEarningsByTestProjection>> entry : byCategory.entrySet()) {
+            List<VisitTestResultRepository.TestEarningsByTestProjection> testRows = entry.getValue();
+
+            BigDecimal catEarnings = BigDecimal.ZERO;
+            BigDecimal catPaid     = BigDecimal.ZERO;
+            BigDecimal catDue      = BigDecimal.ZERO;
+            long       catCount    = 0;
+
+            List<Map<String, Object>> tests = new ArrayList<>();
+            for (VisitTestResultRepository.TestEarningsByTestProjection t : testRows) {
+                BigDecimal te = safe(t.getTotalEarnings());
+                BigDecimal tp = safe(t.getPaidAmount());
+                BigDecimal td = safe(t.getDueAmount());
+                long       tc = t.getOrderedCount() != null ? t.getOrderedCount() : 0L;
+
+                catEarnings = catEarnings.add(te);
+                catPaid     = catPaid.add(tp);
+                catDue      = catDue.add(td);
+                catCount   += tc;
+
+                Map<String, Object> testMap = new LinkedHashMap<>();
+                testMap.put("testId",        t.getTestId());
+                testMap.put("testName",      t.getTestName());
+                testMap.put("testCode",      t.getTestCode());
+                testMap.put("price",         safe(t.getTestPrice()));
+                testMap.put("orderedCount",  tc);
+                testMap.put("totalEarnings", te);
+                testMap.put("paidAmount",    tp);
+                testMap.put("dueAmount",     td);
+                tests.add(testMap);
+            }
+
+            grandTotalEarnings = grandTotalEarnings.add(catEarnings);
+            grandTotalPaid     = grandTotalPaid.add(catPaid);
+            grandTotalDue      = grandTotalDue.add(catDue);
+            grandTotalTests   += catCount;
+
+            Map<String, Object> catMap = new LinkedHashMap<>();
+            catMap.put("category",      entry.getKey());
+            catMap.put("totalTests",    catCount);
+            catMap.put("totalEarnings", catEarnings.setScale(2, RoundingMode.HALF_UP));
+            catMap.put("paidAmount",    catPaid.setScale(2, RoundingMode.HALF_UP));
+            catMap.put("dueAmount",     catDue.setScale(2, RoundingMode.HALF_UP));
+            catMap.put("tests",         tests);
+            categories.add(catMap);
+        }
+
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("totalCategories", categories.size());
+        summary.put("totalTests",      grandTotalTests);
+        summary.put("totalEarnings",   grandTotalEarnings.setScale(2, RoundingMode.HALF_UP));
+        summary.put("totalPaid",       grandTotalPaid.setScale(2, RoundingMode.HALF_UP));
+        summary.put("totalDue",        grandTotalDue.setScale(2, RoundingMode.HALF_UP));
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("summary",    summary);
+        response.put("categories", categories);
+
+        return ApiResponseHelper.successResponse("Earnings by category retrieved successfully", response);
+    }
+
+    private BigDecimal safe(BigDecimal val) {
+        return val != null ? val : BigDecimal.ZERO;
+    }
+
+    private <T> BigDecimal sumField(List<T> list, Function<T, BigDecimal> getter) {
+        return list.stream()
+                .map(getter)
+                .filter(v -> v != null)
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(2, RoundingMode.HALF_UP);
     }
 
     private LocalDateTime toStart(LocalDate date) {

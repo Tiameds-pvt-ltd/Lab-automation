@@ -109,6 +109,114 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
         BigDecimal getRevenue();
     }
 
+    @Query(value =
+        "SELECT COUNT(DISTINCT b.billing_id) AS totalBillings, " +
+        "ROUND(COALESCE(SUM(b.total_amount), 0), 2) AS grossRevenue, " +
+        "ROUND(COALESCE(SUM(b.discount), 0), 2) AS totalDiscount, " +
+        "ROUND(COALESCE(SUM(b.gst_amount), 0), 2) AS totalGst, " +
+        "ROUND(COALESCE(SUM(b.net_amount), 0), 2) AS netRevenue, " +
+        "ROUND(COALESCE(SUM(b.actual_received_amount), 0), 2) AS totalPaid, " +
+        "ROUND(COALESCE(SUM(b.due_amount), 0), 2) AS totalDue, " +
+        "ROUND(COALESCE(SUM(CASE WHEN bt_agg.billing_id IS NOT NULL THEN bt_agg.cash_total " +
+        "  WHEN UPPER(b.payment_method) = 'CASH' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END), 0), 2) AS totalCash, " +
+        "ROUND(COALESCE(SUM(CASE WHEN bt_agg.billing_id IS NOT NULL THEN bt_agg.upi_total " +
+        "  WHEN UPPER(b.payment_method) = 'UPI' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END), 0), 2) AS totalUpi, " +
+        "ROUND(COALESCE(SUM(CASE WHEN bt_agg.billing_id IS NOT NULL THEN bt_agg.card_total " +
+        "  WHEN UPPER(b.payment_method) = 'CARD' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END), 0), 2) AS totalCard " +
+        "FROM billing b " +
+        "JOIN lab_billing lb ON b.billing_id = lb.billing_id " +
+        "JOIN labs l ON lb.lab_id = l.lab_id " +
+        "LEFT JOIN (SELECT bt.billing_id, COALESCE(SUM(bt.cash_amount), 0) AS cash_total, " +
+        "  COALESCE(SUM(bt.upi_amount), 0) AS upi_total, COALESCE(SUM(bt.card_amount), 0) AS card_total " +
+        "  FROM billing_transaction bt GROUP BY bt.billing_id) bt_agg ON bt_agg.billing_id = b.billing_id " +
+        "WHERE l.created_by = :createdById", nativeQuery = true)
+    List<DetailedBillingSummaryProjection> getDetailedBillingSummary(@Param("createdById") Long createdById);
+
+    @Query(value =
+        "SELECT COUNT(DISTINCT b.billing_id) AS totalBillings, " +
+        "ROUND(COALESCE(SUM(b.total_amount), 0), 2) AS grossRevenue, " +
+        "ROUND(COALESCE(SUM(b.discount), 0), 2) AS totalDiscount, " +
+        "ROUND(COALESCE(SUM(b.gst_amount), 0), 2) AS totalGst, " +
+        "ROUND(COALESCE(SUM(b.net_amount), 0), 2) AS netRevenue, " +
+        "ROUND(COALESCE(SUM(b.actual_received_amount), 0), 2) AS totalPaid, " +
+        "ROUND(COALESCE(SUM(b.due_amount), 0), 2) AS totalDue, " +
+        "ROUND(COALESCE(SUM(CASE WHEN bt_agg.billing_id IS NOT NULL THEN bt_agg.cash_total " +
+        "  WHEN UPPER(b.payment_method) = 'CASH' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END), 0), 2) AS totalCash, " +
+        "ROUND(COALESCE(SUM(CASE WHEN bt_agg.billing_id IS NOT NULL THEN bt_agg.upi_total " +
+        "  WHEN UPPER(b.payment_method) = 'UPI' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END), 0), 2) AS totalUpi, " +
+        "ROUND(COALESCE(SUM(CASE WHEN bt_agg.billing_id IS NOT NULL THEN bt_agg.card_total " +
+        "  WHEN UPPER(b.payment_method) = 'CARD' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END), 0), 2) AS totalCard " +
+        "FROM billing b " +
+        "JOIN lab_billing lb ON b.billing_id = lb.billing_id " +
+        "JOIN labs l ON lb.lab_id = l.lab_id " +
+        "LEFT JOIN (SELECT bt.billing_id, COALESCE(SUM(bt.cash_amount), 0) AS cash_total, " +
+        "  COALESCE(SUM(bt.upi_amount), 0) AS upi_total, COALESCE(SUM(bt.card_amount), 0) AS card_total " +
+        "  FROM billing_transaction bt GROUP BY bt.billing_id) bt_agg ON bt_agg.billing_id = b.billing_id " +
+        "WHERE l.created_by = :createdById AND b.created_at BETWEEN :startDate AND :endDate", nativeQuery = true)
+    List<DetailedBillingSummaryProjection> getDetailedBillingSummaryWithDateRange(
+            @Param("createdById") Long createdById,
+            @Param("startDate") Instant startDate,
+            @Param("endDate") Instant endDate);
+
+    interface DetailedBillingSummaryProjection {
+        Long getTotalBillings();
+        BigDecimal getGrossRevenue();
+        BigDecimal getTotalDiscount();
+        BigDecimal getTotalGst();
+        BigDecimal getNetRevenue();
+        BigDecimal getTotalPaid();
+        BigDecimal getTotalDue();
+        BigDecimal getTotalCash();
+        BigDecimal getTotalUpi();
+        BigDecimal getTotalCard();
+    }
+
+    @Query(value =
+        "SELECT b.payment_status AS status, COUNT(b.billing_id) AS billingCount, " +
+        "ROUND(COALESCE(SUM(b.total_amount), 0), 2) AS grossRevenue, " +
+        "ROUND(COALESCE(SUM(b.discount), 0), 2) AS totalDiscount, " +
+        "ROUND(COALESCE(SUM(b.gst_amount), 0), 2) AS totalGst, " +
+        "ROUND(COALESCE(SUM(b.net_amount), 0), 2) AS netRevenue, " +
+        "ROUND(COALESCE(SUM(b.actual_received_amount), 0), 2) AS totalPaid, " +
+        "ROUND(COALESCE(SUM(b.due_amount), 0), 2) AS totalDue " +
+        "FROM billing b " +
+        "JOIN lab_billing lb ON b.billing_id = lb.billing_id " +
+        "JOIN labs l ON lb.lab_id = l.lab_id " +
+        "WHERE l.created_by = :createdById " +
+        "GROUP BY b.payment_status " +
+        "ORDER BY billingCount DESC", nativeQuery = true)
+    List<BillingByStatusProjection> getBillingByStatus(@Param("createdById") Long createdById);
+
+    @Query(value =
+        "SELECT b.payment_status AS status, COUNT(b.billing_id) AS billingCount, " +
+        "ROUND(COALESCE(SUM(b.total_amount), 0), 2) AS grossRevenue, " +
+        "ROUND(COALESCE(SUM(b.discount), 0), 2) AS totalDiscount, " +
+        "ROUND(COALESCE(SUM(b.gst_amount), 0), 2) AS totalGst, " +
+        "ROUND(COALESCE(SUM(b.net_amount), 0), 2) AS netRevenue, " +
+        "ROUND(COALESCE(SUM(b.actual_received_amount), 0), 2) AS totalPaid, " +
+        "ROUND(COALESCE(SUM(b.due_amount), 0), 2) AS totalDue " +
+        "FROM billing b " +
+        "JOIN lab_billing lb ON b.billing_id = lb.billing_id " +
+        "JOIN labs l ON lb.lab_id = l.lab_id " +
+        "WHERE l.created_by = :createdById AND b.created_at BETWEEN :startDate AND :endDate " +
+        "GROUP BY b.payment_status " +
+        "ORDER BY billingCount DESC", nativeQuery = true)
+    List<BillingByStatusProjection> getBillingByStatusWithDateRange(
+            @Param("createdById") Long createdById,
+            @Param("startDate") Instant startDate,
+            @Param("endDate") Instant endDate);
+
+    interface BillingByStatusProjection {
+        String getStatus();
+        Long getBillingCount();
+        BigDecimal getGrossRevenue();
+        BigDecimal getTotalDiscount();
+        BigDecimal getTotalGst();
+        BigDecimal getNetRevenue();
+        BigDecimal getTotalPaid();
+        BigDecimal getTotalDue();
+    }
+
     @Query(value = "SELECT DISTINCT b FROM BillingEntity b " +
             "JOIN b.labs l " +
             "JOIN b.visit v " +

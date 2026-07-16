@@ -224,4 +224,59 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
         BigDecimal getUpiRevenue();
         BigDecimal getCardRevenue();
     }
+
+    @Query(value =
+        "SELECT t.category AS category, t.test_id AS testId, t.name AS testName, " +
+        "t.test_code AS testCode, t.price AS testPrice, COUNT(*) AS orderedCount, " +
+        "ROUND(COALESCE(SUM(t.price), 0), 2) AS totalEarnings, " +
+        "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.net_amount, 0) IS NULL THEN 0 " +
+        "  ELSE t.price * COALESCE(b.actual_received_amount, 0) / b.net_amount END), 0), 2) AS paidAmount, " +
+        "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL THEN t.price " +
+        "  WHEN NULLIF(b.net_amount, 0) IS NULL THEN t.price " +
+        "  ELSE t.price * COALESCE(b.due_amount, 0) / b.net_amount END), 0), 2) AS dueAmount " +
+        "FROM visit_test_result vtr " +
+        "JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
+        "JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
+        "JOIN labs l ON lv.lab_id = l.lab_id " +
+        "JOIN tests t ON vtr.test_id = t.test_id " +
+        "LEFT JOIN billing b ON pv.billing_id = b.billing_id " +
+        "WHERE l.created_by = :createdById " +
+        "GROUP BY t.category, t.test_id, t.name, t.test_code, t.price " +
+        "ORDER BY t.category, totalEarnings DESC", nativeQuery = true)
+    List<TestEarningsByTestProjection> getEarningsByTestBySuperAdmin(@Param("createdById") Long createdById);
+
+    @Query(value =
+        "SELECT t.category AS category, t.test_id AS testId, t.name AS testName, " +
+        "t.test_code AS testCode, t.price AS testPrice, COUNT(*) AS orderedCount, " +
+        "ROUND(COALESCE(SUM(t.price), 0), 2) AS totalEarnings, " +
+        "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.net_amount, 0) IS NULL THEN 0 " +
+        "  ELSE t.price * COALESCE(b.actual_received_amount, 0) / b.net_amount END), 0), 2) AS paidAmount, " +
+        "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL THEN t.price " +
+        "  WHEN NULLIF(b.net_amount, 0) IS NULL THEN t.price " +
+        "  ELSE t.price * COALESCE(b.due_amount, 0) / b.net_amount END), 0), 2) AS dueAmount " +
+        "FROM visit_test_result vtr " +
+        "JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
+        "JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
+        "JOIN labs l ON lv.lab_id = l.lab_id " +
+        "JOIN tests t ON vtr.test_id = t.test_id " +
+        "LEFT JOIN billing b ON pv.billing_id = b.billing_id " +
+        "WHERE l.created_by = :createdById AND vtr.created_at BETWEEN :startDate AND :endDate " +
+        "GROUP BY t.category, t.test_id, t.name, t.test_code, t.price " +
+        "ORDER BY t.category, totalEarnings DESC", nativeQuery = true)
+    List<TestEarningsByTestProjection> getEarningsByTestBySuperAdminWithDateRange(
+            @Param("createdById") Long createdById,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
+
+    interface TestEarningsByTestProjection {
+        String getCategory();
+        Long getTestId();
+        String getTestName();
+        String getTestCode();
+        BigDecimal getTestPrice();
+        Long getOrderedCount();
+        BigDecimal getTotalEarnings();
+        BigDecimal getPaidAmount();
+        BigDecimal getDueAmount();
+    }
 }
