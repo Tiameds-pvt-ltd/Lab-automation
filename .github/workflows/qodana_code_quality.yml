@@ -69,8 +69,8 @@ jobs:
         uses: JetBrains/qodana-action@v2025.2
         with:
           pr-mode: false           # Scan full codebase
-          use-caches: true         # Speed up repeated runs
-          upload-result: true      # Upload SARIF/artifacts for review
+          use-caches: false         # Speed up repeated runs
+          upload-result: false      # Upload SARIF/artifacts for review
           post-pr-comment: false   # Disabled (requires token)
           use-annotations: false   # Disabled (requires token)
           push-fixes: 'none'       # Disabled (requires Ultimate + token)

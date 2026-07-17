@@ -377,6 +377,7 @@ public class AdminStatsController {
         return ApiResponseHelper.successResponse("Lab performance retrieved successfully", result);
     }
 
+
     @GetMapping("/{labId}/total-patients")
     public ResponseEntity<?> getTotalPatients(
             @RequestHeader("Authorization") String token,
