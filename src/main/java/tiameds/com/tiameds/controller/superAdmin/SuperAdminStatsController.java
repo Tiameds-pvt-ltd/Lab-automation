@@ -645,6 +645,7 @@ public class SuperAdminStatsController {
             return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
         }
 
+
         User currentUser = userOptional.get();
         List<VisitTestResultRepository.TestEarningsByTestProjection> rows;
         if (startDate != null && endDate != null) {
