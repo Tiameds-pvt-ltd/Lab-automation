@@ -635,6 +635,80 @@ public class SuperAdminStatsController {
         return ApiResponseHelper.successResponse("Packages summary retrieved successfully", response);
     }
 
+    @GetMapping("/dashboard-summary")
+    public ResponseEntity<?> getDashboardSummary(
+            @RequestHeader("Authorization") String token,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate) {
+        Optional<User> userOptional = userAuthService.authenticateUser(token);
+        if (userOptional.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
+        }
+
+        User currentUser = userOptional.get();
+        Long userId = currentUser.getId();
+
+        List<LabRepository.LabPerformanceSummaryProjection> labRows;
+        if (startDate != null && endDate != null) {
+            long periodDays = ChronoUnit.DAYS.between(startDate, endDate) + 1;
+            LocalDate prevEnd   = startDate.minusDays(1);
+            LocalDate prevStart = prevEnd.minusDays(periodDays - 1);
+            labRows = labRepository.getAllLabsSummaryWithDateRange(
+                    userId,
+                    toInstantStart(startDate), toInstantEnd(endDate),
+                    toInstantStart(prevStart), toInstantEnd(prevEnd));
+        } else {
+            labRows = labRepository.getAllLabsSummaryAllTime(userId);
+        }
+
+        long totalLabs             = labRows.size();
+        BigDecimal totalRevenue    = BigDecimal.ZERO;
+        long totalTests            = 0;
+        long totalPatients         = 0;
+        long totalPendingSamples   = 0;
+        long totalReportsGenerated = 0;
+
+        List<Map<String, Object>> labWise = new ArrayList<>();
+        for (LabRepository.LabPerformanceSummaryProjection row : labRows) {
+            BigDecimal rev = row.getRevenue()          != null ? row.getRevenue()          : BigDecimal.ZERO;
+            long tests     = row.getTestCount()        != null ? row.getTestCount()        : 0L;
+            long patients  = row.getPatientCount()     != null ? row.getPatientCount()     : 0L;
+            long pending   = row.getPendingSamples()   != null ? row.getPendingSamples()   : 0L;
+            long reports   = row.getReportsGenerated() != null ? row.getReportsGenerated() : 0L;
+
+            totalRevenue          = totalRevenue.add(rev);
+            totalTests           += tests;
+            totalPatients        += patients;
+            totalPendingSamples  += pending;
+            totalReportsGenerated+= reports;
+
+            Map<String, Object> lab = new LinkedHashMap<>();
+            lab.put("labId",            row.getLabId());
+            lab.put("labName",          row.getLabName());
+            lab.put("revenue",          rev.setScale(2, RoundingMode.HALF_UP));
+            lab.put("tests",            tests);
+            lab.put("patients",         patients);
+            lab.put("pendingSamples",   pending);
+            lab.put("reportsGenerated", reports);
+            lab.put("avgTatHours",      row.getAvgTatHours());
+            labWise.add(lab);
+        }
+
+        Map<String, Object> cumulative = new LinkedHashMap<>();
+        cumulative.put("totalLabs",        totalLabs);
+        cumulative.put("totalRevenue",     totalRevenue.setScale(2, RoundingMode.HALF_UP));
+        cumulative.put("totalTests",       totalTests);
+        cumulative.put("totalPatients",    totalPatients);
+        cumulative.put("reportsGenerated", totalReportsGenerated);
+        cumulative.put("pendingSamples",   totalPendingSamples);
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("cumulative", cumulative);
+        response.put("labWise",    labWise);
+
+        return ApiResponseHelper.successResponse("Dashboard summary retrieved successfully", response);
+    }
+
     @GetMapping("/earnings-by-category")
     public ResponseEntity<?> getEarningsByCategory(
             @RequestHeader("Authorization") String token,
