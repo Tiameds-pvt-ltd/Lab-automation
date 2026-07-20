@@ -53,13 +53,13 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "LEFT JOIN ( " +
         "    SELECT lb.lab_id, SUM(b.total_amount) AS revenue " +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
-        "    WHERE b.payment_status = 'PAID' AND b.created_at BETWEEN :startDate AND :endDate " +
+        "    WHERE b.created_at BETWEEN :startDate AND :endDate " +
         "    GROUP BY lb.lab_id " +
         ") curr ON curr.lab_id = l.lab_id " +
         "LEFT JOIN ( " +
         "    SELECT lb.lab_id, SUM(b.total_amount) AS revenue " +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
-        "    WHERE b.payment_status = 'PAID' AND b.created_at BETWEEN :prevStartDate AND :prevEndDate " +
+        "    WHERE b.created_at BETWEEN :prevStartDate AND :prevEndDate " +
         "    GROUP BY lb.lab_id " +
         ") prev ON prev.lab_id = l.lab_id " +
         "LEFT JOIN ( " +
@@ -100,7 +100,6 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "LEFT JOIN ( " +
         "    SELECT lb.lab_id, SUM(b.total_amount) AS revenue " +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
-        "    WHERE b.payment_status = 'PAID' " +
         "    GROUP BY lb.lab_id " +
         ") curr ON curr.lab_id = l.lab_id " +
         "LEFT JOIN ( " +
@@ -136,7 +135,6 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "LEFT JOIN ( " +
         "    SELECT lb.lab_id, SUM(b.total_amount) AS revenue " +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
-        "    WHERE b.payment_status = 'PAID' " +
         "    GROUP BY lb.lab_id " +
         ") curr ON curr.lab_id = l.lab_id " +
         "LEFT JOIN ( " +
@@ -169,13 +167,13 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "LEFT JOIN ( " +
         "    SELECT lb.lab_id, SUM(b.total_amount) AS revenue " +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
-        "    WHERE b.payment_status = 'PAID' AND b.created_at BETWEEN :startDate AND :endDate " +
+        "    WHERE b.created_at BETWEEN :startDate AND :endDate " +
         "    GROUP BY lb.lab_id " +
         ") curr ON curr.lab_id = l.lab_id " +
         "LEFT JOIN ( " +
         "    SELECT lb.lab_id, SUM(b.total_amount) AS revenue " +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
-        "    WHERE b.payment_status = 'PAID' AND b.created_at BETWEEN :prevStartDate AND :prevEndDate " +
+        "    WHERE b.created_at BETWEEN :prevStartDate AND :prevEndDate " +
         "    GROUP BY lb.lab_id " +
         ") prev ON prev.lab_id = l.lab_id " +
         "LEFT JOIN ( " +
@@ -214,13 +212,13 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "LEFT JOIN ( " +
         "    SELECT lb.lab_id, SUM(b.total_amount) AS revenue " +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
-        "    WHERE b.payment_status = 'PAID' AND b.created_at BETWEEN :startDate AND :endDate " +
+        "    WHERE b.created_at BETWEEN :startDate AND :endDate " +
         "    GROUP BY lb.lab_id " +
         ") curr ON curr.lab_id = l.lab_id " +
         "LEFT JOIN ( " +
         "    SELECT lb.lab_id, SUM(b.total_amount) AS revenue " +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
-        "    WHERE b.payment_status = 'PAID' AND b.created_at BETWEEN :prevStartDate AND :prevEndDate " +
+        "    WHERE b.created_at BETWEEN :prevStartDate AND :prevEndDate " +
         "    GROUP BY lb.lab_id " +
         ") prev ON prev.lab_id = l.lab_id " +
         "LEFT JOIN ( " +
@@ -258,7 +256,6 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "LEFT JOIN ( " +
         "    SELECT lb.lab_id, SUM(b.total_amount) AS revenue " +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
-        "    WHERE b.payment_status = 'PAID' " +
         "    GROUP BY lb.lab_id " +
         ") curr ON curr.lab_id = l.lab_id " +
         "LEFT JOIN ( " +
