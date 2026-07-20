@@ -13,6 +13,7 @@ import tiameds.com.tiameds.repository.PatientRepository;
 import tiameds.com.tiameds.repository.TestRepository;
 import tiameds.com.tiameds.repository.UserRepository;
 import tiameds.com.tiameds.repository.VisitRepository;
+import tiameds.com.tiameds.repository.VisitSampleRepository;
 import tiameds.com.tiameds.repository.VisitTestResultRepository;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.UserAuthService;
@@ -44,6 +45,7 @@ public class AdminStatsController {
     private final TestRepository testRepository;
     private final BillingRepository billingRepository;
     private final VisitRepository visitRepository;
+    private final VisitSampleRepository visitSampleRepository;
     private final DoctorRepository doctorRepository;
     private final UserAuthService userAuthService;
 
@@ -54,6 +56,7 @@ public class AdminStatsController {
                                 TestRepository testRepository,
                                 BillingRepository billingRepository,
                                 VisitRepository visitRepository,
+                                VisitSampleRepository visitSampleRepository,
                                 DoctorRepository doctorRepository,
                                 UserAuthService userAuthService) {
         this.labRepository = labRepository;
@@ -63,6 +66,7 @@ public class AdminStatsController {
         this.testRepository = testRepository;
         this.billingRepository = billingRepository;
         this.visitRepository = visitRepository;
+        this.visitSampleRepository = visitSampleRepository;
         this.doctorRepository = doctorRepository;
         this.userAuthService = userAuthService;
     }
@@ -222,16 +226,111 @@ public class AdminStatsController {
         ResponseEntity<?> err = authenticate(token, labId, u, l);
         if (err != null) return err;
 
-        List<VisitTestResultRepository.TestsByCategoryProjection> categories = (startDate != null && endDate != null)
+        List<VisitTestResultRepository.TestsByCategoryProjection> raw = (startDate != null && endDate != null)
                 ? visitTestResultRepository.getPatientTestsByCategoryByLabIdWithDateRange(labId, toStart(startDate), toEnd(endDate))
                 : visitTestResultRepository.getPatientTestsByCategoryByLabId(labId);
 
-        long total = categories.stream().mapToLong(VisitTestResultRepository.TestsByCategoryProjection::getTestCount).sum();
+        long total = raw.stream().mapToLong(VisitTestResultRepository.TestsByCategoryProjection::getTestCount).sum();
+        double base = total > 0 ? total : 1.0;
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("total", total);
+        int TOP_N = 5;
+        List<Map<String, Object>> categories = new java.util.ArrayList<>();
+        long othersCount = 0;
+
+        for (int i = 0; i < raw.size(); i++) {
+            VisitTestResultRepository.TestsByCategoryProjection p = raw.get(i);
+            long count = p.getTestCount() != null ? p.getTestCount() : 0L;
+            if (i < TOP_N) {
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("category",   p.getCategory());
+                item.put("count",      count);
+                item.put("percentage", round1(count / base * 100));
+                categories.add(item);
+            } else {
+                othersCount += count;
+            }
+        }
+
+        if (othersCount > 0) {
+            Map<String, Object> others = new LinkedHashMap<>();
+            others.put("category",   "Others");
+            others.put("count",      othersCount);
+            others.put("percentage", round1(othersCount / base * 100));
+            categories.add(others);
+        }
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("total",      total);
         response.put("categories", categories);
         return ApiResponseHelper.successResponse("Tests by category retrieved successfully", response);
+    }
+
+    @GetMapping("/{labId}/top-ordered-tests")
+    public ResponseEntity<?> getTopOrderedTests(
+            @RequestHeader("Authorization") String token,
+            @PathVariable Long labId,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate,
+            @RequestParam(defaultValue = "5") int limit) {
+        Object[] u = new Object[1], l = new Object[1];
+        ResponseEntity<?> err = authenticate(token, labId, u, l);
+        if (err != null) return err;
+
+        List<VisitTestResultRepository.TopOrderedTestProjection> tests = (startDate != null && endDate != null)
+                ? visitTestResultRepository.getTopOrderedTestsByLabIdAndCreatedAtBetween(labId, toStart(startDate), toEnd(endDate), limit)
+                : visitTestResultRepository.getTopOrderedTestsByLabId(labId, limit);
+
+        return ApiResponseHelper.successResponse("Top ordered tests retrieved successfully", tests);
+    }
+
+    @GetMapping("/{labId}/revenue-by-collection-method")
+    public ResponseEntity<?> getRevenueByCollectionMethod(
+            @RequestHeader("Authorization") String token,
+            @PathVariable Long labId,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate) {
+        Object[] u = new Object[1], l = new Object[1];
+        ResponseEntity<?> err = authenticate(token, labId, u, l);
+        if (err != null) return err;
+
+        java.util.Optional<BillingRepository.RevenueByCollectionMethodProjection> opt = (startDate != null && endDate != null)
+                ? billingRepository.getRevenueByCollectionMethodByLabIdAndDateRange(labId, toInstantStart(startDate), toInstantEnd(endDate))
+                : billingRepository.getRevenueByCollectionMethodByLabId(labId);
+
+        BigDecimal cash   = BigDecimal.ZERO;
+        BigDecimal upi    = BigDecimal.ZERO;
+        BigDecimal card   = BigDecimal.ZERO;
+        BigDecimal credit = BigDecimal.ZERO;
+        if (opt.isPresent()) {
+            BillingRepository.RevenueByCollectionMethodProjection p = opt.get();
+            if (p.getTotalCash()   != null) cash   = p.getTotalCash();
+            if (p.getTotalUpi()    != null) upi    = p.getTotalUpi();
+            if (p.getTotalCard()   != null) card   = p.getTotalCard();
+            if (p.getTotalCredit() != null) credit = p.getTotalCredit();
+        }
+
+        BigDecimal total = cash.add(upi).add(card).add(credit);
+        double base = total.compareTo(BigDecimal.ZERO) > 0 ? total.doubleValue() : 1.0;
+
+        List<Map<String, Object>> methods = new java.util.ArrayList<>();
+        methods.add(collectionMethodEntry("UPI",    upi,    round1(upi.doubleValue()    / base * 100)));
+        methods.add(collectionMethodEntry("Cash",   cash,   round1(cash.doubleValue()   / base * 100)));
+        methods.add(collectionMethodEntry("Card",   card,   round1(card.doubleValue()   / base * 100)));
+        methods.add(collectionMethodEntry("Credit", credit, round1(credit.doubleValue() / base * 100)));
+        methods.sort((a, b2) -> ((BigDecimal) b2.get("revenue")).compareTo((BigDecimal) a.get("revenue")));
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("total",   total);
+        response.put("methods", methods);
+        return ApiResponseHelper.successResponse("Revenue by collection method retrieved successfully", response);
+    }
+
+    private Map<String, Object> collectionMethodEntry(String method, BigDecimal revenue, double percentage) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("method",     method);
+        m.put("revenue",    revenue);
+        m.put("percentage", percentage);
+        return m;
     }
 
     @GetMapping("/{labId}/revenue-trend")
@@ -526,6 +625,58 @@ public class AdminStatsController {
                 .multiply(BigDecimal.valueOf(100))
                 .setScale(1, RoundingMode.HALF_UP)
                 .doubleValue();
+    }
+
+    @GetMapping("/{labId}/sample-workflow-funnel")
+    public ResponseEntity<?> getSampleWorkflowFunnel(
+            @RequestHeader("Authorization") String token,
+            @PathVariable Long labId,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate) {
+        Object[] u = new Object[1], l = new Object[1];
+        ResponseEntity<?> err = authenticate(token, labId, u, l);
+        if (err != null) return err;
+
+        long samplesRegistered, samplesCollected, resultsEntered, reportsGenerated, reportsDelivered;
+
+        if (startDate != null && endDate != null) {
+            LocalDateTime lStart = toStart(startDate);
+            LocalDateTime lEnd   = toEnd(endDate);
+
+            samplesRegistered = visitTestResultRepository.countAllTestsByLabIdAndCreatedAtBetween(labId, lStart, lEnd);
+            samplesCollected  = visitSampleRepository.countCollectedSamplesByLabIdViaPatientAndCreatedAtBetween(labId, lStart, lEnd);
+            resultsEntered    = visitTestResultRepository.countFilledTestsByLabIdAndCreatedAtBetween(labId, lStart, lEnd);
+            reportsGenerated  = visitTestResultRepository.countCompletedReportsByLabIdAndCreatedAtBetween(labId, lStart, lEnd);
+            reportsDelivered  = visitTestResultRepository.countTestsInCompletedVisitsByLabIdAndCreatedAtBetween(labId, lStart, lEnd);
+        } else {
+            samplesRegistered = visitTestResultRepository.countAllTestsByLabId(labId);
+            samplesCollected  = visitSampleRepository.countCollectedSamplesByLabIdViaPatient(labId);
+            resultsEntered    = visitTestResultRepository.countFilledTestsByLabId(labId);
+            reportsGenerated  = visitTestResultRepository.countCompletedReportsByLabId(labId);
+            reportsDelivered  = visitTestResultRepository.countTestsInCompletedVisitsByLabId(labId);
+        }
+
+        double base = samplesRegistered > 0 ? samplesRegistered : 1.0;
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("samplesRegistered", funnelStep(samplesRegistered, 100.0));
+        response.put("samplesCollected",  funnelStep(samplesCollected,  round1(samplesCollected  / base * 100)));
+        response.put("resultsEntered",    funnelStep(resultsEntered,    round1(resultsEntered    / base * 100)));
+        response.put("reportsGenerated",  funnelStep(reportsGenerated,  round1(reportsGenerated  / base * 100)));
+        response.put("reportsDelivered",  funnelStep(reportsDelivered,  round1(reportsDelivered  / base * 100)));
+
+        return ApiResponseHelper.successResponse("Sample workflow funnel retrieved successfully", response);
+    }
+
+    private Map<String, Object> funnelStep(long count, double percentage) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("count", count);
+        m.put("percentage", percentage);
+        return m;
+    }
+
+    private double round1(double val) {
+        return Math.round(val * 10.0) / 10.0;
     }
 
     // ─── Date helpers ─────────────────────────────────────────────────────────

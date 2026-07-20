@@ -7,6 +7,7 @@ import org.springframework.stereotype.Repository;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.entity.VisitSample;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 
 @Repository
@@ -18,9 +19,23 @@ public interface VisitSampleRepository extends JpaRepository<VisitSample, Long> 
     @Query("SELECT COUNT(vs) FROM VisitSample vs JOIN vs.visit v JOIN v.labs l WHERE l.createdBy = :createdBy AND v.visitStatus = 'Pending' AND vs.createdAt BETWEEN :startDate AND :endDate")
     long countPendingSamplesByLabsCreatedByAndCreatedAtBetween(@Param("createdBy") User createdBy, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 
+    // Total collected samples for a particular lab (via patient.labs path — consistent with funnel queries)
+    @Query("SELECT COUNT(vs) FROM VisitSample vs JOIN vs.visit v JOIN v.patient p JOIN p.labs l WHERE l.id = :labId")
+    long countCollectedSamplesByLabIdViaPatient(@Param("labId") Long labId);
+
+    @Query("SELECT COUNT(vs) FROM VisitSample vs JOIN vs.visit v JOIN v.patient p JOIN p.labs l WHERE l.id = :labId AND vs.createdAt BETWEEN :startDate AND :endDate")
+    long countCollectedSamplesByLabIdViaPatientAndCreatedAtBetween(@Param("labId") Long labId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
     // Total collected samples for a particular lab
     @Query("SELECT COUNT(vs) FROM VisitSample vs JOIN vs.visit v JOIN v.labs l WHERE l.id = :labId")
     long countCollectedSamplesByLabId(@Param("labId") Long labId);
+
+    // Count distinct visits that have at least one sample collected
+    @Query("SELECT COUNT(DISTINCT v.visitId) FROM VisitSample vs JOIN vs.visit v JOIN v.patient p JOIN p.labs l WHERE l.id = :labId")
+    long countDistinctVisitsWithSamplesByLabId(@Param("labId") Long labId);
+
+    @Query("SELECT COUNT(DISTINCT v.visitId) FROM VisitSample vs JOIN vs.visit v JOIN v.patient p JOIN p.labs l WHERE l.id = :labId AND v.createdAt BETWEEN :startDate AND :endDate")
+    long countDistinctVisitsWithSamplesByLabIdAndCreatedAtBetween(@Param("labId") Long labId, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
 
     @Query("SELECT COUNT(vs) FROM VisitSample vs JOIN vs.visit v JOIN v.labs l WHERE l.id = :labId AND vs.createdAt BETWEEN :startDate AND :endDate")
     long countCollectedSamplesByLabIdAndCreatedAtBetween(@Param("labId") Long labId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);

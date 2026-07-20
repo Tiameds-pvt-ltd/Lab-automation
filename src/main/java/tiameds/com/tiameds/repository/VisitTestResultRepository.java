@@ -66,6 +66,29 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
     @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit.labs l WHERE l.id = :labId AND vtr.reportStatus = 'Completed' AND vtr.createdAt BETWEEN :startDate AND :endDate")
     long countCompletedReportsByLabIdAndCreatedAtBetween(@Param("labId") Long labId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 
+    // Funnel — test-level counts (consistent granularity across all stages)
+
+    // Tests in visits that have at least one physical sample collected (Samples Collected stage)
+    @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit v JOIN v.patient p JOIN p.labs l WHERE l.id = :labId AND SIZE(v.visitSamples) > 0")
+    long countTestsInVisitsWithSamplesByLabId(@Param("labId") Long labId);
+
+    @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit v JOIN v.patient p JOIN p.labs l WHERE l.id = :labId AND SIZE(v.visitSamples) > 0 AND vtr.createdAt BETWEEN :startDate AND :endDate")
+    long countTestsInVisitsWithSamplesByLabIdAndCreatedAtBetween(@Param("labId") Long labId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
+    // Tests where result has been entered (isFilled = true) — Results Entered stage
+    @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit.patient p JOIN p.labs l WHERE l.id = :labId AND vtr.isFilled = true")
+    long countFilledTestsByLabId(@Param("labId") Long labId);
+
+    @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit.patient p JOIN p.labs l WHERE l.id = :labId AND vtr.isFilled = true AND vtr.createdAt BETWEEN :startDate AND :endDate")
+    long countFilledTestsByLabIdAndCreatedAtBetween(@Param("labId") Long labId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
+    // Tests in visits with Completed status — Reports Delivered stage
+    @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit v JOIN v.patient p JOIN p.labs l WHERE l.id = :labId AND v.visitStatus = 'Completed'")
+    long countTestsInCompletedVisitsByLabId(@Param("labId") Long labId);
+
+    @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit v JOIN v.patient p JOIN p.labs l WHERE l.id = :labId AND v.visitStatus = 'Completed' AND vtr.createdAt BETWEEN :startDate AND :endDate")
+    long countTestsInCompletedVisitsByLabIdAndCreatedAtBetween(@Param("labId") Long labId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
     // Patient-ordered tests grouped by category — super admin scope (all categories shown, 0 if no orders)
     @Query(value = "SELECT cats.category AS category, COALESCE(vtr_agg.testCount, 0) AS testCount, COALESCE(vtr_agg.revenue, 0) AS revenue " +
             "FROM (SELECT DISTINCT t.category FROM tests t JOIN lab_tests lt ON t.test_id = lt.test_id JOIN labs l ON lt.lab_id = l.lab_id WHERE l.created_by = :createdById) cats " +
@@ -278,5 +301,38 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
         BigDecimal getTotalEarnings();
         BigDecimal getPaidAmount();
         BigDecimal getDueAmount();
+    }
+
+    // Top ordered tests for a specific lab
+    @Query(value = "SELECT t.name AS testName, t.test_code AS testCode, COUNT(*) AS orderedCount " +
+            "FROM visit_test_result vtr " +
+            "JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
+            "JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
+            "JOIN tests t ON vtr.test_id = t.test_id " +
+            "WHERE lv.lab_id = :labId " +
+            "GROUP BY t.test_id, t.name, t.test_code " +
+            "ORDER BY orderedCount DESC " +
+            "LIMIT :limit", nativeQuery = true)
+    List<TopOrderedTestProjection> getTopOrderedTestsByLabId(@Param("labId") Long labId, @Param("limit") int limit);
+
+    @Query(value = "SELECT t.name AS testName, t.test_code AS testCode, COUNT(*) AS orderedCount " +
+            "FROM visit_test_result vtr " +
+            "JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
+            "JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
+            "JOIN tests t ON vtr.test_id = t.test_id " +
+            "WHERE lv.lab_id = :labId AND vtr.created_at BETWEEN :startDate AND :endDate " +
+            "GROUP BY t.test_id, t.name, t.test_code " +
+            "ORDER BY orderedCount DESC " +
+            "LIMIT :limit", nativeQuery = true)
+    List<TopOrderedTestProjection> getTopOrderedTestsByLabIdAndCreatedAtBetween(
+            @Param("labId") Long labId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("limit") int limit);
+
+    interface TopOrderedTestProjection {
+        String getTestName();
+        String getTestCode();
+        Long getOrderedCount();
     }
 }
