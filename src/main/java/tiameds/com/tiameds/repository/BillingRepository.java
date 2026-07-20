@@ -52,61 +52,51 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
     }
 
     @Query(value = "SELECT l.name AS labName, " +
-            "COALESCE(COALESCE(t_agg.revenue,0) + COALESCE(p_agg.revenue,0),0) AS revenue, " +
-            "COALESCE(COALESCE(t_agg.discount,0) + COALESCE(p_agg.discount,0),0) AS discount, " +
-            "COALESCE(p_agg.revenue,0) AS packageRevenue " +
+            "COALESCE(bill_agg.revenue, 0) AS revenue, " +
+            "COALESCE(bill_agg.discount, 0) AS discount, " +
+            "COALESCE(pkg_agg.packageRevenue, 0) AS packageRevenue " +
             "FROM labs l " +
             "LEFT JOIN ( " +
-            "  SELECT lv.lab_id, SUM(t.price) AS revenue, " +
-            "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount,0) IS NULL THEN 0 ELSE t.price * COALESCE(b.discount,0)/b.total_amount END) AS discount " +
-            "  FROM visit_test_result vtr " +
-            "  JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
-            "  JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
-            "  JOIN tests t ON vtr.test_id = t.test_id " +
-            "  LEFT JOIN billing b ON pv.billing_id = b.billing_id " +
-            "  WHERE vtr.created_at BETWEEN :startDate AND :endDate " +
-            "  GROUP BY lv.lab_id " +
-            ") t_agg ON t_agg.lab_id = l.lab_id " +
+            "  SELECT lb.lab_id, SUM(b.net_amount) AS revenue, SUM(b.discount) AS discount " +
+            "  FROM billing b " +
+            "  JOIN lab_billing lb ON b.billing_id = lb.billing_id " +
+            "  WHERE b.created_at BETWEEN :startDate AND :endDate " +
+            "  GROUP BY lb.lab_id " +
+            ") bill_agg ON bill_agg.lab_id = l.lab_id " +
             "LEFT JOIN ( " +
-            "  SELECT lp.lab_id, SUM(hp.price::numeric) AS revenue, " +
-            "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount,0) IS NULL THEN 0 ELSE hp.price::numeric * COALESCE(b.discount,0)/b.total_amount END) AS discount " +
-            "  FROM lab_packages lp " +
-            "  JOIN health_packages hp ON hp.package_id = lp.package_id " +
-            "  LEFT JOIN patient_visit_packages pvp ON pvp.package_id = hp.package_id " +
-            "  LEFT JOIN patient_visits pv ON pvp.visit_id = pv.visit_id AND pv.created_at BETWEEN :startDate AND :endDate " +
-            "  LEFT JOIN billing b ON pv.billing_id = b.billing_id " +
-            "  GROUP BY lp.lab_id " +
-            ") p_agg ON p_agg.lab_id = l.lab_id " +
+            "  SELECT lv.lab_id, SUM(hp.price::numeric) AS packageRevenue " +
+            "  FROM patient_visit_packages pvp " +
+            "  JOIN patient_visits pv ON pvp.visit_id = pv.visit_id " +
+            "  JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
+            "  JOIN health_packages hp ON pvp.package_id = hp.package_id " +
+            "  JOIN billing b ON pv.billing_id = b.billing_id " +
+            "  WHERE b.created_at BETWEEN :startDate AND :endDate " +
+            "  GROUP BY lv.lab_id " +
+            ") pkg_agg ON pkg_agg.lab_id = l.lab_id " +
             "WHERE l.created_by = :createdById " +
             "ORDER BY revenue DESC " +
             "LIMIT 8", nativeQuery = true)
     List<RevenueByLabProjection> getRevenueByLab(@Param("createdById") Long createdById, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
 
     @Query(value = "SELECT l.name AS labName, " +
-            "COALESCE(COALESCE(t_agg.revenue,0) + COALESCE(p_agg.revenue,0),0) AS revenue, " +
-            "COALESCE(COALESCE(t_agg.discount,0) + COALESCE(p_agg.discount,0),0) AS discount, " +
-            "COALESCE(p_agg.revenue,0) AS packageRevenue " +
+            "COALESCE(bill_agg.revenue, 0) AS revenue, " +
+            "COALESCE(bill_agg.discount, 0) AS discount, " +
+            "COALESCE(pkg_agg.packageRevenue, 0) AS packageRevenue " +
             "FROM labs l " +
             "LEFT JOIN ( " +
-            "  SELECT lv.lab_id, SUM(t.price) AS revenue, " +
-            "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount,0) IS NULL THEN 0 ELSE t.price * COALESCE(b.discount,0)/b.total_amount END) AS discount " +
-            "  FROM visit_test_result vtr " +
-            "  JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
-            "  JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
-            "  JOIN tests t ON vtr.test_id = t.test_id " +
-            "  LEFT JOIN billing b ON pv.billing_id = b.billing_id " +
-            "  GROUP BY lv.lab_id " +
-            ") t_agg ON t_agg.lab_id = l.lab_id " +
+            "  SELECT lb.lab_id, SUM(b.net_amount) AS revenue, SUM(b.discount) AS discount " +
+            "  FROM billing b " +
+            "  JOIN lab_billing lb ON b.billing_id = lb.billing_id " +
+            "  GROUP BY lb.lab_id " +
+            ") bill_agg ON bill_agg.lab_id = l.lab_id " +
             "LEFT JOIN ( " +
-            "  SELECT lp.lab_id, SUM(hp.price::numeric) AS revenue, " +
-            "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount,0) IS NULL THEN 0 ELSE hp.price::numeric * COALESCE(b.discount,0)/b.total_amount END) AS discount " +
-            "  FROM lab_packages lp " +
-            "  JOIN health_packages hp ON hp.package_id = lp.package_id " +
-            "  LEFT JOIN patient_visit_packages pvp ON pvp.package_id = hp.package_id " +
-            "  LEFT JOIN patient_visits pv ON pv.visit_id = pvp.visit_id " +
-            "  LEFT JOIN billing b ON pv.billing_id = b.billing_id " +
-            "  GROUP BY lp.lab_id " +
-            ") p_agg ON p_agg.lab_id = l.lab_id " +
+            "  SELECT lv.lab_id, SUM(hp.price::numeric) AS packageRevenue " +
+            "  FROM patient_visit_packages pvp " +
+            "  JOIN patient_visits pv ON pvp.visit_id = pv.visit_id " +
+            "  JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
+            "  JOIN health_packages hp ON pvp.package_id = hp.package_id " +
+            "  GROUP BY lv.lab_id " +
+            ") pkg_agg ON pkg_agg.lab_id = l.lab_id " +
             "WHERE l.created_by = :createdById " +
             "ORDER BY revenue DESC " +
             "LIMIT 8", nativeQuery = true)
