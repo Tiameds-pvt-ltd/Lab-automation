@@ -8,6 +8,7 @@ import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.repository.BillingRepository;
 import tiameds.com.tiameds.repository.DoctorRepository;
+import tiameds.com.tiameds.repository.HealthPackageRepository;
 import tiameds.com.tiameds.repository.LabRepository;
 import tiameds.com.tiameds.repository.PatientRepository;
 import tiameds.com.tiameds.repository.TestRepository;
@@ -47,6 +48,7 @@ public class AdminStatsController {
     private final VisitRepository visitRepository;
     private final VisitSampleRepository visitSampleRepository;
     private final DoctorRepository doctorRepository;
+    private final HealthPackageRepository healthPackageRepository;
     private final UserAuthService userAuthService;
 
     public AdminStatsController(LabRepository labRepository,
@@ -58,6 +60,7 @@ public class AdminStatsController {
                                 VisitRepository visitRepository,
                                 VisitSampleRepository visitSampleRepository,
                                 DoctorRepository doctorRepository,
+                                HealthPackageRepository healthPackageRepository,
                                 UserAuthService userAuthService) {
         this.labRepository = labRepository;
         this.patientRepository = patientRepository;
@@ -68,6 +71,7 @@ public class AdminStatsController {
         this.visitRepository = visitRepository;
         this.visitSampleRepository = visitSampleRepository;
         this.doctorRepository = doctorRepository;
+        this.healthPackageRepository = healthPackageRepository;
         this.userAuthService = userAuthService;
     }
 
@@ -263,6 +267,24 @@ public class AdminStatsController {
         response.put("total",      total);
         response.put("categories", categories);
         return ApiResponseHelper.successResponse("Tests by category retrieved successfully", response);
+    }
+
+    @GetMapping("/{labId}/technician-performance")
+    public ResponseEntity<?> getTechnicianPerformance(
+            @RequestHeader("Authorization") String token,
+            @PathVariable Long labId,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate,
+            @RequestParam(defaultValue = "10") int limit) {
+        Object[] u = new Object[1], l = new Object[1];
+        ResponseEntity<?> err = authenticate(token, labId, u, l);
+        if (err != null) return err;
+
+        List<VisitSampleRepository.TechnicianPerformanceProjection> technicians = (startDate != null && endDate != null)
+                ? visitSampleRepository.getTechnicianPerformanceByLabIdAndDateRange(labId, toStart(startDate), toEnd(endDate), limit)
+                : visitSampleRepository.getTechnicianPerformanceByLabId(labId, limit);
+
+        return ApiResponseHelper.successResponse("Technician performance retrieved successfully", technicians);
     }
 
     @GetMapping("/{labId}/top-ordered-tests")
@@ -491,6 +513,78 @@ public class AdminStatsController {
                 ? patientRepository.countByLabIdAndCreatedAtBetween(labId, toInstantStart(startDate), toInstantEnd(endDate))
                 : patientRepository.countByLabId(labId);
         return ApiResponseHelper.successResponse("Total patients retrieved successfully", Map.of("totalPatients", count));
+    }
+
+    @GetMapping("/{labId}/age-gender-distribution")
+    public ResponseEntity<?> getAgeGenderDistribution(
+            @RequestHeader("Authorization") String token,
+            @PathVariable Long labId,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate) {
+        Object[] u = new Object[1], l = new Object[1];
+        ResponseEntity<?> err = authenticate(token, labId, u, l);
+        if (err != null) return err;
+
+        List<PatientRepository.GenderCountProjection> genderRows;
+        List<PatientRepository.AgeGroupCountProjection> ageRows;
+
+        if (startDate != null && endDate != null) {
+            Instant iStart = toInstantStart(startDate);
+            Instant iEnd   = toInstantEnd(endDate);
+            genderRows = patientRepository.countByGenderForLabAndDateRange(labId, iStart, iEnd);
+            ageRows    = patientRepository.countByAgeGroupForLabAndDateRange(labId, iStart, iEnd);
+        } else {
+            genderRows = patientRepository.countByGenderForLab(labId);
+            ageRows    = patientRepository.countByAgeGroupForLab(labId);
+        }
+
+        long genderTotal = genderRows.stream().mapToLong(PatientRepository.GenderCountProjection::getCount).sum();
+        double gBase = genderTotal > 0 ? genderTotal : 1.0;
+
+        List<Map<String, Object>> gender = new java.util.ArrayList<>();
+        for (PatientRepository.GenderCountProjection g : genderRows) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("gender",     g.getGender());
+            m.put("count",      g.getCount());
+            m.put("percentage", round1(g.getCount() / gBase * 100));
+            gender.add(m);
+        }
+
+        long ageTotal = ageRows.stream().mapToLong(PatientRepository.AgeGroupCountProjection::getCount).sum();
+        double aBase = ageTotal > 0 ? ageTotal : 1.0;
+
+        List<Map<String, Object>> ageGroups = new java.util.ArrayList<>();
+        for (PatientRepository.AgeGroupCountProjection a : ageRows) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("ageGroup",   a.getAgeGroup());
+            m.put("count",      a.getCount());
+            m.put("percentage", round1(a.getCount() / aBase * 100));
+            ageGroups.add(m);
+        }
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("totalPatients", genderTotal);
+        response.put("gender",        gender);
+        response.put("ageGroups",     ageGroups);
+        return ApiResponseHelper.successResponse("Age & gender distribution retrieved successfully", response);
+    }
+
+    @GetMapping("/{labId}/package-performance")
+    public ResponseEntity<?> getPackagePerformance(
+            @RequestHeader("Authorization") String token,
+            @PathVariable Long labId,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate,
+            @RequestParam(defaultValue = "10") int limit) {
+        Object[] u = new Object[1], l = new Object[1];
+        ResponseEntity<?> err = authenticate(token, labId, u, l);
+        if (err != null) return err;
+
+        List<HealthPackageRepository.PackageSummaryProjection> packages = (startDate != null && endDate != null)
+                ? healthPackageRepository.getPackagePerformanceByLabIdAndDateRange(labId, toInstantStart(startDate), toInstantEnd(endDate), limit)
+                : healthPackageRepository.getPackagePerformanceByLabId(labId, limit);
+
+        return ApiResponseHelper.successResponse("Package performance retrieved successfully", packages);
     }
 
     @GetMapping("/{labId}/top-referring-doctors")

@@ -95,6 +95,46 @@ public interface HealthPackageRepository extends JpaRepository<HealthPackage, Lo
             @Param("startDate") Instant startDate,
             @Param("endDate") Instant endDate);
 
+    @Query(value =
+        "SELECT hp.package_id AS packageId, hp.package_name AS packageName, hp.package_code AS packageCode, " +
+        "COUNT(DISTINCT pvp.visit_id) AS visitCount, " +
+        "ROUND(COALESCE(SUM(hp.price::numeric), 0), 2) AS revenue, " +
+        "ROUND(0, 2) AS discount, ROUND(0, 2) AS paidRevenue, ROUND(0, 2) AS dueRevenue, " +
+        "ROUND(0, 2) AS cashRevenue, ROUND(0, 2) AS upiRevenue, ROUND(0, 2) AS cardRevenue " +
+        "FROM health_packages hp " +
+        "JOIN lab_packages lp ON hp.package_id = lp.package_id " +
+        "LEFT JOIN patient_visit_packages pvp ON pvp.package_id = hp.package_id " +
+        "LEFT JOIN patient_visits pv ON pvp.visit_id = pv.visit_id " +
+        "LEFT JOIN lab_visit lv ON pv.visit_id = lv.visit_id AND lv.lab_id = :labId " +
+        "WHERE lp.lab_id = :labId " +
+        "GROUP BY hp.package_id, hp.package_name, hp.package_code " +
+        "ORDER BY visitCount DESC " +
+        "LIMIT :limit", nativeQuery = true)
+    List<PackageSummaryProjection> getPackagePerformanceByLabId(
+            @Param("labId") Long labId,
+            @Param("limit") int limit);
+
+    @Query(value =
+        "SELECT hp.package_id AS packageId, hp.package_name AS packageName, hp.package_code AS packageCode, " +
+        "COUNT(DISTINCT pvp.visit_id) AS visitCount, " +
+        "ROUND(COALESCE(SUM(hp.price::numeric), 0), 2) AS revenue, " +
+        "ROUND(0, 2) AS discount, ROUND(0, 2) AS paidRevenue, ROUND(0, 2) AS dueRevenue, " +
+        "ROUND(0, 2) AS cashRevenue, ROUND(0, 2) AS upiRevenue, ROUND(0, 2) AS cardRevenue " +
+        "FROM health_packages hp " +
+        "JOIN lab_packages lp ON hp.package_id = lp.package_id " +
+        "LEFT JOIN patient_visit_packages pvp ON pvp.package_id = hp.package_id " +
+        "LEFT JOIN patient_visits pv ON pvp.visit_id = pv.visit_id AND pv.created_at BETWEEN :startDate AND :endDate " +
+        "LEFT JOIN lab_visit lv ON pv.visit_id = lv.visit_id AND lv.lab_id = :labId " +
+        "WHERE lp.lab_id = :labId " +
+        "GROUP BY hp.package_id, hp.package_name, hp.package_code " +
+        "ORDER BY visitCount DESC " +
+        "LIMIT :limit", nativeQuery = true)
+    List<PackageSummaryProjection> getPackagePerformanceByLabIdAndDateRange(
+            @Param("labId") Long labId,
+            @Param("startDate") Instant startDate,
+            @Param("endDate") Instant endDate,
+            @Param("limit") int limit);
+
     interface PackageSummaryProjection {
         Long getPackageId();
         String getPackageName();
