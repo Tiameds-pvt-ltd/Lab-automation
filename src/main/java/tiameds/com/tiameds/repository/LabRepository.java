@@ -53,13 +53,15 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "LEFT JOIN ( " +
         "    SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue" +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
-        "    WHERE b.created_at BETWEEN :startDate AND :endDate " +
+        "    JOIN patient_visits pv ON pv.billing_id = b.billing_id " +
+        "    WHERE b.created_at BETWEEN :startDate AND :endDate AND LOWER(pv.visit_status) != 'cancelled' " +
         "    GROUP BY lb.lab_id " +
         ") curr ON curr.lab_id = l.lab_id " +
         "LEFT JOIN ( " +
         "    SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue" +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
-        "    WHERE b.created_at BETWEEN :prevStartDate AND :prevEndDate " +
+        "    JOIN patient_visits pv ON pv.billing_id = b.billing_id " +
+        "    WHERE b.created_at BETWEEN :prevStartDate AND :prevEndDate AND LOWER(pv.visit_status) != 'cancelled' " +
         "    GROUP BY lb.lab_id " +
         ") prev ON prev.lab_id = l.lab_id " +
         "LEFT JOIN ( " +
@@ -100,6 +102,8 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "LEFT JOIN ( " +
         "    SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue" +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
+        "    JOIN patient_visits pv ON pv.billing_id = b.billing_id " +
+        "    WHERE LOWER(pv.visit_status) != 'cancelled' " +
         "    GROUP BY lb.lab_id " +
         ") curr ON curr.lab_id = l.lab_id " +
         "LEFT JOIN ( " +
@@ -136,6 +140,8 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "LEFT JOIN ( " +
         "    SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue" +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
+        "    JOIN patient_visits pv ON pv.billing_id = b.billing_id " +
+        "    WHERE LOWER(pv.visit_status) != 'cancelled' " +
         "    GROUP BY lb.lab_id " +
         ") curr ON curr.lab_id = l.lab_id " +
         "LEFT JOIN ( " +
@@ -169,13 +175,15 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "LEFT JOIN ( " +
         "    SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue" +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
-        "    WHERE b.created_at BETWEEN :startDate AND :endDate " +
+        "    JOIN patient_visits pv ON pv.billing_id = b.billing_id " +
+        "    WHERE b.created_at BETWEEN :startDate AND :endDate AND LOWER(pv.visit_status) != 'cancelled' " +
         "    GROUP BY lb.lab_id " +
         ") curr ON curr.lab_id = l.lab_id " +
         "LEFT JOIN ( " +
         "    SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue" +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
-        "    WHERE b.created_at BETWEEN :prevStartDate AND :prevEndDate " +
+        "    JOIN patient_visits pv ON pv.billing_id = b.billing_id " +
+        "    WHERE b.created_at BETWEEN :prevStartDate AND :prevEndDate AND LOWER(pv.visit_status) != 'cancelled' " +
         "    GROUP BY lb.lab_id " +
         ") prev ON prev.lab_id = l.lab_id " +
         "LEFT JOIN ( " +
@@ -214,13 +222,15 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "LEFT JOIN ( " +
         "    SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue" +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
-        "    WHERE b.created_at BETWEEN :startDate AND :endDate " +
+        "    JOIN patient_visits pv ON pv.billing_id = b.billing_id " +
+        "    WHERE b.created_at BETWEEN :startDate AND :endDate AND LOWER(pv.visit_status) != 'cancelled' " +
         "    GROUP BY lb.lab_id " +
         ") curr ON curr.lab_id = l.lab_id " +
         "LEFT JOIN ( " +
         "    SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue" +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
-        "    WHERE b.created_at BETWEEN :prevStartDate AND :prevEndDate " +
+        "    JOIN patient_visits pv ON pv.billing_id = b.billing_id " +
+        "    WHERE b.created_at BETWEEN :prevStartDate AND :prevEndDate AND LOWER(pv.visit_status) != 'cancelled' " +
         "    GROUP BY lb.lab_id " +
         ") prev ON prev.lab_id = l.lab_id " +
         "LEFT JOIN ( " +
@@ -258,6 +268,8 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "LEFT JOIN ( " +
         "    SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue" +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
+        "    JOIN patient_visits pv ON pv.billing_id = b.billing_id " +
+        "    WHERE LOWER(pv.visit_status) != 'cancelled' " +
         "    GROUP BY lb.lab_id " +
         ") curr ON curr.lab_id = l.lab_id " +
         "LEFT JOIN ( " +

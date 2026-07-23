@@ -90,7 +90,8 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
             "  SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue, SUM(b.discount) AS discount " +
             "  FROM billing b " +
             "  JOIN lab_billing lb ON b.billing_id = lb.billing_id " +
-            "  WHERE b.created_at BETWEEN :startDate AND :endDate " +
+            "  JOIN patient_visits pv ON pv.billing_id = b.billing_id " +
+            "  WHERE b.created_at BETWEEN :startDate AND :endDate AND LOWER(pv.visit_status) != 'cancelled' " +
             "  GROUP BY lb.lab_id " +
             ") bill_agg ON bill_agg.lab_id = l.lab_id " +
             "LEFT JOIN ( " +
@@ -101,7 +102,7 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
             "  JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
             "  JOIN health_packages hp ON pvp.package_id = hp.package_id " +
             "  JOIN billing b ON pv.billing_id = b.billing_id " +
-            "  WHERE b.created_at BETWEEN :startDate AND :endDate " +
+            "  WHERE b.created_at BETWEEN :startDate AND :endDate AND LOWER(pv.visit_status) != 'cancelled' " +
             "  GROUP BY lv.lab_id " +
             ") pkg_agg ON pkg_agg.lab_id = l.lab_id " +
             "WHERE l.created_by = :createdById " +
@@ -118,6 +119,8 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
             "  SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue, SUM(b.discount) AS discount " +
             "  FROM billing b " +
             "  JOIN lab_billing lb ON b.billing_id = lb.billing_id " +
+            "  JOIN patient_visits pv ON pv.billing_id = b.billing_id " +
+            "  WHERE LOWER(pv.visit_status) != 'cancelled' " +
             "  GROUP BY lb.lab_id " +
             ") bill_agg ON bill_agg.lab_id = l.lab_id " +
             "LEFT JOIN ( " +
@@ -128,6 +131,7 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
             "  JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
             "  JOIN health_packages hp ON pvp.package_id = hp.package_id " +
             "  JOIN billing b ON pv.billing_id = b.billing_id " +
+            "  WHERE LOWER(pv.visit_status) != 'cancelled' " +
             "  GROUP BY lv.lab_id " +
             ") pkg_agg ON pkg_agg.lab_id = l.lab_id " +
             "WHERE l.created_by = :createdById " +
@@ -144,6 +148,8 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
             "  SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue, SUM(b.discount) AS discount " +
             "  FROM billing b " +
             "  JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
+            "  JOIN patient_visits pv ON pv.billing_id = b.billing_id " +
+            "  WHERE LOWER(pv.visit_status) != 'cancelled' " +
             "  GROUP BY lb.lab_id " +
             ") bill_agg ON bill_agg.lab_id = l.lab_id " +
             "LEFT JOIN ( " +
@@ -154,6 +160,7 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
             "  LEFT JOIN patient_visit_packages pvp ON pvp.package_id = hp.package_id " +
             "  LEFT JOIN patient_visits pv ON pv.visit_id = pvp.visit_id " +
             "  LEFT JOIN billing b ON pv.billing_id = b.billing_id " +
+            "  WHERE pv.visit_id IS NULL OR LOWER(pv.visit_status) != 'cancelled' " +
             "  GROUP BY lp.lab_id " +
             ") p_agg ON p_agg.lab_id = l.lab_id " +
             "WHERE l.lab_id = :labId", nativeQuery = true)
@@ -168,7 +175,8 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
             "  SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue, SUM(b.discount) AS discount " +
             "  FROM billing b " +
             "  JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
-            "  WHERE b.created_at BETWEEN :startDate AND :endDate " +
+            "  JOIN patient_visits pv ON pv.billing_id = b.billing_id " +
+            "  WHERE b.created_at BETWEEN :startDate AND :endDate AND LOWER(pv.visit_status) != 'cancelled' " +
             "  GROUP BY lb.lab_id " +
             ") bill_agg ON bill_agg.lab_id = l.lab_id " +
             "LEFT JOIN ( " +
@@ -179,6 +187,7 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
             "  LEFT JOIN patient_visit_packages pvp ON pvp.package_id = hp.package_id " +
             "  LEFT JOIN patient_visits pv ON pv.visit_id = pvp.visit_id " +
             "  LEFT JOIN billing b ON pv.billing_id = b.billing_id AND b.created_at BETWEEN :startDate AND :endDate " +
+            "  WHERE pv.visit_id IS NULL OR LOWER(pv.visit_status) != 'cancelled' " +
             "  GROUP BY lp.lab_id " +
             ") p_agg ON p_agg.lab_id = l.lab_id " +
             "WHERE l.lab_id = :labId", nativeQuery = true)
