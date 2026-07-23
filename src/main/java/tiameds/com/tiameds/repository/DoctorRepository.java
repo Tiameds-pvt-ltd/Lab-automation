@@ -29,13 +29,13 @@ public interface DoctorRepository extends JpaRepository<Doctors, Long> {
     @Query(value = "SELECT d.doctor_id AS doctorId, d.name AS doctorName, d.speciality AS speciality, " +
             "COUNT(DISTINCT lv.lab_id) AS labCount, " +
             "COUNT(DISTINCT v.patient_id) AS patientCount, " +
-            "COALESCE(SUM(b.total_amount), 0) AS revenue " +
+            "COALESCE(SUM(b.actual_received_amount), 0) AS revenue " +
             "FROM doctors d " +
             "JOIN patient_visits v ON v.doctor_id = d.doctor_id " +
             "JOIN lab_visit lv ON lv.visit_id = v.visit_id " +
             "JOIN labs l ON l.lab_id = lv.lab_id " +
             "LEFT JOIN billing b ON v.billing_id = b.billing_id " +
-            "WHERE l.created_by = :createdById " +
+            "WHERE l.created_by = :createdById AND LOWER(v.visit_status) != 'cancelled' " +
             "GROUP BY d.doctor_id, d.name, d.speciality " +
             "ORDER BY revenue DESC " +
             "LIMIT :limit", nativeQuery = true)
@@ -44,14 +44,14 @@ public interface DoctorRepository extends JpaRepository<Doctors, Long> {
     @Query(value = "SELECT d.doctor_id AS doctorId, d.name AS doctorName, d.speciality AS speciality, " +
             "COUNT(DISTINCT lv.lab_id) AS labCount, " +
             "COUNT(DISTINCT v.patient_id) AS patientCount, " +
-            "COALESCE(SUM(b.total_amount), 0) AS revenue " +
+            "COALESCE(SUM(b.actual_received_amount), 0) AS revenue " +
             "FROM doctors d " +
             "JOIN patient_visits v ON v.doctor_id = d.doctor_id " +
             "JOIN lab_visit lv ON lv.visit_id = v.visit_id " +
             "JOIN labs l ON l.lab_id = lv.lab_id " +
             "LEFT JOIN billing b ON v.billing_id = b.billing_id " +
             "WHERE l.created_by = :createdById " +
-            "AND v.created_at BETWEEN :startDate AND :endDate " +
+            "AND v.created_at BETWEEN :startDate AND :endDate AND LOWER(v.visit_status) != 'cancelled' " +
             "GROUP BY d.doctor_id, d.name, d.speciality " +
             "ORDER BY revenue DESC " +
             "LIMIT :limit", nativeQuery = true)
@@ -63,12 +63,12 @@ public interface DoctorRepository extends JpaRepository<Doctors, Long> {
     @Query(value = "SELECT d.doctor_id AS doctorId, d.name AS doctorName, d.speciality AS speciality, " +
             "COUNT(DISTINCT lv.lab_id) AS labCount, " +
             "COUNT(DISTINCT v.patient_id) AS patientCount, " +
-            "COALESCE(SUM(b.total_amount), 0) AS revenue " +
+            "COALESCE(SUM(b.actual_received_amount), 0) AS revenue " +
             "FROM doctors d " +
             "JOIN patient_visits v ON v.doctor_id = d.doctor_id " +
             "JOIN lab_visit lv ON lv.visit_id = v.visit_id " +
             "LEFT JOIN billing b ON v.billing_id = b.billing_id " +
-            "WHERE lv.lab_id = :labId " +
+            "WHERE lv.lab_id = :labId AND LOWER(v.visit_status) != 'cancelled' " +
             "GROUP BY d.doctor_id, d.name, d.speciality " +
             "ORDER BY revenue DESC " +
             "LIMIT :limit", nativeQuery = true)
@@ -77,13 +77,13 @@ public interface DoctorRepository extends JpaRepository<Doctors, Long> {
     @Query(value = "SELECT d.doctor_id AS doctorId, d.name AS doctorName, d.speciality AS speciality, " +
             "COUNT(DISTINCT lv.lab_id) AS labCount, " +
             "COUNT(DISTINCT v.patient_id) AS patientCount, " +
-            "COALESCE(SUM(b.total_amount), 0) AS revenue " +
+            "COALESCE(SUM(b.actual_received_amount), 0) AS revenue " +
             "FROM doctors d " +
             "JOIN patient_visits v ON v.doctor_id = d.doctor_id " +
             "JOIN lab_visit lv ON lv.visit_id = v.visit_id " +
             "LEFT JOIN billing b ON v.billing_id = b.billing_id " +
             "WHERE lv.lab_id = :labId " +
-            "AND v.created_at BETWEEN :startDate AND :endDate " +
+            "AND v.created_at BETWEEN :startDate AND :endDate AND LOWER(v.visit_status) != 'cancelled' " +
             "GROUP BY d.doctor_id, d.name, d.speciality " +
             "ORDER BY revenue DESC " +
             "LIMIT :limit", nativeQuery = true)

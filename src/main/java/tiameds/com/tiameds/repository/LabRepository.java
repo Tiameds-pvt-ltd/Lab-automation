@@ -73,7 +73,7 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "    JOIN patient_visits v ON v.visit_id = lv.visit_id " +
         "    LEFT JOIN visit_test_result vtr ON vtr.visit_id = v.visit_id " +
         "    LEFT JOIN lab_report r ON r.visit_id = v.visit_id AND r.lab_id = lv.lab_id " +
-        "    WHERE v.created_at BETWEEN :startDate AND :endDate " +
+        "    WHERE v.created_at BETWEEN :startDate AND :endDate AND LOWER(v.visit_status) != 'cancelled' " +
         "    GROUP BY lv.lab_id " +
         ") vstats ON vstats.lab_id = l.lab_id " +
         "WHERE l.created_by = :createdById " +
@@ -113,6 +113,7 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "    JOIN patient_visits v ON v.visit_id = lv.visit_id " +
         "    LEFT JOIN visit_test_result vtr ON vtr.visit_id = v.visit_id " +
         "    LEFT JOIN lab_report r ON r.visit_id = v.visit_id AND r.lab_id = lv.lab_id " +
+        "    WHERE LOWER(v.visit_status) != 'cancelled' " +
         "    GROUP BY lv.lab_id " +
         ") vstats ON vstats.lab_id = l.lab_id " +
         "WHERE l.created_by = :createdById " +
@@ -148,6 +149,7 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "    JOIN patient_visits v ON v.visit_id = lv.visit_id " +
         "    LEFT JOIN visit_test_result vtr ON vtr.visit_id = v.visit_id " +
         "    LEFT JOIN lab_report r ON r.visit_id = v.visit_id AND r.lab_id = lv.lab_id " +
+        "    WHERE LOWER(v.visit_status) != 'cancelled' " +
         "    GROUP BY lv.lab_id " +
         ") vstats ON vstats.lab_id = l.lab_id " +
         "WHERE l.created_by = :createdById " +
@@ -187,7 +189,7 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "    JOIN patient_visits v ON v.visit_id = lv.visit_id " +
         "    LEFT JOIN visit_test_result vtr ON vtr.visit_id = v.visit_id " +
         "    LEFT JOIN lab_report r ON r.visit_id = v.visit_id AND r.lab_id = lv.lab_id " +
-        "    WHERE v.created_at BETWEEN :startDate AND :endDate " +
+        "    WHERE v.created_at BETWEEN :startDate AND :endDate AND LOWER(v.visit_status) != 'cancelled' " +
         "    GROUP BY lv.lab_id " +
         ") vstats ON vstats.lab_id = l.lab_id " +
         "WHERE l.created_by = :createdById " +
@@ -232,7 +234,7 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "    JOIN patient_visits v ON v.visit_id = lv.visit_id " +
         "    LEFT JOIN visit_test_result vtr ON vtr.visit_id = v.visit_id " +
         "    LEFT JOIN lab_report r ON r.visit_id = v.visit_id AND r.lab_id = lv.lab_id " +
-        "    WHERE v.created_at BETWEEN :startDate AND :endDate " +
+        "    WHERE v.created_at BETWEEN :startDate AND :endDate AND LOWER(v.visit_status) != 'cancelled' " +
         "    GROUP BY lv.lab_id " +
         ") vstats ON vstats.lab_id = l.lab_id " +
         "WHERE l.lab_id = :labId", nativeQuery = true)
@@ -269,6 +271,7 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "    JOIN patient_visits v ON v.visit_id = lv.visit_id " +
         "    LEFT JOIN visit_test_result vtr ON vtr.visit_id = v.visit_id " +
         "    LEFT JOIN lab_report r ON r.visit_id = v.visit_id AND r.lab_id = lv.lab_id " +
+        "    WHERE LOWER(v.visit_status) != 'cancelled' " +
         "    GROUP BY lv.lab_id " +
         ") vstats ON vstats.lab_id = l.lab_id " +
         "WHERE l.lab_id = :labId", nativeQuery = true)

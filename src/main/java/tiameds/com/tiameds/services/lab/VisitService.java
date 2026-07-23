@@ -552,7 +552,9 @@ public class VisitService {
         }
         List<VisitEntity> visits = visitRepository.findAllByPatient_LabsAndVisitDateBetween(
                 labOptional.get(), startDate, endDate
-        );
+        ).stream()
+                .filter(v -> !"Cancelled".equalsIgnoreCase(v.getVisitStatus()))
+                .collect(Collectors.toList());
         List<PatientDTO> patientDTOList = visits.stream()
                 .map(this::mapVisitToPatientDTO)
                 .collect(Collectors.toList());
@@ -573,7 +575,9 @@ public class VisitService {
         }
         List<VisitEntity> visits = visitRepository.findAllByPatient_LabsAndVisitDateBetween(
                 labOptional.get(), startDate, endDate
-        );
+        ).stream()
+                .filter(v -> !"Cancelled".equalsIgnoreCase(v.getVisitStatus()))
+                .collect(Collectors.toList());
 
         // make a response object
         List<PatientVisitDTO> patientVisitDTOs = visits.stream()
