@@ -21,6 +21,12 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
     @Query("SELECT COALESCE(SUM(b.totalAmount), 0) FROM BillingEntity b JOIN b.labs l WHERE l.id = :labId AND b.createdAt BETWEEN :startDate AND :endDate")
     BigDecimal sumTotalByLabId(@Param("labId") Long labId, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
 
+    @Query("SELECT COALESCE(SUM(b.actualReceivedAmount), 0) FROM BillingEntity b JOIN b.labs l WHERE l.id = :labId")
+    BigDecimal sumPaidAmountByLabIdAllTime(@Param("labId") Long labId);
+
+    @Query("SELECT COALESCE(SUM(b.actualReceivedAmount), 0) FROM BillingEntity b JOIN b.labs l WHERE l.id = :labId AND b.createdAt BETWEEN :startDate AND :endDate")
+    BigDecimal sumPaidAmountByLabId(@Param("labId") Long labId, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
+
     @Query("SELECT COUNT(b) FROM BillingEntity b JOIN b.labs l WHERE l.id = :labId AND b.createdAt BETWEEN :startDate AND :endDate")
     long countByLabId(@Param("labId") Long labId, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
 
@@ -36,6 +42,18 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
     @Query("SELECT COALESCE(SUM(b.totalAmount), 0) FROM BillingEntity b JOIN b.labs l WHERE l.createdBy = :createdBy AND b.createdAt BETWEEN :startDate AND :endDate")
     BigDecimal sumTotalRevenueByLabsCreatedByAndCreatedAtBetween(@Param("createdBy") User createdBy, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
 
+    @Query("SELECT COALESCE(SUM(b.actualReceivedAmount), 0) FROM BillingEntity b JOIN b.labs l WHERE l.createdBy = :createdBy")
+    BigDecimal sumPaidAmountByLabsCreatedBy(@Param("createdBy") User createdBy);
+
+    @Query("SELECT COALESCE(SUM(b.actualReceivedAmount), 0) FROM BillingEntity b JOIN b.labs l WHERE l.createdBy = :createdBy AND b.createdAt BETWEEN :startDate AND :endDate")
+    BigDecimal sumPaidAmountByLabsCreatedByAndCreatedAtBetween(@Param("createdBy") User createdBy, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
+
+    @Query("SELECT COALESCE(SUM(b.dueAmount), 0) FROM BillingEntity b JOIN b.labs l WHERE l.createdBy = :createdBy")
+    BigDecimal sumDueAmountByLabsCreatedBy(@Param("createdBy") User createdBy);
+
+    @Query("SELECT COALESCE(SUM(b.dueAmount), 0) FROM BillingEntity b JOIN b.labs l WHERE l.createdBy = :createdBy AND b.createdAt BETWEEN :startDate AND :endDate")
+    BigDecimal sumDueAmountByLabsCreatedByAndCreatedAtBetween(@Param("createdBy") User createdBy, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
+
     @Query(value = "SELECT DATE(b.created_at) AS date, COALESCE(SUM(b.total_amount), 0) AS revenue " +
             "FROM billing b " +
             "JOIN lab_billing lb ON b.billing_id = lb.billing_id " +
@@ -45,6 +63,16 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
             "GROUP BY DATE(b.created_at) " +
             "ORDER BY DATE(b.created_at)", nativeQuery = true)
     List<DailyRevenueProjection> getDailyRevenueTrend(@Param("createdById") Long createdById, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
+
+    @Query(value = "SELECT DATE(b.created_at) AS date, COALESCE(SUM(b.actual_received_amount), 0) AS revenue " +
+            "FROM billing b " +
+            "JOIN lab_billing lb ON b.billing_id = lb.billing_id " +
+            "JOIN labs l ON lb.lab_id = l.lab_id " +
+            "WHERE l.created_by = :createdById " +
+            "AND b.created_at BETWEEN :startDate AND :endDate " +
+            "GROUP BY DATE(b.created_at) " +
+            "ORDER BY DATE(b.created_at)", nativeQuery = true)
+    List<DailyRevenueProjection> getDailyPaidAmountTrend(@Param("createdById") Long createdById, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
 
     interface DailyRevenueProjection {
         String getDate();
@@ -57,14 +85,15 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
             "COALESCE(pkg_agg.packageRevenue, 0) AS packageRevenue " +
             "FROM labs l " +
             "LEFT JOIN ( " +
-            "  SELECT lb.lab_id, SUM(b.net_amount) AS revenue, SUM(b.discount) AS discount " +
+            "  SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue, SUM(b.discount) AS discount " +
             "  FROM billing b " +
             "  JOIN lab_billing lb ON b.billing_id = lb.billing_id " +
             "  WHERE b.created_at BETWEEN :startDate AND :endDate " +
             "  GROUP BY lb.lab_id " +
             ") bill_agg ON bill_agg.lab_id = l.lab_id " +
             "LEFT JOIN ( " +
-            "  SELECT lv.lab_id, SUM(hp.price::numeric) AS packageRevenue " +
+            "  SELECT lv.lab_id, SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount, 0) IS NULL THEN 0 " +
+            "    ELSE hp.price::numeric * COALESCE(b.actual_received_amount, 0) / b.total_amount END) AS packageRevenue " +
             "  FROM patient_visit_packages pvp " +
             "  JOIN patient_visits pv ON pvp.visit_id = pv.visit_id " +
             "  JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
@@ -84,17 +113,19 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
             "COALESCE(pkg_agg.packageRevenue, 0) AS packageRevenue " +
             "FROM labs l " +
             "LEFT JOIN ( " +
-            "  SELECT lb.lab_id, SUM(b.net_amount) AS revenue, SUM(b.discount) AS discount " +
+            "  SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue, SUM(b.discount) AS discount " +
             "  FROM billing b " +
             "  JOIN lab_billing lb ON b.billing_id = lb.billing_id " +
             "  GROUP BY lb.lab_id " +
             ") bill_agg ON bill_agg.lab_id = l.lab_id " +
             "LEFT JOIN ( " +
-            "  SELECT lv.lab_id, SUM(hp.price::numeric) AS packageRevenue " +
+            "  SELECT lv.lab_id, SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount, 0) IS NULL THEN 0 " +
+            "    ELSE hp.price::numeric * COALESCE(b.actual_received_amount, 0) / b.total_amount END) AS packageRevenue " +
             "  FROM patient_visit_packages pvp " +
             "  JOIN patient_visits pv ON pvp.visit_id = pv.visit_id " +
             "  JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
             "  JOIN health_packages hp ON pvp.package_id = hp.package_id " +
+            "  JOIN billing b ON pv.billing_id = b.billing_id " +
             "  GROUP BY lv.lab_id " +
             ") pkg_agg ON pkg_agg.lab_id = l.lab_id " +
             "WHERE l.created_by = :createdById " +
@@ -103,24 +134,19 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
     List<RevenueByLabProjection> getRevenueByLabAllTime(@Param("createdById") Long createdById);
 
     @Query(value = "SELECT l.name AS labName, " +
-            "COALESCE(COALESCE(t_agg.revenue,0) + COALESCE(p_agg.revenue,0),0) AS revenue, " +
-            "COALESCE(COALESCE(t_agg.discount,0) + COALESCE(p_agg.discount,0),0) AS discount, " +
-            "COALESCE(p_agg.revenue,0) AS packageRevenue " +
+            "COALESCE(bill_agg.revenue, 0) AS revenue, " +
+            "COALESCE(bill_agg.discount, 0) AS discount, " +
+            "COALESCE(p_agg.packageRevenue, 0) AS packageRevenue " +
             "FROM labs l " +
-            "JOIN lab_billing lb ON lb.lab_id = l.lab_id " +
             "LEFT JOIN ( " +
-            "  SELECT lv.lab_id, SUM(t.price) AS revenue, " +
-            "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount,0) IS NULL THEN 0 ELSE t.price * COALESCE(b.discount,0)/b.total_amount END) AS discount " +
-            "  FROM visit_test_result vtr " +
-            "  JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
-            "  JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
-            "  JOIN tests t ON vtr.test_id = t.test_id " +
-            "  LEFT JOIN billing b ON pv.billing_id = b.billing_id " +
-            "  GROUP BY lv.lab_id " +
-            ") t_agg ON t_agg.lab_id = l.lab_id " +
+            "  SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue, SUM(b.discount) AS discount " +
+            "  FROM billing b " +
+            "  JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
+            "  GROUP BY lb.lab_id " +
+            ") bill_agg ON bill_agg.lab_id = l.lab_id " +
             "LEFT JOIN ( " +
-            "  SELECT lp.lab_id, SUM(hp.price::numeric) AS revenue, " +
-            "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount,0) IS NULL THEN 0 ELSE hp.price::numeric * COALESCE(b.discount,0)/b.total_amount END) AS discount " +
+            "  SELECT lp.lab_id, SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount, 0) IS NULL THEN 0 " +
+            "    ELSE hp.price::numeric * COALESCE(b.actual_received_amount, 0) / b.total_amount END) AS packageRevenue " +
             "  FROM lab_packages lp " +
             "  JOIN health_packages hp ON hp.package_id = lp.package_id " +
             "  LEFT JOIN patient_visit_packages pvp ON pvp.package_id = hp.package_id " +
@@ -128,39 +154,32 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
             "  LEFT JOIN billing b ON pv.billing_id = b.billing_id " +
             "  GROUP BY lp.lab_id " +
             ") p_agg ON p_agg.lab_id = l.lab_id " +
-            "WHERE lb.lab_id = :labId " +
-            "GROUP BY l.lab_id, l.name", nativeQuery = true)
+            "WHERE l.lab_id = :labId", nativeQuery = true)
     java.util.Optional<RevenueByLabProjection> getRevenueByLabId(@Param("labId") Long labId);
 
     @Query(value = "SELECT l.name AS labName, " +
-            "COALESCE(COALESCE(t_agg.revenue,0) + COALESCE(p_agg.revenue,0),0) AS revenue, " +
-            "COALESCE(COALESCE(t_agg.discount,0) + COALESCE(p_agg.discount,0),0) AS discount, " +
-            "COALESCE(p_agg.revenue,0) AS packageRevenue " +
+            "COALESCE(bill_agg.revenue, 0) AS revenue, " +
+            "COALESCE(bill_agg.discount, 0) AS discount, " +
+            "COALESCE(p_agg.packageRevenue, 0) AS packageRevenue " +
             "FROM labs l " +
-            "JOIN lab_billing lb ON lb.lab_id = l.lab_id " +
             "LEFT JOIN ( " +
-            "  SELECT lv.lab_id, SUM(t.price) AS revenue, " +
-            "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount,0) IS NULL THEN 0 ELSE t.price * COALESCE(b.discount,0)/b.total_amount END) AS discount " +
-            "  FROM visit_test_result vtr " +
-            "  JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
-            "  JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
-            "  JOIN tests t ON vtr.test_id = t.test_id " +
-            "  LEFT JOIN billing b ON pv.billing_id = b.billing_id AND b.created_at BETWEEN :startDate AND :endDate " +
-            "  WHERE vtr.created_at BETWEEN :startDate AND :endDate " +
-            "  GROUP BY lv.lab_id " +
-            ") t_agg ON t_agg.lab_id = l.lab_id " +
+            "  SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue, SUM(b.discount) AS discount " +
+            "  FROM billing b " +
+            "  JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
+            "  WHERE b.created_at BETWEEN :startDate AND :endDate " +
+            "  GROUP BY lb.lab_id " +
+            ") bill_agg ON bill_agg.lab_id = l.lab_id " +
             "LEFT JOIN ( " +
-            "  SELECT lp.lab_id, SUM(hp.price::numeric) AS revenue, " +
-            "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount,0) IS NULL THEN 0 ELSE hp.price::numeric * COALESCE(b.discount,0)/b.total_amount END) AS discount " +
+            "  SELECT lp.lab_id, SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount, 0) IS NULL THEN 0 " +
+            "    ELSE hp.price::numeric * COALESCE(b.actual_received_amount, 0) / b.total_amount END) AS packageRevenue " +
             "  FROM lab_packages lp " +
             "  JOIN health_packages hp ON hp.package_id = lp.package_id " +
             "  LEFT JOIN patient_visit_packages pvp ON pvp.package_id = hp.package_id " +
-            "  LEFT JOIN patient_visits pv ON pvp.visit_id = pv.visit_id AND pv.created_at BETWEEN :startDate AND :endDate " +
+            "  LEFT JOIN patient_visits pv ON pv.visit_id = pvp.visit_id " +
             "  LEFT JOIN billing b ON pv.billing_id = b.billing_id AND b.created_at BETWEEN :startDate AND :endDate " +
             "  GROUP BY lp.lab_id " +
             ") p_agg ON p_agg.lab_id = l.lab_id " +
-            "WHERE lb.lab_id = :labId " +
-            "GROUP BY l.lab_id, l.name", nativeQuery = true)
+            "WHERE l.lab_id = :labId", nativeQuery = true)
     java.util.Optional<RevenueByLabProjection> getRevenueByLabIdAndDateRange(@Param("labId") Long labId, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
 
     @Query(value = "SELECT DATE(b.created_at) AS date, COALESCE(SUM(b.total_amount), 0) AS revenue " +
@@ -171,6 +190,15 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
             "GROUP BY DATE(b.created_at) " +
             "ORDER BY DATE(b.created_at)", nativeQuery = true)
     List<DailyRevenueProjection> getDailyRevenueTrendByLabId(@Param("labId") Long labId, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
+
+    @Query(value = "SELECT DATE(b.created_at) AS date, COALESCE(SUM(b.actual_received_amount), 0) AS revenue " +
+            "FROM billing b " +
+            "JOIN lab_billing lb ON b.billing_id = lb.billing_id " +
+            "WHERE lb.lab_id = :labId " +
+            "AND b.created_at BETWEEN :startDate AND :endDate " +
+            "GROUP BY DATE(b.created_at) " +
+            "ORDER BY DATE(b.created_at)", nativeQuery = true)
+    List<DailyRevenueProjection> getDailyPaidAmountTrendByLabId(@Param("labId") Long labId, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
 
     interface RevenueByLabProjection {
         String getLabName();
@@ -377,5 +405,91 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
             @Param("endDate") Instant endDate,
             org.springframework.data.domain.Pageable pageable
     );
+
+    @Query("SELECT COALESCE(SUM(b.dueAmount), 0) FROM BillingEntity b JOIN b.labs l WHERE l.id = :labId")
+    BigDecimal sumDueAmountByLabId(@Param("labId") Long labId);
+
+    @Query("SELECT COALESCE(SUM(b.dueAmount), 0) FROM BillingEntity b JOIN b.labs l WHERE l.id = :labId AND b.createdAt BETWEEN :startDate AND :endDate")
+    BigDecimal sumDueAmountByLabIdAndCreatedAtBetween(@Param("labId") Long labId, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
+
+    @Query(value =
+        "SELECT COUNT(DISTINCT b.billing_id) AS totalBillings, " +
+        "ROUND(COALESCE(SUM(b.total_amount), 0), 2) AS grossRevenue, " +
+        "ROUND(COALESCE(SUM(b.discount), 0), 2) AS totalDiscount, " +
+        "ROUND(COALESCE(SUM(b.gst_amount), 0), 2) AS totalGst, " +
+        "ROUND(COALESCE(SUM(b.net_amount), 0), 2) AS netRevenue, " +
+        "ROUND(COALESCE(SUM(b.actual_received_amount), 0), 2) AS totalPaid, " +
+        "ROUND(COALESCE(SUM(b.due_amount), 0), 2) AS totalDue, " +
+        "ROUND(COALESCE(SUM(CASE WHEN bt_agg.billing_id IS NOT NULL THEN bt_agg.cash_total " +
+        "  WHEN UPPER(b.payment_method) = 'CASH' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END), 0), 2) AS totalCash, " +
+        "ROUND(COALESCE(SUM(CASE WHEN bt_agg.billing_id IS NOT NULL THEN bt_agg.upi_total " +
+        "  WHEN UPPER(b.payment_method) = 'UPI' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END), 0), 2) AS totalUpi, " +
+        "ROUND(COALESCE(SUM(CASE WHEN bt_agg.billing_id IS NOT NULL THEN bt_agg.card_total " +
+        "  WHEN UPPER(b.payment_method) = 'CARD' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END), 0), 2) AS totalCard " +
+        "FROM billing b " +
+        "JOIN lab_billing lb ON b.billing_id = lb.billing_id " +
+        "LEFT JOIN (SELECT bt.billing_id, COALESCE(SUM(bt.cash_amount), 0) AS cash_total, " +
+        "  COALESCE(SUM(bt.upi_amount), 0) AS upi_total, COALESCE(SUM(bt.card_amount), 0) AS card_total " +
+        "  FROM billing_transaction bt GROUP BY bt.billing_id) bt_agg ON bt_agg.billing_id = b.billing_id " +
+        "WHERE lb.lab_id = :labId", nativeQuery = true)
+    List<DetailedBillingSummaryProjection> getDetailedBillingSummaryByLabId(@Param("labId") Long labId);
+
+    @Query(value =
+        "SELECT COUNT(DISTINCT b.billing_id) AS totalBillings, " +
+        "ROUND(COALESCE(SUM(b.total_amount), 0), 2) AS grossRevenue, " +
+        "ROUND(COALESCE(SUM(b.discount), 0), 2) AS totalDiscount, " +
+        "ROUND(COALESCE(SUM(b.gst_amount), 0), 2) AS totalGst, " +
+        "ROUND(COALESCE(SUM(b.net_amount), 0), 2) AS netRevenue, " +
+        "ROUND(COALESCE(SUM(b.actual_received_amount), 0), 2) AS totalPaid, " +
+        "ROUND(COALESCE(SUM(b.due_amount), 0), 2) AS totalDue, " +
+        "ROUND(COALESCE(SUM(CASE WHEN bt_agg.billing_id IS NOT NULL THEN bt_agg.cash_total " +
+        "  WHEN UPPER(b.payment_method) = 'CASH' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END), 0), 2) AS totalCash, " +
+        "ROUND(COALESCE(SUM(CASE WHEN bt_agg.billing_id IS NOT NULL THEN bt_agg.upi_total " +
+        "  WHEN UPPER(b.payment_method) = 'UPI' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END), 0), 2) AS totalUpi, " +
+        "ROUND(COALESCE(SUM(CASE WHEN bt_agg.billing_id IS NOT NULL THEN bt_agg.card_total " +
+        "  WHEN UPPER(b.payment_method) = 'CARD' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END), 0), 2) AS totalCard " +
+        "FROM billing b " +
+        "JOIN lab_billing lb ON b.billing_id = lb.billing_id " +
+        "LEFT JOIN (SELECT bt.billing_id, COALESCE(SUM(bt.cash_amount), 0) AS cash_total, " +
+        "  COALESCE(SUM(bt.upi_amount), 0) AS upi_total, COALESCE(SUM(bt.card_amount), 0) AS card_total " +
+        "  FROM billing_transaction bt GROUP BY bt.billing_id) bt_agg ON bt_agg.billing_id = b.billing_id " +
+        "WHERE lb.lab_id = :labId AND b.created_at BETWEEN :startDate AND :endDate", nativeQuery = true)
+    List<DetailedBillingSummaryProjection> getDetailedBillingSummaryByLabIdWithDateRange(
+            @Param("labId") Long labId,
+            @Param("startDate") Instant startDate,
+            @Param("endDate") Instant endDate);
+
+    @Query(value =
+        "SELECT b.payment_status AS status, COUNT(b.billing_id) AS billingCount, " +
+        "ROUND(COALESCE(SUM(b.total_amount), 0), 2) AS grossRevenue, " +
+        "ROUND(COALESCE(SUM(b.discount), 0), 2) AS totalDiscount, " +
+        "ROUND(COALESCE(SUM(b.gst_amount), 0), 2) AS totalGst, " +
+        "ROUND(COALESCE(SUM(b.net_amount), 0), 2) AS netRevenue, " +
+        "ROUND(COALESCE(SUM(b.actual_received_amount), 0), 2) AS totalPaid, " +
+        "ROUND(COALESCE(SUM(b.due_amount), 0), 2) AS totalDue " +
+        "FROM billing b " +
+        "JOIN lab_billing lb ON b.billing_id = lb.billing_id " +
+        "WHERE lb.lab_id = :labId " +
+        "GROUP BY b.payment_status " +
+        "ORDER BY billingCount DESC", nativeQuery = true)
+    List<BillingByStatusProjection> getBillingByStatusByLabId(@Param("labId") Long labId);
+
+    @Query(value =
+        "SELECT b.payment_status AS status, COUNT(b.billing_id) AS billingCount, " +
+        "ROUND(COALESCE(SUM(b.total_amount), 0), 2) AS grossRevenue, " +
+        "ROUND(COALESCE(SUM(b.discount), 0), 2) AS totalDiscount, " +
+        "ROUND(COALESCE(SUM(b.gst_amount), 0), 2) AS totalGst, " +
+        "ROUND(COALESCE(SUM(b.net_amount), 0), 2) AS netRevenue, " +
+        "ROUND(COALESCE(SUM(b.actual_received_amount), 0), 2) AS totalPaid, " +
+        "ROUND(COALESCE(SUM(b.due_amount), 0), 2) AS totalDue " +
+        "FROM billing b " +
+        "JOIN lab_billing lb ON b.billing_id = lb.billing_id " +
+        "WHERE lb.lab_id = :labId AND b.created_at BETWEEN :startDate AND :endDate " +
+        "GROUP BY b.payment_status " +
+        "ORDER BY billingCount DESC", nativeQuery = true)
+    List<BillingByStatusProjection> getBillingByStatusByLabIdWithDateRange(
+            @Param("labId") Long labId,
+            @Param("startDate") Instant startDate,
+            @Param("endDate") Instant endDate);
 
 }

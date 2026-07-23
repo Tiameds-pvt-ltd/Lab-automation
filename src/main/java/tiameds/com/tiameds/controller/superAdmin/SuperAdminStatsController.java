@@ -189,9 +189,9 @@ public class SuperAdminStatsController {
         User currentUser = userOptional.get();
         BigDecimal totalRevenue;
         if (startDate != null && endDate != null) {
-            totalRevenue = billingRepository.sumTotalRevenueByLabsCreatedByAndCreatedAtBetween(currentUser, toInstantStart(startDate), toInstantEnd(endDate));
+            totalRevenue = billingRepository.sumPaidAmountByLabsCreatedByAndCreatedAtBetween(currentUser, toInstantStart(startDate), toInstantEnd(endDate));
         } else {
-            totalRevenue = billingRepository.sumTotalRevenueByLabsCreatedBy(currentUser);
+            totalRevenue = billingRepository.sumPaidAmountByLabsCreatedBy(currentUser);
         }
         return ApiResponseHelper.successResponse("Total revenue retrieved successfully", Map.of("totalRevenue", totalRevenue));
     }
@@ -248,19 +248,25 @@ public class SuperAdminStatsController {
 
         User currentUser = userOptional.get();
         List<VisitTestResultRepository.TestsByCategoryDetailedProjection> categories;
+        BigDecimal totalPaid;
+        BigDecimal totalDue;
         if (startDate != null && endDate != null) {
             categories = visitTestResultRepository.getPatientTestsByCategoryDetailedBySuperAdminWithDateRange(currentUser.getId(), toStart(startDate), toEnd(endDate));
+            totalPaid  = billingRepository.sumPaidAmountByLabsCreatedByAndCreatedAtBetween(currentUser, toInstantStart(startDate), toInstantEnd(endDate));
+            totalDue   = billingRepository.sumDueAmountByLabsCreatedByAndCreatedAtBetween(currentUser, toInstantStart(startDate), toInstantEnd(endDate));
         } else {
             categories = visitTestResultRepository.getPatientTestsByCategoryDetailedBySuperAdmin(currentUser.getId());
+            totalPaid  = billingRepository.sumPaidAmountByLabsCreatedBy(currentUser);
+            totalDue   = billingRepository.sumDueAmountByLabsCreatedBy(currentUser);
         }
+        if (totalPaid == null) totalPaid = BigDecimal.ZERO;
+        if (totalDue  == null) totalDue  = BigDecimal.ZERO;
 
         long totalTests = categories.stream()
                 .mapToLong(VisitTestResultRepository.TestsByCategoryDetailedProjection::getTestCount)
                 .sum();
-        BigDecimal totalRevenue    = categories.stream().map(VisitTestResultRepository.TestsByCategoryDetailedProjection::getRevenue).filter(v -> v != null).reduce(BigDecimal.ZERO, BigDecimal::add).setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal totalRevenue    = totalPaid;
         BigDecimal totalDiscount   = categories.stream().map(VisitTestResultRepository.TestsByCategoryDetailedProjection::getDiscount).filter(v -> v != null).reduce(BigDecimal.ZERO, BigDecimal::add).setScale(2, java.math.RoundingMode.HALF_UP);
-        BigDecimal totalPaid       = categories.stream().map(VisitTestResultRepository.TestsByCategoryDetailedProjection::getPaidRevenue).filter(v -> v != null).reduce(BigDecimal.ZERO, BigDecimal::add).setScale(2, java.math.RoundingMode.HALF_UP);
-        BigDecimal totalDue        = categories.stream().map(VisitTestResultRepository.TestsByCategoryDetailedProjection::getDueRevenue).filter(v -> v != null).reduce(BigDecimal.ZERO, BigDecimal::add).setScale(2, java.math.RoundingMode.HALF_UP);
         BigDecimal totalCash       = categories.stream().map(VisitTestResultRepository.TestsByCategoryDetailedProjection::getCashRevenue).filter(v -> v != null).reduce(BigDecimal.ZERO, BigDecimal::add).setScale(2, java.math.RoundingMode.HALF_UP);
         BigDecimal totalUpi        = categories.stream().map(VisitTestResultRepository.TestsByCategoryDetailedProjection::getUpiRevenue).filter(v -> v != null).reduce(BigDecimal.ZERO, BigDecimal::add).setScale(2, java.math.RoundingMode.HALF_UP);
         BigDecimal totalCard       = categories.stream().map(VisitTestResultRepository.TestsByCategoryDetailedProjection::getCardRevenue).filter(v -> v != null).reduce(BigDecimal.ZERO, BigDecimal::add).setScale(2, java.math.RoundingMode.HALF_UP);
@@ -297,7 +303,7 @@ public class SuperAdminStatsController {
         Instant end   = toInstantEnd(endDate);
 
         List<BillingRepository.DailyRevenueProjection> trend =
-                billingRepository.getDailyRevenueTrend(currentUser.getId(), start, end);
+                billingRepository.getDailyPaidAmountTrend(currentUser.getId(), start, end);
 
         BigDecimal totalRevenue = trend.stream()
                 .map(BillingRepository.DailyRevenueProjection::getRevenue)
@@ -736,7 +742,6 @@ public class SuperAdminStatsController {
         }
 
         BigDecimal grandTotalEarnings = BigDecimal.ZERO;
-        BigDecimal grandTotalPaid     = BigDecimal.ZERO;
         BigDecimal grandTotalDue      = BigDecimal.ZERO;
         long       grandTotalTests    = 0;
 
@@ -745,7 +750,6 @@ public class SuperAdminStatsController {
             List<VisitTestResultRepository.TestEarningsByTestProjection> testRows = entry.getValue();
 
             BigDecimal catEarnings = BigDecimal.ZERO;
-            BigDecimal catPaid     = BigDecimal.ZERO;
             BigDecimal catDue      = BigDecimal.ZERO;
             long       catCount    = 0;
 
@@ -756,8 +760,7 @@ public class SuperAdminStatsController {
                 BigDecimal td = safe(t.getDueAmount());
                 long       tc = t.getOrderedCount() != null ? t.getOrderedCount() : 0L;
 
-                catEarnings = catEarnings.add(te);
-                catPaid     = catPaid.add(tp);
+                catEarnings = catEarnings.add(tp);
                 catDue      = catDue.add(td);
                 catCount   += tc;
 
@@ -767,32 +770,29 @@ public class SuperAdminStatsController {
                 testMap.put("testCode",      t.getTestCode());
                 testMap.put("price",         safe(t.getTestPrice()));
                 testMap.put("orderedCount",  tc);
-                testMap.put("totalEarnings", te);
-                testMap.put("paidAmount",    tp);
+                testMap.put("grossEarnings", te);
+                testMap.put("revenue",       tp);
                 testMap.put("dueAmount",     td);
                 tests.add(testMap);
             }
 
             grandTotalEarnings = grandTotalEarnings.add(catEarnings);
-            grandTotalPaid     = grandTotalPaid.add(catPaid);
             grandTotalDue      = grandTotalDue.add(catDue);
             grandTotalTests   += catCount;
 
             Map<String, Object> catMap = new LinkedHashMap<>();
-            catMap.put("category",      entry.getKey());
-            catMap.put("totalTests",    catCount);
-            catMap.put("totalEarnings", catEarnings.setScale(2, RoundingMode.HALF_UP));
-            catMap.put("paidAmount",    catPaid.setScale(2, RoundingMode.HALF_UP));
-            catMap.put("dueAmount",     catDue.setScale(2, RoundingMode.HALF_UP));
-            catMap.put("tests",         tests);
+            catMap.put("category",  entry.getKey());
+            catMap.put("totalTests", catCount);
+            catMap.put("revenue",   catEarnings.setScale(2, RoundingMode.HALF_UP));
+            catMap.put("dueAmount", catDue.setScale(2, RoundingMode.HALF_UP));
+            catMap.put("tests",     tests);
             categories.add(catMap);
         }
 
         Map<String, Object> summary = new LinkedHashMap<>();
         summary.put("totalCategories", categories.size());
         summary.put("totalTests",      grandTotalTests);
-        summary.put("totalEarnings",   grandTotalEarnings.setScale(2, RoundingMode.HALF_UP));
-        summary.put("totalPaid",       grandTotalPaid.setScale(2, RoundingMode.HALF_UP));
+        summary.put("totalRevenue",    grandTotalEarnings.setScale(2, RoundingMode.HALF_UP));
         summary.put("totalDue",        grandTotalDue.setScale(2, RoundingMode.HALF_UP));
 
         Map<String, Object> response = new LinkedHashMap<>();

@@ -182,8 +182,8 @@ public class AdminStatsController {
         if (err != null) return err;
 
         BigDecimal revenue = (startDate != null && endDate != null)
-                ? billingRepository.sumTotalByLabId(labId, toInstantStart(startDate), toInstantEnd(endDate))
-                : billingRepository.sumTotalRevenueByLabIdAllTime(labId);
+                ? billingRepository.sumPaidAmountByLabId(labId, toInstantStart(startDate), toInstantEnd(endDate))
+                : billingRepository.sumPaidAmountByLabIdAllTime(labId);
         if (revenue == null) revenue = BigDecimal.ZERO;
         return ApiResponseHelper.successResponse("Total revenue retrieved successfully", Map.of("totalRevenue", revenue));
     }
@@ -347,6 +347,89 @@ public class AdminStatsController {
         return ApiResponseHelper.successResponse("Revenue by collection method retrieved successfully", response);
     }
 
+    @GetMapping("/{labId}/earnings-by-category")
+    public ResponseEntity<?> getEarningsByCategory(
+            @RequestHeader("Authorization") String token,
+            @PathVariable Long labId,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate) {
+        Object[] u = new Object[1], l = new Object[1];
+        ResponseEntity<?> err = authenticate(token, labId, u, l);
+        if (err != null) return err;
+
+        List<VisitTestResultRepository.TestEarningsByTestProjection> rows = (startDate != null && endDate != null)
+                ? visitTestResultRepository.getEarningsByTestByLabIdWithDateRange(labId, toStart(startDate), toEnd(endDate))
+                : visitTestResultRepository.getEarningsByTestByLabId(labId);
+
+        java.util.Map<String, java.util.List<VisitTestResultRepository.TestEarningsByTestProjection>> byCategory = new LinkedHashMap<>();
+        for (VisitTestResultRepository.TestEarningsByTestProjection row : rows) {
+            byCategory.computeIfAbsent(row.getCategory(), k -> new java.util.ArrayList<>()).add(row);
+        }
+
+        BigDecimal grandTotalEarnings = BigDecimal.ZERO;
+        BigDecimal grandTotalPaid     = BigDecimal.ZERO;
+        BigDecimal grandTotalDue      = BigDecimal.ZERO;
+        long       grandTotalTests    = 0;
+
+        java.util.List<Map<String, Object>> categories = new java.util.ArrayList<>();
+        for (Map.Entry<String, java.util.List<VisitTestResultRepository.TestEarningsByTestProjection>> entry : byCategory.entrySet()) {
+            BigDecimal catEarnings = BigDecimal.ZERO;
+            BigDecimal catPaid     = BigDecimal.ZERO;
+            BigDecimal catDue      = BigDecimal.ZERO;
+            long       catCount    = 0;
+
+            java.util.List<Map<String, Object>> tests = new java.util.ArrayList<>();
+            for (VisitTestResultRepository.TestEarningsByTestProjection t : entry.getValue()) {
+                BigDecimal te = t.getTotalEarnings() != null ? t.getTotalEarnings() : BigDecimal.ZERO;
+                BigDecimal tp = t.getPaidAmount()    != null ? t.getPaidAmount()    : BigDecimal.ZERO;
+                BigDecimal td = t.getDueAmount()     != null ? t.getDueAmount()     : BigDecimal.ZERO;
+                long       tc = t.getOrderedCount()  != null ? t.getOrderedCount()  : 0L;
+
+                catEarnings = catEarnings.add(te);
+                catPaid     = catPaid.add(tp);
+                catDue      = catDue.add(td);
+                catCount   += tc;
+
+                Map<String, Object> testMap = new LinkedHashMap<>();
+                testMap.put("testId",        t.getTestId());
+                testMap.put("testName",      t.getTestName());
+                testMap.put("testCode",      t.getTestCode());
+                testMap.put("price",         t.getTestPrice() != null ? t.getTestPrice() : BigDecimal.ZERO);
+                testMap.put("orderedCount",  tc);
+                testMap.put("totalEarnings", te);
+                testMap.put("paidAmount",    tp);
+                testMap.put("dueAmount",     td);
+                tests.add(testMap);
+            }
+
+            grandTotalEarnings = grandTotalEarnings.add(catEarnings);
+            grandTotalPaid     = grandTotalPaid.add(catPaid);
+            grandTotalDue      = grandTotalDue.add(catDue);
+            grandTotalTests   += catCount;
+
+            Map<String, Object> catMap = new LinkedHashMap<>();
+            catMap.put("category",      entry.getKey());
+            catMap.put("totalTests",    catCount);
+            catMap.put("totalEarnings", catEarnings.setScale(2, RoundingMode.HALF_UP));
+            catMap.put("paidAmount",    catPaid.setScale(2, RoundingMode.HALF_UP));
+            catMap.put("dueAmount",     catDue.setScale(2, RoundingMode.HALF_UP));
+            catMap.put("tests",         tests);
+            categories.add(catMap);
+        }
+
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("totalCategories", categories.size());
+        summary.put("totalTests",      grandTotalTests);
+        summary.put("totalEarnings",   grandTotalEarnings.setScale(2, RoundingMode.HALF_UP));
+        summary.put("totalPaid",       grandTotalPaid.setScale(2, RoundingMode.HALF_UP));
+        summary.put("totalDue",        grandTotalDue.setScale(2, RoundingMode.HALF_UP));
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("summary",    summary);
+        response.put("categories", categories);
+        return ApiResponseHelper.successResponse("Earnings by category retrieved successfully", response);
+    }
+
     private Map<String, Object> collectionMethodEntry(String method, BigDecimal revenue, double percentage) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("method",     method);
@@ -367,7 +450,7 @@ public class AdminStatsController {
 
         Instant start = toInstantStart(startDate);
         Instant end   = toInstantEnd(endDate);
-        List<BillingRepository.DailyRevenueProjection> trend = billingRepository.getDailyRevenueTrendByLabId(labId, start, end);
+        List<BillingRepository.DailyRevenueProjection> trend = billingRepository.getDailyPaidAmountTrendByLabId(labId, start, end);
 
         BigDecimal totalRevenue = trend.stream()
                 .map(BillingRepository.DailyRevenueProjection::getRevenue)
@@ -644,8 +727,8 @@ public class AdminStatsController {
         LocalDateTime lPrevEnd   = toEnd(prevEnd);
 
         // ── Revenue ──
-        BigDecimal currRevenue = billingRepository.sumTotalByLabId(labId, iCurrStart, iCurrEnd);
-        BigDecimal prevRevenue = billingRepository.sumTotalByLabId(labId, iPrevStart, iPrevEnd);
+        BigDecimal currRevenue = billingRepository.sumPaidAmountByLabId(labId, iCurrStart, iCurrEnd);
+        BigDecimal prevRevenue = billingRepository.sumPaidAmountByLabId(labId, iPrevStart, iPrevEnd);
         if (currRevenue == null) currRevenue = BigDecimal.ZERO;
         if (prevRevenue == null) prevRevenue = BigDecimal.ZERO;
 

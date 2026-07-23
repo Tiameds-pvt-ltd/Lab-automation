@@ -141,26 +141,27 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
         "LEFT JOIN ( " +
         "  SELECT t.category, " +
         "    COUNT(*) AS testCount, " +
-        "    SUM(t.price) AS revenue, " +
-        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount, 0) IS NULL THEN 0 " +
-        "             ELSE t.price * COALESCE(b.discount, 0) / b.total_amount END) AS discount, " +
-        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.net_amount, 0) IS NULL THEN 0 " +
-        "             ELSE t.price * COALESCE(b.actual_received_amount, 0) / b.net_amount END) AS paidRevenue, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 " +
+        "             ELSE t.price * COALESCE(b.actual_received_amount, 0) / vps.total_price END) AS revenue, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 " +
+        "             ELSE t.price * COALESCE(b.discount, 0) / vps.total_price END) AS discount, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 " +
+        "             ELSE t.price * COALESCE(b.actual_received_amount, 0) / vps.total_price END) AS paidRevenue, " +
         "    SUM(CASE WHEN b.billing_id IS NULL THEN t.price " +
-        "             WHEN NULLIF(b.net_amount, 0) IS NULL THEN t.price " +
-        "             ELSE t.price * COALESCE(b.due_amount, 0) / b.net_amount END) AS dueRevenue, " +
-        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.net_amount, 0) IS NULL THEN 0 ELSE " +
+        "             WHEN NULLIF(vps.total_price, 0) IS NULL THEN t.price " +
+        "             ELSE t.price * COALESCE(b.due_amount, 0) / vps.total_price END) AS dueRevenue, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 ELSE " +
         "          t.price * CASE WHEN bt_agg.billing_id IS NOT NULL THEN COALESCE(bt_agg.cash_total, 0) " +
         "                         WHEN UPPER(b.payment_method) = 'CASH' THEN COALESCE(b.actual_received_amount, 0) " +
-        "                         ELSE 0 END / b.net_amount END) AS cashRevenue, " +
-        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.net_amount, 0) IS NULL THEN 0 ELSE " +
+        "                         ELSE 0 END / vps.total_price END) AS cashRevenue, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 ELSE " +
         "          t.price * CASE WHEN bt_agg.billing_id IS NOT NULL THEN COALESCE(bt_agg.upi_total, 0) " +
         "                         WHEN UPPER(b.payment_method) = 'UPI' THEN COALESCE(b.actual_received_amount, 0) " +
-        "                         ELSE 0 END / b.net_amount END) AS upiRevenue, " +
-        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.net_amount, 0) IS NULL THEN 0 ELSE " +
+        "                         ELSE 0 END / vps.total_price END) AS upiRevenue, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 ELSE " +
         "          t.price * CASE WHEN bt_agg.billing_id IS NOT NULL THEN COALESCE(bt_agg.card_total, 0) " +
         "                         WHEN UPPER(b.payment_method) = 'CARD' THEN COALESCE(b.actual_received_amount, 0) " +
-        "                         ELSE 0 END / b.net_amount END) AS cardRevenue " +
+        "                         ELSE 0 END / vps.total_price END) AS cardRevenue " +
         "  FROM visit_test_result vtr " +
         "  JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
         "  JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
@@ -174,6 +175,9 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
         "      COALESCE(SUM(bt.card_amount), 0) AS card_total " +
         "    FROM billing_transaction bt GROUP BY bt.billing_id " +
         "  ) bt_agg ON bt_agg.billing_id = b.billing_id " +
+        "  LEFT JOIN (SELECT vtr2.visit_id, SUM(t2.price) AS total_price " +
+        "    FROM visit_test_result vtr2 JOIN tests t2 ON vtr2.test_id = t2.test_id " +
+        "    GROUP BY vtr2.visit_id) vps ON vps.visit_id = pv.visit_id " +
         "  WHERE l.created_by = :createdById " +
         "  GROUP BY t.category " +
         ") vtr_agg ON vtr_agg.category = cats.category " +
@@ -194,26 +198,27 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
         "LEFT JOIN ( " +
         "  SELECT t.category, " +
         "    COUNT(*) AS testCount, " +
-        "    SUM(t.price) AS revenue, " +
-        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount, 0) IS NULL THEN 0 " +
-        "             ELSE t.price * COALESCE(b.discount, 0) / b.total_amount END) AS discount, " +
-        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.net_amount, 0) IS NULL THEN 0 " +
-        "             ELSE t.price * COALESCE(b.actual_received_amount, 0) / b.net_amount END) AS paidRevenue, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 " +
+        "             ELSE t.price * COALESCE(b.actual_received_amount, 0) / vps.total_price END) AS revenue, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 " +
+        "             ELSE t.price * COALESCE(b.discount, 0) / vps.total_price END) AS discount, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 " +
+        "             ELSE t.price * COALESCE(b.actual_received_amount, 0) / vps.total_price END) AS paidRevenue, " +
         "    SUM(CASE WHEN b.billing_id IS NULL THEN t.price " +
-        "             WHEN NULLIF(b.net_amount, 0) IS NULL THEN t.price " +
-        "             ELSE t.price * COALESCE(b.due_amount, 0) / b.net_amount END) AS dueRevenue, " +
-        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.net_amount, 0) IS NULL THEN 0 ELSE " +
+        "             WHEN NULLIF(vps.total_price, 0) IS NULL THEN t.price " +
+        "             ELSE t.price * COALESCE(b.due_amount, 0) / vps.total_price END) AS dueRevenue, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 ELSE " +
         "          t.price * CASE WHEN bt_agg.billing_id IS NOT NULL THEN COALESCE(bt_agg.cash_total, 0) " +
         "                         WHEN UPPER(b.payment_method) = 'CASH' THEN COALESCE(b.actual_received_amount, 0) " +
-        "                         ELSE 0 END / b.net_amount END) AS cashRevenue, " +
-        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.net_amount, 0) IS NULL THEN 0 ELSE " +
+        "                         ELSE 0 END / vps.total_price END) AS cashRevenue, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 ELSE " +
         "          t.price * CASE WHEN bt_agg.billing_id IS NOT NULL THEN COALESCE(bt_agg.upi_total, 0) " +
         "                         WHEN UPPER(b.payment_method) = 'UPI' THEN COALESCE(b.actual_received_amount, 0) " +
-        "                         ELSE 0 END / b.net_amount END) AS upiRevenue, " +
-        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.net_amount, 0) IS NULL THEN 0 ELSE " +
+        "                         ELSE 0 END / vps.total_price END) AS upiRevenue, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 ELSE " +
         "          t.price * CASE WHEN bt_agg.billing_id IS NOT NULL THEN COALESCE(bt_agg.card_total, 0) " +
         "                         WHEN UPPER(b.payment_method) = 'CARD' THEN COALESCE(b.actual_received_amount, 0) " +
-        "                         ELSE 0 END / b.net_amount END) AS cardRevenue " +
+        "                         ELSE 0 END / vps.total_price END) AS cardRevenue " +
         "  FROM visit_test_result vtr " +
         "  JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
         "  JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
@@ -227,6 +232,9 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
         "      COALESCE(SUM(bt.card_amount), 0) AS card_total " +
         "    FROM billing_transaction bt GROUP BY bt.billing_id " +
         "  ) bt_agg ON bt_agg.billing_id = b.billing_id " +
+        "  LEFT JOIN (SELECT vtr2.visit_id, SUM(t2.price) AS total_price " +
+        "    FROM visit_test_result vtr2 JOIN tests t2 ON vtr2.test_id = t2.test_id " +
+        "    GROUP BY vtr2.visit_id) vps ON vps.visit_id = pv.visit_id " +
         "  WHERE l.created_by = :createdById AND vtr.created_at BETWEEN :startDate AND :endDate " +
         "  GROUP BY t.category " +
         ") vtr_agg ON vtr_agg.category = cats.category " +
@@ -251,41 +259,47 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
     @Query(value =
         "SELECT t.category AS category, t.test_id AS testId, t.name AS testName, " +
         "t.test_code AS testCode, t.price AS testPrice, COUNT(*) AS orderedCount, " +
-        "ROUND(COALESCE(SUM(t.price), 0), 2) AS totalEarnings, " +
-        "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.net_amount, 0) IS NULL THEN 0 " +
-        "  ELSE t.price * COALESCE(b.actual_received_amount, 0) / b.net_amount END), 0), 2) AS paidAmount, " +
+        "ROUND(t.price * COUNT(*), 2) AS totalEarnings, " +
+        "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 " +
+        "  ELSE t.price * COALESCE(b.actual_received_amount, 0) / vps.total_price END), 0), 2) AS paidAmount, " +
         "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL THEN t.price " +
-        "  WHEN NULLIF(b.net_amount, 0) IS NULL THEN t.price " +
-        "  ELSE t.price * COALESCE(b.due_amount, 0) / b.net_amount END), 0), 2) AS dueAmount " +
+        "  WHEN NULLIF(vps.total_price, 0) IS NULL THEN t.price " +
+        "  ELSE t.price * COALESCE(b.due_amount, 0) / vps.total_price END), 0), 2) AS dueAmount " +
         "FROM visit_test_result vtr " +
         "JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
         "JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
         "JOIN labs l ON lv.lab_id = l.lab_id " +
         "JOIN tests t ON vtr.test_id = t.test_id " +
         "LEFT JOIN billing b ON pv.billing_id = b.billing_id " +
+        "LEFT JOIN (SELECT vtr2.visit_id, SUM(t2.price) AS total_price " +
+        "  FROM visit_test_result vtr2 JOIN tests t2 ON vtr2.test_id = t2.test_id " +
+        "  GROUP BY vtr2.visit_id) vps ON vps.visit_id = pv.visit_id " +
         "WHERE l.created_by = :createdById " +
         "GROUP BY t.category, t.test_id, t.name, t.test_code, t.price " +
-        "ORDER BY t.category, totalEarnings DESC", nativeQuery = true)
+        "ORDER BY t.category, paidAmount DESC", nativeQuery = true)
     List<TestEarningsByTestProjection> getEarningsByTestBySuperAdmin(@Param("createdById") Long createdById);
 
     @Query(value =
         "SELECT t.category AS category, t.test_id AS testId, t.name AS testName, " +
         "t.test_code AS testCode, t.price AS testPrice, COUNT(*) AS orderedCount, " +
-        "ROUND(COALESCE(SUM(t.price), 0), 2) AS totalEarnings, " +
-        "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.net_amount, 0) IS NULL THEN 0 " +
-        "  ELSE t.price * COALESCE(b.actual_received_amount, 0) / b.net_amount END), 0), 2) AS paidAmount, " +
+        "ROUND(t.price * COUNT(*), 2) AS totalEarnings, " +
+        "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 " +
+        "  ELSE t.price * COALESCE(b.actual_received_amount, 0) / vps.total_price END), 0), 2) AS paidAmount, " +
         "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL THEN t.price " +
-        "  WHEN NULLIF(b.net_amount, 0) IS NULL THEN t.price " +
-        "  ELSE t.price * COALESCE(b.due_amount, 0) / b.net_amount END), 0), 2) AS dueAmount " +
+        "  WHEN NULLIF(vps.total_price, 0) IS NULL THEN t.price " +
+        "  ELSE t.price * COALESCE(b.due_amount, 0) / vps.total_price END), 0), 2) AS dueAmount " +
         "FROM visit_test_result vtr " +
         "JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
         "JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
         "JOIN labs l ON lv.lab_id = l.lab_id " +
         "JOIN tests t ON vtr.test_id = t.test_id " +
         "LEFT JOIN billing b ON pv.billing_id = b.billing_id " +
+        "LEFT JOIN (SELECT vtr2.visit_id, SUM(t2.price) AS total_price " +
+        "  FROM visit_test_result vtr2 JOIN tests t2 ON vtr2.test_id = t2.test_id " +
+        "  GROUP BY vtr2.visit_id) vps ON vps.visit_id = pv.visit_id " +
         "WHERE l.created_by = :createdById AND vtr.created_at BETWEEN :startDate AND :endDate " +
         "GROUP BY t.category, t.test_id, t.name, t.test_code, t.price " +
-        "ORDER BY t.category, totalEarnings DESC", nativeQuery = true)
+        "ORDER BY t.category, paidAmount DESC", nativeQuery = true)
     List<TestEarningsByTestProjection> getEarningsByTestBySuperAdminWithDateRange(
             @Param("createdById") Long createdById,
             @Param("startDate") LocalDateTime startDate,
@@ -302,6 +316,164 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
         BigDecimal getPaidAmount();
         BigDecimal getDueAmount();
     }
+
+    @Query(value =
+        "SELECT t.category AS category, t.test_id AS testId, t.name AS testName, " +
+        "t.test_code AS testCode, t.price AS testPrice, COUNT(*) AS orderedCount, " +
+        "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount, 0) IS NULL THEN 0 " +
+        "  ELSE t.price * COALESCE(b.actual_received_amount, 0) / b.total_amount END), 0), 2) AS totalEarnings, " +
+        "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount, 0) IS NULL THEN 0 " +
+        "  ELSE t.price * COALESCE(b.actual_received_amount, 0) / b.total_amount END), 0), 2) AS paidAmount, " +
+        "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL THEN t.price " +
+        "  WHEN NULLIF(b.total_amount, 0) IS NULL THEN t.price " +
+        "  ELSE t.price * COALESCE(b.due_amount, 0) / b.total_amount END), 0), 2) AS dueAmount " +
+        "FROM visit_test_result vtr " +
+        "JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
+        "JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
+        "JOIN tests t ON vtr.test_id = t.test_id " +
+        "LEFT JOIN billing b ON pv.billing_id = b.billing_id " +
+        "WHERE lv.lab_id = :labId " +
+        "GROUP BY t.category, t.test_id, t.name, t.test_code, t.price " +
+        "ORDER BY t.category, totalEarnings DESC", nativeQuery = true)
+    List<TestEarningsByTestProjection> getEarningsByTestByLabId(@Param("labId") Long labId);
+
+    @Query(value =
+        "SELECT t.category AS category, t.test_id AS testId, t.name AS testName, " +
+        "t.test_code AS testCode, t.price AS testPrice, COUNT(*) AS orderedCount, " +
+        "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount, 0) IS NULL THEN 0 " +
+        "  ELSE t.price * COALESCE(b.actual_received_amount, 0) / b.total_amount END), 0), 2) AS totalEarnings, " +
+        "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount, 0) IS NULL THEN 0 " +
+        "  ELSE t.price * COALESCE(b.actual_received_amount, 0) / b.total_amount END), 0), 2) AS paidAmount, " +
+        "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL THEN t.price " +
+        "  WHEN NULLIF(b.total_amount, 0) IS NULL THEN t.price " +
+        "  ELSE t.price * COALESCE(b.due_amount, 0) / b.total_amount END), 0), 2) AS dueAmount " +
+        "FROM visit_test_result vtr " +
+        "JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
+        "JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
+        "JOIN tests t ON vtr.test_id = t.test_id " +
+        "LEFT JOIN billing b ON pv.billing_id = b.billing_id " +
+        "WHERE lv.lab_id = :labId AND vtr.created_at BETWEEN :startDate AND :endDate " +
+        "GROUP BY t.category, t.test_id, t.name, t.test_code, t.price " +
+        "ORDER BY t.category, totalEarnings DESC", nativeQuery = true)
+    List<TestEarningsByTestProjection> getEarningsByTestByLabIdWithDateRange(
+            @Param("labId") Long labId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
+
+    @Query(value =
+        "SELECT cats.category AS category, " +
+        "COALESCE(vtr_agg.testCount, 0) AS testCount, " +
+        "ROUND(COALESCE(vtr_agg.revenue, 0), 2) AS revenue, " +
+        "ROUND(COALESCE(vtr_agg.discount, 0), 2) AS discount, " +
+        "ROUND(COALESCE(vtr_agg.paidRevenue, 0), 2) AS paidRevenue, " +
+        "ROUND(COALESCE(vtr_agg.dueRevenue, 0), 2) AS dueRevenue, " +
+        "ROUND(COALESCE(vtr_agg.cashRevenue, 0), 2) AS cashRevenue, " +
+        "ROUND(COALESCE(vtr_agg.upiRevenue, 0), 2) AS upiRevenue, " +
+        "ROUND(COALESCE(vtr_agg.cardRevenue, 0), 2) AS cardRevenue " +
+        "FROM (SELECT DISTINCT t.category FROM tests t JOIN lab_tests lt ON t.test_id = lt.test_id WHERE lt.lab_id = :labId) cats " +
+        "LEFT JOIN ( " +
+        "  SELECT t.category, " +
+        "    COUNT(*) AS testCount, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 " +
+        "             ELSE t.price * COALESCE(b.actual_received_amount, 0) / vps.total_price END) AS revenue, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 " +
+        "             ELSE t.price * COALESCE(b.discount, 0) / vps.total_price END) AS discount, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 " +
+        "             ELSE t.price * COALESCE(b.actual_received_amount, 0) / vps.total_price END) AS paidRevenue, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL THEN t.price " +
+        "             WHEN NULLIF(vps.total_price, 0) IS NULL THEN t.price " +
+        "             ELSE t.price * COALESCE(b.due_amount, 0) / vps.total_price END) AS dueRevenue, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 ELSE " +
+        "          t.price * CASE WHEN bt_agg.billing_id IS NOT NULL THEN COALESCE(bt_agg.cash_total, 0) " +
+        "                         WHEN UPPER(b.payment_method) = 'CASH' THEN COALESCE(b.actual_received_amount, 0) " +
+        "                         ELSE 0 END / vps.total_price END) AS cashRevenue, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 ELSE " +
+        "          t.price * CASE WHEN bt_agg.billing_id IS NOT NULL THEN COALESCE(bt_agg.upi_total, 0) " +
+        "                         WHEN UPPER(b.payment_method) = 'UPI' THEN COALESCE(b.actual_received_amount, 0) " +
+        "                         ELSE 0 END / vps.total_price END) AS upiRevenue, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 ELSE " +
+        "          t.price * CASE WHEN bt_agg.billing_id IS NOT NULL THEN COALESCE(bt_agg.card_total, 0) " +
+        "                         WHEN UPPER(b.payment_method) = 'CARD' THEN COALESCE(b.actual_received_amount, 0) " +
+        "                         ELSE 0 END / vps.total_price END) AS cardRevenue " +
+        "  FROM visit_test_result vtr " +
+        "  JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
+        "  JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
+        "  JOIN tests t ON vtr.test_id = t.test_id " +
+        "  LEFT JOIN billing b ON pv.billing_id = b.billing_id " +
+        "  LEFT JOIN ( " +
+        "    SELECT bt.billing_id, " +
+        "      COALESCE(SUM(bt.cash_amount), 0) AS cash_total, " +
+        "      COALESCE(SUM(bt.upi_amount), 0) AS upi_total, " +
+        "      COALESCE(SUM(bt.card_amount), 0) AS card_total " +
+        "    FROM billing_transaction bt GROUP BY bt.billing_id " +
+        "  ) bt_agg ON bt_agg.billing_id = b.billing_id " +
+        "  LEFT JOIN (SELECT vtr2.visit_id, SUM(t2.price) AS total_price " +
+        "    FROM visit_test_result vtr2 JOIN tests t2 ON vtr2.test_id = t2.test_id " +
+        "    GROUP BY vtr2.visit_id) vps ON vps.visit_id = pv.visit_id " +
+        "  WHERE lv.lab_id = :labId " +
+        "  GROUP BY t.category " +
+        ") vtr_agg ON vtr_agg.category = cats.category " +
+        "ORDER BY testCount DESC", nativeQuery = true)
+    List<TestsByCategoryDetailedProjection> getPatientTestsByCategoryDetailedByLabId(@Param("labId") Long labId);
+
+    @Query(value =
+        "SELECT cats.category AS category, " +
+        "COALESCE(vtr_agg.testCount, 0) AS testCount, " +
+        "ROUND(COALESCE(vtr_agg.revenue, 0), 2) AS revenue, " +
+        "ROUND(COALESCE(vtr_agg.discount, 0), 2) AS discount, " +
+        "ROUND(COALESCE(vtr_agg.paidRevenue, 0), 2) AS paidRevenue, " +
+        "ROUND(COALESCE(vtr_agg.dueRevenue, 0), 2) AS dueRevenue, " +
+        "ROUND(COALESCE(vtr_agg.cashRevenue, 0), 2) AS cashRevenue, " +
+        "ROUND(COALESCE(vtr_agg.upiRevenue, 0), 2) AS upiRevenue, " +
+        "ROUND(COALESCE(vtr_agg.cardRevenue, 0), 2) AS cardRevenue " +
+        "FROM (SELECT DISTINCT t.category FROM tests t JOIN lab_tests lt ON t.test_id = lt.test_id WHERE lt.lab_id = :labId) cats " +
+        "LEFT JOIN ( " +
+        "  SELECT t.category, " +
+        "    COUNT(*) AS testCount, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 " +
+        "             ELSE t.price * COALESCE(b.actual_received_amount, 0) / vps.total_price END) AS revenue, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 " +
+        "             ELSE t.price * COALESCE(b.discount, 0) / vps.total_price END) AS discount, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 " +
+        "             ELSE t.price * COALESCE(b.actual_received_amount, 0) / vps.total_price END) AS paidRevenue, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL THEN t.price " +
+        "             WHEN NULLIF(vps.total_price, 0) IS NULL THEN t.price " +
+        "             ELSE t.price * COALESCE(b.due_amount, 0) / vps.total_price END) AS dueRevenue, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 ELSE " +
+        "          t.price * CASE WHEN bt_agg.billing_id IS NOT NULL THEN COALESCE(bt_agg.cash_total, 0) " +
+        "                         WHEN UPPER(b.payment_method) = 'CASH' THEN COALESCE(b.actual_received_amount, 0) " +
+        "                         ELSE 0 END / vps.total_price END) AS cashRevenue, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 ELSE " +
+        "          t.price * CASE WHEN bt_agg.billing_id IS NOT NULL THEN COALESCE(bt_agg.upi_total, 0) " +
+        "                         WHEN UPPER(b.payment_method) = 'UPI' THEN COALESCE(b.actual_received_amount, 0) " +
+        "                         ELSE 0 END / vps.total_price END) AS upiRevenue, " +
+        "    SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 ELSE " +
+        "          t.price * CASE WHEN bt_agg.billing_id IS NOT NULL THEN COALESCE(bt_agg.card_total, 0) " +
+        "                         WHEN UPPER(b.payment_method) = 'CARD' THEN COALESCE(b.actual_received_amount, 0) " +
+        "                         ELSE 0 END / vps.total_price END) AS cardRevenue " +
+        "  FROM visit_test_result vtr " +
+        "  JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
+        "  JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
+        "  JOIN tests t ON vtr.test_id = t.test_id " +
+        "  LEFT JOIN billing b ON pv.billing_id = b.billing_id " +
+        "  LEFT JOIN ( " +
+        "    SELECT bt.billing_id, " +
+        "      COALESCE(SUM(bt.cash_amount), 0) AS cash_total, " +
+        "      COALESCE(SUM(bt.upi_amount), 0) AS upi_total, " +
+        "      COALESCE(SUM(bt.card_amount), 0) AS card_total " +
+        "    FROM billing_transaction bt GROUP BY bt.billing_id " +
+        "  ) bt_agg ON bt_agg.billing_id = b.billing_id " +
+        "  LEFT JOIN (SELECT vtr2.visit_id, SUM(t2.price) AS total_price " +
+        "    FROM visit_test_result vtr2 JOIN tests t2 ON vtr2.test_id = t2.test_id " +
+        "    GROUP BY vtr2.visit_id) vps ON vps.visit_id = pv.visit_id " +
+        "  WHERE lv.lab_id = :labId AND vtr.created_at BETWEEN :startDate AND :endDate " +
+        "  GROUP BY t.category " +
+        ") vtr_agg ON vtr_agg.category = cats.category " +
+        "ORDER BY testCount DESC", nativeQuery = true)
+    List<TestsByCategoryDetailedProjection> getPatientTestsByCategoryDetailedByLabIdWithDateRange(
+            @Param("labId") Long labId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
 
     // Top ordered tests for a specific lab
     @Query(value = "SELECT t.name AS testName, t.test_code AS testCode, COUNT(*) AS orderedCount " +

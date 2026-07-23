@@ -51,13 +51,13 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "ROUND(COALESCE(vstats.avgTatHours, 0.0), 1) AS avgTatHours " +
         "FROM labs l " +
         "LEFT JOIN ( " +
-        "    SELECT lb.lab_id, SUM(b.total_amount) AS revenue " +
+        "    SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue" +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
         "    WHERE b.created_at BETWEEN :startDate AND :endDate " +
         "    GROUP BY lb.lab_id " +
         ") curr ON curr.lab_id = l.lab_id " +
         "LEFT JOIN ( " +
-        "    SELECT lb.lab_id, SUM(b.total_amount) AS revenue " +
+        "    SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue" +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
         "    WHERE b.created_at BETWEEN :prevStartDate AND :prevEndDate " +
         "    GROUP BY lb.lab_id " +
@@ -98,7 +98,7 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "ROUND(COALESCE(vstats.avgTatHours, 0.0), 1) AS avgTatHours " +
         "FROM labs l " +
         "LEFT JOIN ( " +
-        "    SELECT lb.lab_id, SUM(b.total_amount) AS revenue " +
+        "    SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue" +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
         "    GROUP BY lb.lab_id " +
         ") curr ON curr.lab_id = l.lab_id " +
@@ -133,7 +133,7 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "ROUND(COALESCE(vstats.avgTatHours, 0.0), 1) AS avgTatHours " +
         "FROM labs l " +
         "LEFT JOIN ( " +
-        "    SELECT lb.lab_id, SUM(b.total_amount) AS revenue " +
+        "    SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue" +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
         "    GROUP BY lb.lab_id " +
         ") curr ON curr.lab_id = l.lab_id " +
@@ -165,13 +165,13 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "ROUND(COALESCE(vstats.avgTatHours, 0.0), 1) AS avgTatHours " +
         "FROM labs l " +
         "LEFT JOIN ( " +
-        "    SELECT lb.lab_id, SUM(b.total_amount) AS revenue " +
+        "    SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue" +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
         "    WHERE b.created_at BETWEEN :startDate AND :endDate " +
         "    GROUP BY lb.lab_id " +
         ") curr ON curr.lab_id = l.lab_id " +
         "LEFT JOIN ( " +
-        "    SELECT lb.lab_id, SUM(b.total_amount) AS revenue " +
+        "    SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue" +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
         "    WHERE b.created_at BETWEEN :prevStartDate AND :prevEndDate " +
         "    GROUP BY lb.lab_id " +
@@ -210,13 +210,13 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "ROUND(COALESCE(vstats.avgTatHours, 0.0), 1) AS avgTatHours " +
         "FROM labs l " +
         "LEFT JOIN ( " +
-        "    SELECT lb.lab_id, SUM(b.total_amount) AS revenue " +
+        "    SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue" +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
         "    WHERE b.created_at BETWEEN :startDate AND :endDate " +
         "    GROUP BY lb.lab_id " +
         ") curr ON curr.lab_id = l.lab_id " +
         "LEFT JOIN ( " +
-        "    SELECT lb.lab_id, SUM(b.total_amount) AS revenue " +
+        "    SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue" +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
         "    WHERE b.created_at BETWEEN :prevStartDate AND :prevEndDate " +
         "    GROUP BY lb.lab_id " +
@@ -254,7 +254,7 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "ROUND(COALESCE(vstats.avgTatHours, 0.0), 1) AS avgTatHours " +
         "FROM labs l " +
         "LEFT JOIN ( " +
-        "    SELECT lb.lab_id, SUM(b.total_amount) AS revenue " +
+        "    SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue" +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
         "    GROUP BY lb.lab_id " +
         ") curr ON curr.lab_id = l.lab_id " +
