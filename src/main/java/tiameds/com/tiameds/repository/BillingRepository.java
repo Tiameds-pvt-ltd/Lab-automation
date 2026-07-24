@@ -515,4 +515,100 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
             @Param("startDate") Instant startDate,
             @Param("endDate") Instant endDate);
 
+    // ─── Grid detailed report ─────────────────────────────────────────────────
+
+    interface GridReportRowProjection {
+        Long getBillingId();
+        String getBillingCode();
+        Long getVisitId();
+        String getVisitCode();
+        String getVisitDate();
+        String getVisitStatus();
+        String getVisitType();
+        Long getPatientId();
+        String getPatientName();
+        String getPatientPhone();
+        String getPatientCode();
+        Long getLabId();
+        String getLabName();
+        String getDoctorName();
+        java.math.BigDecimal getTotalAmount();
+        java.math.BigDecimal getDiscount();
+        java.math.BigDecimal getNetAmount();
+        java.math.BigDecimal getPaidAmount();
+        java.math.BigDecimal getDueAmount();
+        String getPaymentMethod();
+        String getPaymentStatus();
+        String getBillingDate();
+        Instant getCreatedAt();
+    }
+
+    String GRID_SELECT =
+        "SELECT b.billing_id AS billingId, b.billing_code AS billingCode, " +
+        "v.visit_id AS visitId, v.visit_code AS visitCode, " +
+        "CAST(v.visit_date AS CHAR) AS visitDate, v.visit_status AS visitStatus, v.visit_type AS visitType, " +
+        "p.patient_id AS patientId, CONCAT(p.first_name, ' ', COALESCE(p.last_name,'')) AS patientName, " +
+        "p.phone AS patientPhone, p.patient_code AS patientCode, " +
+        "l.lab_id AS labId, l.name AS labName, d.name AS doctorName, " +
+        "b.total_amount AS totalAmount, b.discount AS discount, b.net_amount AS netAmount, " +
+        "b.actual_received_amount AS paidAmount, b.due_amount AS dueAmount, " +
+        "b.payment_method AS paymentMethod, b.payment_status AS paymentStatus, " +
+        "b.billing_date AS billingDate, b.created_at AS createdAt " +
+        "FROM billing b " +
+        "JOIN patient_visits v ON v.billing_id = b.billing_id " +
+        "JOIN patients p ON p.patient_id = v.patient_id " +
+        "JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
+        "JOIN labs l ON l.lab_id = lb.lab_id " +
+        "LEFT JOIN doctors d ON d.doctor_id = v.doctor_id ";
+
+    @Query(value = GRID_SELECT +
+        "WHERE l.created_by = :createdById " +
+        "ORDER BY b.created_at DESC",
+        countQuery = "SELECT COUNT(DISTINCT b.billing_id) FROM billing b " +
+            "JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
+            "JOIN labs l ON l.lab_id = lb.lab_id " +
+            "WHERE l.created_by = :createdById",
+        nativeQuery = true)
+    org.springframework.data.domain.Page<GridReportRowProjection> getGridReport(
+            @Param("createdById") Long createdById,
+            org.springframework.data.domain.Pageable pageable);
+
+    @Query(value = GRID_SELECT +
+        "WHERE l.created_by = :createdById AND b.created_at BETWEEN :startDate AND :endDate " +
+        "ORDER BY b.created_at DESC",
+        countQuery = "SELECT COUNT(DISTINCT b.billing_id) FROM billing b " +
+            "JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
+            "JOIN labs l ON l.lab_id = lb.lab_id " +
+            "WHERE l.created_by = :createdById AND b.created_at BETWEEN :startDate AND :endDate",
+        nativeQuery = true)
+    org.springframework.data.domain.Page<GridReportRowProjection> getGridReportWithDateRange(
+            @Param("createdById") Long createdById,
+            @Param("startDate") Instant startDate,
+            @Param("endDate") Instant endDate,
+            org.springframework.data.domain.Pageable pageable);
+
+    @Query(value = GRID_SELECT +
+        "WHERE l.lab_id = :labId " +
+        "ORDER BY b.created_at DESC",
+        countQuery = "SELECT COUNT(DISTINCT b.billing_id) FROM billing b " +
+            "JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
+            "WHERE lb.lab_id = :labId",
+        nativeQuery = true)
+    org.springframework.data.domain.Page<GridReportRowProjection> getGridReportByLabId(
+            @Param("labId") Long labId,
+            org.springframework.data.domain.Pageable pageable);
+
+    @Query(value = GRID_SELECT +
+        "WHERE l.lab_id = :labId AND b.created_at BETWEEN :startDate AND :endDate " +
+        "ORDER BY b.created_at DESC",
+        countQuery = "SELECT COUNT(DISTINCT b.billing_id) FROM billing b " +
+            "JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
+            "WHERE lb.lab_id = :labId AND b.created_at BETWEEN :startDate AND :endDate",
+        nativeQuery = true)
+    org.springframework.data.domain.Page<GridReportRowProjection> getGridReportByLabIdWithDateRange(
+            @Param("labId") Long labId,
+            @Param("startDate") Instant startDate,
+            @Param("endDate") Instant endDate,
+            org.springframework.data.domain.Pageable pageable);
+
 }

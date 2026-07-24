@@ -9,6 +9,9 @@ import tiameds.com.tiameds.repository.*;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.UserAuthService;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
@@ -107,71 +110,148 @@ public class SuperAdminDashboardController {
         return ApiResponseHelper.successResponse("All stats retrieved successfully", response);
     }
 
+    @GetMapping("/grid")
+    public ResponseEntity<?> getGridReport(
+            @RequestHeader("Authorization") String token,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate,
+            @RequestParam(required = false) Long labId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+
+        Optional<User> userOptional = userAuthService.authenticateUser(token);
+        if (userOptional.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
+        }
+
+        User currentUser = userOptional.get();
+        boolean hasDates = startDate != null && endDate != null;
+        PageRequest pageable = PageRequest.of(page, size);
+
+        Page<BillingRepository.GridReportRowProjection> pageResult;
+        if (labId != null) {
+            if (hasDates) {
+                pageResult = billingRepository.getGridReportByLabIdWithDateRange(
+                        labId, toInstantStart(startDate), toInstantEnd(endDate), pageable);
+            } else {
+                pageResult = billingRepository.getGridReportByLabId(labId, pageable);
+            }
+        } else if (hasDates) {
+            pageResult = billingRepository.getGridReportWithDateRange(
+                    currentUser.getId(), toInstantStart(startDate), toInstantEnd(endDate), pageable);
+        } else {
+            pageResult = billingRepository.getGridReport(currentUser.getId(), pageable);
+        }
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("page",        pageResult.getNumber());
+        response.put("size",        pageResult.getSize());
+        response.put("totalRecords", pageResult.getTotalElements());
+        response.put("totalPages",  pageResult.getTotalPages());
+        response.put("rows",        pageResult.getContent());
+
+        return ApiResponseHelper.successResponse("Grid report retrieved successfully", response);
+    }
+
     // ─── section builders ────────────────────────────────────────────────────
 
     private Map<String, Object> buildKpis(User currentUser, Long userId,
                                           LocalDate startDate, LocalDate endDate, boolean hasDates, Long labId) {
-        long totalLabs, totalAdmins, totalTechnicians, totalDeskRoles, totalTests, reportsGenerated, pendingSamples;
+        long totalLabs, totalTests, reportsGenerated, pendingSamples;
         BigDecimal totalRevenue;
 
         if (labId != null) {
+            // Scoped to a single lab — flat counts only, no lab-wise breakdown needed
             if (hasDates) {
                 LocalDateTime s = toStart(startDate);
                 LocalDateTime e = toEnd(endDate);
                 Instant is = toInstantStart(startDate);
                 Instant ie = toInstantEnd(endDate);
-                totalAdmins      = userRepository.countByRolesNameAndLabsIdAndCreatedAtBetween("ADMIN", labId, s, e);
-                totalTechnicians = userRepository.countByRolesNameAndLabsIdAndCreatedAtBetween("TECHNICIAN", labId, s, e);
-                totalDeskRoles   = userRepository.countByRolesNameAndLabsIdAndCreatedAtBetween("DESKROLE", labId, s, e);
                 totalTests       = visitTestResultRepository.countAllTestsByLabIdAndCreatedAtBetween(labId, s, e);
                 reportsGenerated = visitTestResultRepository.countCompletedReportsByLabIdAndCreatedAtBetween(labId, s, e);
                 pendingSamples   = visitRepository.countPendingVisitsByLabIdAndCreatedAtBetween(labId, is, ie);
                 totalRevenue     = billingRepository.sumPaidAmountByLabId(labId, is, ie);
             } else {
-                totalAdmins      = userRepository.countByRolesNameAndLabsId("ADMIN", labId);
-                totalTechnicians = userRepository.countByRolesNameAndLabsId("TECHNICIAN", labId);
-                totalDeskRoles   = userRepository.countByRolesNameAndLabsId("DESKROLE", labId);
                 totalTests       = visitTestResultRepository.countAllTestsByLabId(labId);
                 reportsGenerated = visitTestResultRepository.countCompletedReportsByLabId(labId);
                 pendingSamples   = visitRepository.countPendingVisitsByLabId(labId);
                 totalRevenue     = billingRepository.sumPaidAmountByLabIdAllTime(labId);
             }
             totalLabs = 1;
-        } else if (hasDates) {
+
+            long admins      = hasDates
+                    ? userRepository.countByRolesNameAndLabsIdAndCreatedAtBetween("ADMIN",     labId, toStart(startDate), toEnd(endDate))
+                    : userRepository.countByRolesNameAndLabsId("ADMIN",     labId);
+            long technicians = hasDates
+                    ? userRepository.countByRolesNameAndLabsIdAndCreatedAtBetween("TECHNICIAN", labId, toStart(startDate), toEnd(endDate))
+                    : userRepository.countByRolesNameAndLabsId("TECHNICIAN", labId);
+            long deskRoles   = hasDates
+                    ? userRepository.countByRolesNameAndLabsIdAndCreatedAtBetween("DESKROLE",   labId, toStart(startDate), toEnd(endDate))
+                    : userRepository.countByRolesNameAndLabsId("DESKROLE",   labId);
+
+            Map<String, Object> kpis = new LinkedHashMap<>();
+            kpis.put("totalLabs",        totalLabs);
+            kpis.put("totalAdmins",      admins);
+            kpis.put("totalTechnicians", technicians);
+            kpis.put("totalDeskRoles",   deskRoles);
+            kpis.put("totalTests",       totalTests);
+            kpis.put("totalRevenue",     safe(totalRevenue));
+            kpis.put("reportsGenerated", reportsGenerated);
+            kpis.put("pendingSamples",   pendingSamples);
+            return kpis;
+        }
+
+        // All labs — include lab-wise breakdowns for role counts
+        if (hasDates) {
             LocalDateTime s = toStart(startDate);
             LocalDateTime e = toEnd(endDate);
             Instant is = toInstantStart(startDate);
             Instant ie = toInstantEnd(endDate);
-
-            totalLabs         = labRepository.countByCreatedByAndCreatedAtBetween(currentUser, s, e);
-            totalAdmins       = userRepository.countByRolesNameAndCreatedByAndCreatedAtBetween("ADMIN", currentUser, s, e);
-            totalTechnicians  = userRepository.countByRolesNameAndCreatedByAndCreatedAtBetween("TECHNICIAN", currentUser, s, e);
-            totalDeskRoles    = userRepository.countByRolesNameAndCreatedByAndCreatedAtBetween("DESKROLE", currentUser, s, e);
-            totalTests        = visitTestResultRepository.countAllTestsByLabsCreatedByAndCreatedAtBetween(currentUser, s, e);
-            reportsGenerated  = visitTestResultRepository.countCompletedReportsByLabsCreatedByAndCreatedAtBetween(currentUser, s, e);
-            pendingSamples    = visitRepository.countPendingVisitsByLabsCreatedByAndCreatedAtBetween(currentUser, is, ie);
-            totalRevenue      = billingRepository.sumPaidAmountByLabsCreatedByAndCreatedAtBetween(currentUser, is, ie);
+            totalLabs        = labRepository.countByCreatedByAndCreatedAtBetween(currentUser, s, e);
+            totalTests       = visitTestResultRepository.countAllTestsByLabsCreatedByAndCreatedAtBetween(currentUser, s, e);
+            reportsGenerated = visitTestResultRepository.countCompletedReportsByLabsCreatedByAndCreatedAtBetween(currentUser, s, e);
+            pendingSamples   = visitRepository.countPendingVisitsByLabsCreatedByAndCreatedAtBetween(currentUser, is, ie);
+            totalRevenue     = billingRepository.sumPaidAmountByLabsCreatedByAndCreatedAtBetween(currentUser, is, ie);
         } else {
-            totalLabs         = labRepository.countByCreatedBy(currentUser);
-            totalAdmins       = userRepository.countByRolesNameAndCreatedBy("ADMIN", currentUser);
-            totalTechnicians  = userRepository.countByRolesNameAndCreatedBy("TECHNICIAN", currentUser);
-            totalDeskRoles    = userRepository.countByRolesNameAndCreatedBy("DESKROLE", currentUser);
-            totalTests        = visitTestResultRepository.countAllTestsByLabsCreatedBy(currentUser);
-            reportsGenerated  = visitTestResultRepository.countCompletedReportsByLabsCreatedBy(currentUser);
-            pendingSamples    = visitRepository.countPendingVisitsByLabsCreatedBy(currentUser);
-            totalRevenue      = billingRepository.sumPaidAmountByLabsCreatedBy(currentUser);
+            totalLabs        = labRepository.countByCreatedBy(currentUser);
+            totalTests       = visitTestResultRepository.countAllTestsByLabsCreatedBy(currentUser);
+            reportsGenerated = visitTestResultRepository.countCompletedReportsByLabsCreatedBy(currentUser);
+            pendingSamples   = visitRepository.countPendingVisitsByLabsCreatedBy(currentUser);
+            totalRevenue     = billingRepository.sumPaidAmountByLabsCreatedBy(currentUser);
         }
 
         Map<String, Object> kpis = new LinkedHashMap<>();
         kpis.put("totalLabs",        totalLabs);
-        kpis.put("totalAdmins",      totalAdmins);
-        kpis.put("totalTechnicians", totalTechnicians);
-        kpis.put("totalDeskRoles",   totalDeskRoles);
+        kpis.put("totalAdmins",      buildRoleLabWise("ADMIN",      currentUser, startDate, endDate, hasDates));
+        kpis.put("totalTechnicians", buildRoleLabWise("TECHNICIAN", currentUser, startDate, endDate, hasDates));
+        kpis.put("totalDeskRoles",   buildRoleLabWise("DESKROLE",   currentUser, startDate, endDate, hasDates));
         kpis.put("totalTests",       totalTests);
         kpis.put("totalRevenue",     safe(totalRevenue));
         kpis.put("reportsGenerated", reportsGenerated);
         kpis.put("pendingSamples",   pendingSamples);
         return kpis;
+    }
+
+    private Map<String, Object> buildRoleLabWise(String roleName, User currentUser,
+                                                  LocalDate startDate, LocalDate endDate, boolean hasDates) {
+        List<tiameds.com.tiameds.entity.Lab> labs = labRepository.findByCreatedBy(currentUser);
+        List<Map<String, Object>> labWise = new ArrayList<>();
+        long total = 0;
+        for (tiameds.com.tiameds.entity.Lab lab : labs) {
+            long count = hasDates
+                    ? userRepository.countByRolesNameAndLabsIdAndCreatedAtBetween(roleName, lab.getId(), toStart(startDate), toEnd(endDate))
+                    : userRepository.countByRolesNameAndLabsId(roleName, lab.getId());
+            total += count;
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("labId",   lab.getId());
+            row.put("labName", lab.getName());
+            row.put("count",   count);
+            labWise.add(row);
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("total",   total);
+        result.put("labWise", labWise);
+        return result;
     }
 
     private Map<String, Object> buildDashboardSummary(Long userId,

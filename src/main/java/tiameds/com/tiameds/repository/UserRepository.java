@@ -34,9 +34,10 @@ public interface UserRepository extends CrudRepository<User, Long> {
 
     long countByRolesName(String roleName);
 
-    long countByRolesNameAndCreatedBy(String roleName, User createdBy);
+    @Query("SELECT COUNT(u) FROM User u JOIN u.roles r WHERE r.name = :roleName AND u.createdBy = :createdBy AND u.enabled = true")
+    long countByRolesNameAndCreatedBy(@Param("roleName") String roleName, @Param("createdBy") User createdBy);
 
-    @Query("SELECT COUNT(u) FROM User u JOIN u.roles r WHERE r.name = :roleName AND u.createdBy = :createdBy AND u.createdAt BETWEEN :startDate AND :endDate")
+    @Query("SELECT COUNT(u) FROM User u JOIN u.roles r WHERE r.name = :roleName AND u.createdBy = :createdBy AND u.enabled = true AND u.createdAt BETWEEN :startDate AND :endDate")
     long countByRolesNameAndCreatedByAndCreatedAtBetween(@Param("roleName") String roleName, @Param("createdBy") User createdBy, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 
     @Query("SELECT COUNT(u) FROM User u JOIN u.roles r JOIN u.labs l WHERE r.name = :roleName AND l.id = :labId")

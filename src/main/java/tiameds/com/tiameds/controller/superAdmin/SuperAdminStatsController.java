@@ -87,13 +87,30 @@ public class SuperAdminStatsController {
         }
 
         User currentUser = userOptional.get();
-        long totalLabs;
-        if (startDate != null && endDate != null) {
-            totalLabs = labRepository.countByCreatedByAndCreatedAtBetween(currentUser, toStart(startDate), toEnd(endDate));
-        } else {
-            totalLabs = labRepository.countByCreatedBy(currentUser);
+        boolean hasDates = startDate != null && endDate != null;
+
+        List<Lab> labs = labRepository.findByCreatedBy(currentUser);
+        if (hasDates) {
+            LocalDateTime s = toStart(startDate);
+            LocalDateTime e = toEnd(endDate);
+            labs = labs.stream()
+                    .filter(l -> l.getCreatedAt() != null && !l.getCreatedAt().isBefore(s) && !l.getCreatedAt().isAfter(e))
+                    .collect(java.util.stream.Collectors.toList());
         }
-        return ApiResponseHelper.successResponse("Total labs retrieved successfully", Map.of("totalLabs", totalLabs));
+
+        List<Map<String, Object>> labWise = new ArrayList<>();
+        for (Lab lab : labs) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("labId",     lab.getId());
+            row.put("labName",   lab.getName());
+            row.put("createdAt", lab.getCreatedAt());
+            labWise.add(row);
+        }
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("total",   labs.size());
+        response.put("labWise", labWise);
+        return ApiResponseHelper.successResponse("Total labs retrieved successfully", response);
     }
 
     @GetMapping("/total-admins")
@@ -107,13 +124,8 @@ public class SuperAdminStatsController {
         }
 
         User currentUser = userOptional.get();
-        long totalAdmins;
-        if (startDate != null && endDate != null) {
-            totalAdmins = userRepository.countByRolesNameAndCreatedByAndCreatedAtBetween("ADMIN", currentUser, toStart(startDate), toEnd(endDate));
-        } else {
-            totalAdmins = userRepository.countByRolesNameAndCreatedBy("ADMIN", currentUser);
-        }
-        return ApiResponseHelper.successResponse("Total admins retrieved successfully", Map.of("totalAdmins", totalAdmins));
+        return ApiResponseHelper.successResponse("Total admins retrieved successfully",
+                buildRoleCountWithLabWise("ADMIN", currentUser, startDate, endDate));
     }
 
     @GetMapping("/total-technicians")
@@ -127,13 +139,8 @@ public class SuperAdminStatsController {
         }
 
         User currentUser = userOptional.get();
-        long totalTechnicians;
-        if (startDate != null && endDate != null) {
-            totalTechnicians = userRepository.countByRolesNameAndCreatedByAndCreatedAtBetween("TECHNICIAN", currentUser, toStart(startDate), toEnd(endDate));
-        } else {
-            totalTechnicians = userRepository.countByRolesNameAndCreatedBy("TECHNICIAN", currentUser);
-        }
-        return ApiResponseHelper.successResponse("Total technicians retrieved successfully", Map.of("totalTechnicians", totalTechnicians));
+        return ApiResponseHelper.successResponse("Total technicians retrieved successfully",
+                buildRoleCountWithLabWise("TECHNICIAN", currentUser, startDate, endDate));
     }
 
     @GetMapping("/total-deskroles")
@@ -147,13 +154,35 @@ public class SuperAdminStatsController {
         }
 
         User currentUser = userOptional.get();
-        long totalDeskRoles;
-        if (startDate != null && endDate != null) {
-            totalDeskRoles = userRepository.countByRolesNameAndCreatedByAndCreatedAtBetween("DESKROLE", currentUser, toStart(startDate), toEnd(endDate));
-        } else {
-            totalDeskRoles = userRepository.countByRolesNameAndCreatedBy("DESKROLE", currentUser);
+        return ApiResponseHelper.successResponse("Total desk roles retrieved successfully",
+                buildRoleCountWithLabWise("DESKROLE", currentUser, startDate, endDate));
+    }
+
+    private Map<String, Object> buildRoleCountWithLabWise(String roleName, User currentUser,
+                                                           LocalDate startDate, LocalDate endDate) {
+        boolean hasDates = startDate != null && endDate != null;
+        List<Lab> labs = labRepository.findByCreatedBy(currentUser);
+
+        List<Map<String, Object>> labWise = new ArrayList<>();
+        long total = 0;
+
+        for (Lab lab : labs) {
+            long count = hasDates
+                    ? userRepository.countByRolesNameAndLabsIdAndCreatedAtBetween(roleName, lab.getId(), toStart(startDate), toEnd(endDate))
+                    : userRepository.countByRolesNameAndLabsId(roleName, lab.getId());
+            total += count;
+
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("labId",   lab.getId());
+            row.put("labName", lab.getName());
+            row.put("count",   count);
+            labWise.add(row);
         }
-        return ApiResponseHelper.successResponse("Total desk roles retrieved successfully", Map.of("totalDeskRoles", totalDeskRoles));
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("total",   total);
+        response.put("labWise", labWise);
+        return response;
     }
 
     @GetMapping("/total-tests")
