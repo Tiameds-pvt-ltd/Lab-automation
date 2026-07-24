@@ -40,9 +40,9 @@ public interface UserRepository extends CrudRepository<User, Long> {
     @Query("SELECT COUNT(u) FROM User u JOIN u.roles r WHERE r.name = :roleName AND u.createdBy = :createdBy AND u.enabled = true AND u.createdAt BETWEEN :startDate AND :endDate")
     long countByRolesNameAndCreatedByAndCreatedAtBetween(@Param("roleName") String roleName, @Param("createdBy") User createdBy, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 
-    @Query("SELECT COUNT(u) FROM User u JOIN u.roles r JOIN u.labs l WHERE r.name = :roleName AND l.id = :labId")
+    @Query("SELECT COUNT(u) FROM User u JOIN u.roles r JOIN u.labs l WHERE r.name = :roleName AND l.id = :labId AND u.enabled = true")
     long countByRolesNameAndLabsId(@Param("roleName") String roleName, @Param("labId") Long labId);
 
-    @Query("SELECT COUNT(u) FROM User u JOIN u.roles r JOIN u.labs l WHERE r.name = :roleName AND l.id = :labId AND u.createdAt BETWEEN :startDate AND :endDate")
+    @Query("SELECT COUNT(u) FROM User u JOIN u.roles r JOIN u.labs l WHERE r.name = :roleName AND l.id = :labId AND u.enabled = true AND u.createdAt BETWEEN :startDate AND :endDate")
     long countByRolesNameAndLabsIdAndCreatedAtBetween(@Param("roleName") String roleName, @Param("labId") Long labId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 }

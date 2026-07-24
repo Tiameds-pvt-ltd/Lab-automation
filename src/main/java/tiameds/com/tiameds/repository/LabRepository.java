@@ -21,7 +21,8 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
 
     boolean existsByName(String name);
 
-    List<Lab> findByCreatedBy(User currentUser);
+    @Query("SELECT l FROM Lab l WHERE l.createdBy = :currentUser AND l.isActive = true")
+    List<Lab> findByCreatedBy(@Param("currentUser") User currentUser);
 
     @Query("SELECT l FROM Lab l JOIN FETCH l.members WHERE l.id = :id")
     Optional<Lab> findLabWithMembers(@Param("id") long id);
@@ -35,9 +36,10 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
     @Query("SELECT l FROM Lab l JOIN l.members m WHERE m.id = :userId")
     Set<Lab> findLabsByUserId(@Param("userId") Long userId);
 
-    long countByCreatedBy(User createdBy);
+    @Query("SELECT COUNT(l) FROM Lab l WHERE l.createdBy = :createdBy AND l.isActive = true")
+    long countByCreatedBy(@Param("createdBy") User createdBy);
 
-    @Query("SELECT COUNT(l) FROM Lab l WHERE l.createdBy = :createdBy AND l.createdAt BETWEEN :startDate AND :endDate")
+    @Query("SELECT COUNT(l) FROM Lab l WHERE l.createdBy = :createdBy AND l.isActive = true AND l.createdAt BETWEEN :startDate AND :endDate")
     long countByCreatedByAndCreatedAtBetween(@Param("createdBy") User createdBy, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 
     @Query(value =
