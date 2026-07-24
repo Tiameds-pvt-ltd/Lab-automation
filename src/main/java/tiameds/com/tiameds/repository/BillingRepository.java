@@ -522,7 +522,7 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
         String getBillingCode();
         Long getVisitId();
         String getVisitCode();
-        String getVisitDate();
+        java.time.LocalDate getVisitDate();
         String getVisitStatus();
         String getVisitType();
         Long getPatientId();
@@ -546,7 +546,7 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
     String GRID_SELECT =
         "SELECT b.billing_id AS billingId, b.billing_code AS billingCode, " +
         "v.visit_id AS visitId, v.visit_code AS visitCode, " +
-        "CAST(v.visit_date AS CHAR) AS visitDate, v.visit_status AS visitStatus, v.visit_type AS visitType, " +
+        "v.visit_date AS visitDate, v.visit_status AS visitStatus, v.visit_type AS visitType, " +
         "p.patient_id AS patientId, CONCAT(p.first_name, ' ', COALESCE(p.last_name,'')) AS patientName, " +
         "p.phone AS patientPhone, p.patient_code AS patientCode, " +
         "l.lab_id AS labId, l.name AS labName, d.name AS doctorName, " +
