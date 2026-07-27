@@ -75,7 +75,7 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "        AVG(CASE WHEN r.report_id IS NOT NULL THEN EXTRACT(EPOCH FROM (r.created_at - v.created_at)) / 3600.0 END) AS avgTatHours " +
         "    FROM lab_visit lv " +
         "    JOIN patient_visits v ON v.visit_id = lv.visit_id " +
-        "    LEFT JOIN visit_test_result vtr ON vtr.visit_id = v.visit_id " +
+        "    LEFT JOIN visit_test_result vtr ON vtr.visit_id = v.visit_id AND LOWER(vtr.test_status) = 'active' " +
         "    LEFT JOIN lab_report r ON r.visit_id = v.visit_id AND r.lab_id = lv.lab_id " +
         "    WHERE v.created_at BETWEEN :startDate AND :endDate AND LOWER(v.visit_status) != 'cancelled' " +
         "    GROUP BY lv.lab_id " +
@@ -117,7 +117,7 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "        AVG(CASE WHEN r.report_id IS NOT NULL THEN EXTRACT(EPOCH FROM (r.created_at - v.created_at)) / 3600.0 END) AS avgTatHours " +
         "    FROM lab_visit lv " +
         "    JOIN patient_visits v ON v.visit_id = lv.visit_id " +
-        "    LEFT JOIN visit_test_result vtr ON vtr.visit_id = v.visit_id " +
+        "    LEFT JOIN visit_test_result vtr ON vtr.visit_id = v.visit_id AND LOWER(vtr.test_status) = 'active' " +
         "    LEFT JOIN lab_report r ON r.visit_id = v.visit_id AND r.lab_id = lv.lab_id " +
         "    WHERE LOWER(v.visit_status) != 'cancelled' " +
         "    GROUP BY lv.lab_id " +
@@ -155,7 +155,7 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "        AVG(CASE WHEN r.report_id IS NOT NULL THEN EXTRACT(EPOCH FROM (r.created_at - v.created_at)) / 3600.0 END) AS avgTatHours " +
         "    FROM lab_visit lv " +
         "    JOIN patient_visits v ON v.visit_id = lv.visit_id " +
-        "    LEFT JOIN visit_test_result vtr ON vtr.visit_id = v.visit_id " +
+        "    LEFT JOIN visit_test_result vtr ON vtr.visit_id = v.visit_id AND LOWER(vtr.test_status) = 'active' " +
         "    LEFT JOIN lab_report r ON r.visit_id = v.visit_id AND r.lab_id = lv.lab_id " +
         "    WHERE LOWER(v.visit_status) != 'cancelled' " +
         "    GROUP BY lv.lab_id " +
@@ -197,7 +197,7 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "        AVG(CASE WHEN r.report_id IS NOT NULL THEN EXTRACT(EPOCH FROM (r.created_at - v.created_at)) / 3600.0 END) AS avgTatHours " +
         "    FROM lab_visit lv " +
         "    JOIN patient_visits v ON v.visit_id = lv.visit_id " +
-        "    LEFT JOIN visit_test_result vtr ON vtr.visit_id = v.visit_id " +
+        "    LEFT JOIN visit_test_result vtr ON vtr.visit_id = v.visit_id AND LOWER(vtr.test_status) = 'active' " +
         "    LEFT JOIN lab_report r ON r.visit_id = v.visit_id AND r.lab_id = lv.lab_id " +
         "    WHERE v.created_at BETWEEN :startDate AND :endDate AND LOWER(v.visit_status) != 'cancelled' " +
         "    GROUP BY lv.lab_id " +
@@ -244,7 +244,7 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "        AVG(CASE WHEN r.report_id IS NOT NULL THEN EXTRACT(EPOCH FROM (r.created_at - v.created_at)) / 3600.0 END) AS avgTatHours " +
         "    FROM lab_visit lv " +
         "    JOIN patient_visits v ON v.visit_id = lv.visit_id " +
-        "    LEFT JOIN visit_test_result vtr ON vtr.visit_id = v.visit_id " +
+        "    LEFT JOIN visit_test_result vtr ON vtr.visit_id = v.visit_id AND LOWER(vtr.test_status) = 'active' " +
         "    LEFT JOIN lab_report r ON r.visit_id = v.visit_id AND r.lab_id = lv.lab_id " +
         "    WHERE v.created_at BETWEEN :startDate AND :endDate AND LOWER(v.visit_status) != 'cancelled' " +
         "    GROUP BY lv.lab_id " +
@@ -283,7 +283,7 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "        AVG(CASE WHEN r.report_id IS NOT NULL THEN EXTRACT(EPOCH FROM (r.created_at - v.created_at)) / 3600.0 END) AS avgTatHours " +
         "    FROM lab_visit lv " +
         "    JOIN patient_visits v ON v.visit_id = lv.visit_id " +
-        "    LEFT JOIN visit_test_result vtr ON vtr.visit_id = v.visit_id " +
+        "    LEFT JOIN visit_test_result vtr ON vtr.visit_id = v.visit_id AND LOWER(vtr.test_status) = 'active' " +
         "    LEFT JOIN lab_report r ON r.visit_id = v.visit_id AND r.lab_id = lv.lab_id " +
         "    WHERE LOWER(v.visit_status) != 'cancelled' " +
         "    GROUP BY lv.lab_id " +

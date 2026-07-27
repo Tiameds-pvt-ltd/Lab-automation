@@ -40,30 +40,30 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
     long countCancelledByPatientIdAndLabIdAndCreatedAtBetween(@Param("patientId") Long patientId, @Param("labId") Long labId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 
     // Count all patient-ordered tests across all labs created by a superadmin
-    @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit.labs l WHERE l.createdBy = :createdBy AND LOWER(vtr.visit.visitStatus) != 'cancelled'")
+    @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit.labs l WHERE l.createdBy = :createdBy AND LOWER(vtr.testStatus) = 'active' AND LOWER(vtr.visit.visitStatus) != 'cancelled'")
     long countAllTestsByLabsCreatedBy(@Param("createdBy") User createdBy);
 
-    @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit.labs l WHERE l.createdBy = :createdBy AND vtr.createdAt BETWEEN :startDate AND :endDate AND LOWER(vtr.visit.visitStatus) != 'cancelled'")
+    @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit.labs l WHERE l.createdBy = :createdBy AND LOWER(vtr.testStatus) = 'active' AND vtr.createdAt BETWEEN :startDate AND :endDate AND LOWER(vtr.visit.visitStatus) != 'cancelled'")
     long countAllTestsByLabsCreatedByAndCreatedAtBetween(@Param("createdBy") User createdBy, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 
     // Count completed reports across all labs created by a superadmin
-    @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit.labs l WHERE l.createdBy = :createdBy AND vtr.reportStatus = 'Completed' AND LOWER(vtr.visit.visitStatus) != 'cancelled'")
+    @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit.labs l WHERE l.createdBy = :createdBy AND LOWER(vtr.testStatus) = 'active' AND vtr.reportStatus = 'Completed' AND LOWER(vtr.visit.visitStatus) != 'cancelled'")
     long countCompletedReportsByLabsCreatedBy(@Param("createdBy") User createdBy);
 
-    @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit.labs l WHERE l.createdBy = :createdBy AND vtr.reportStatus = 'Completed' AND vtr.createdAt BETWEEN :startDate AND :endDate AND LOWER(vtr.visit.visitStatus) != 'cancelled'")
+    @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit.labs l WHERE l.createdBy = :createdBy AND LOWER(vtr.testStatus) = 'active' AND vtr.reportStatus = 'Completed' AND vtr.createdAt BETWEEN :startDate AND :endDate AND LOWER(vtr.visit.visitStatus) != 'cancelled'")
     long countCompletedReportsByLabsCreatedByAndCreatedAtBetween(@Param("createdBy") User createdBy, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 
     // Count all patient-ordered tests for a specific lab
-    @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit.labs l WHERE l.id = :labId AND LOWER(vtr.visit.visitStatus) != 'cancelled'")
+    @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit.labs l WHERE l.id = :labId AND LOWER(vtr.testStatus) = 'active' AND LOWER(vtr.visit.visitStatus) != 'cancelled'")
     long countAllTestsByLabId(@Param("labId") Long labId);
 
-    @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit.labs l WHERE l.id = :labId AND vtr.createdAt BETWEEN :startDate AND :endDate AND LOWER(vtr.visit.visitStatus) != 'cancelled'")
+    @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit.labs l WHERE l.id = :labId AND LOWER(vtr.testStatus) = 'active' AND vtr.createdAt BETWEEN :startDate AND :endDate AND LOWER(vtr.visit.visitStatus) != 'cancelled'")
     long countAllTestsByLabIdAndCreatedAtBetween(@Param("labId") Long labId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 
-    @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit.labs l WHERE l.id = :labId AND vtr.reportStatus = 'Completed' AND LOWER(vtr.visit.visitStatus) != 'cancelled'")
+    @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit.labs l WHERE l.id = :labId AND LOWER(vtr.testStatus) = 'active' AND vtr.reportStatus = 'Completed' AND LOWER(vtr.visit.visitStatus) != 'cancelled'")
     long countCompletedReportsByLabId(@Param("labId") Long labId);
 
-    @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit.labs l WHERE l.id = :labId AND vtr.reportStatus = 'Completed' AND vtr.createdAt BETWEEN :startDate AND :endDate AND LOWER(vtr.visit.visitStatus) != 'cancelled'")
+    @Query("SELECT COUNT(vtr) FROM VisitTestResult vtr JOIN vtr.visit.labs l WHERE l.id = :labId AND LOWER(vtr.testStatus) = 'active' AND vtr.reportStatus = 'Completed' AND vtr.createdAt BETWEEN :startDate AND :endDate AND LOWER(vtr.visit.visitStatus) != 'cancelled'")
     long countCompletedReportsByLabIdAndCreatedAtBetween(@Param("labId") Long labId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 
     // Funnel — test-level counts (consistent granularity across all stages)
@@ -177,8 +177,8 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
         "  ) bt_agg ON bt_agg.billing_id = b.billing_id " +
         "  LEFT JOIN (SELECT vtr2.visit_id, SUM(t2.price) AS total_price " +
         "    FROM visit_test_result vtr2 JOIN tests t2 ON vtr2.test_id = t2.test_id " +
-        "    GROUP BY vtr2.visit_id) vps ON vps.visit_id = pv.visit_id " +
-        "  WHERE l.created_by = :createdById AND LOWER(pv.visit_status) != 'cancelled' " +
+        "    WHERE LOWER(vtr2.test_status) = 'active' GROUP BY vtr2.visit_id) vps ON vps.visit_id = pv.visit_id " +
+        "  WHERE l.created_by = :createdById AND LOWER(vtr.test_status) = 'active' AND LOWER(pv.visit_status) != 'cancelled' " +
         "  GROUP BY t.category " +
         ") vtr_agg ON vtr_agg.category = cats.category " +
         "ORDER BY testCount DESC", nativeQuery = true)
@@ -234,8 +234,8 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
         "  ) bt_agg ON bt_agg.billing_id = b.billing_id " +
         "  LEFT JOIN (SELECT vtr2.visit_id, SUM(t2.price) AS total_price " +
         "    FROM visit_test_result vtr2 JOIN tests t2 ON vtr2.test_id = t2.test_id " +
-        "    GROUP BY vtr2.visit_id) vps ON vps.visit_id = pv.visit_id " +
-        "  WHERE l.created_by = :createdById AND vtr.created_at BETWEEN :startDate AND :endDate AND LOWER(pv.visit_status) != 'cancelled' " +
+        "    WHERE LOWER(vtr2.test_status) = 'active' GROUP BY vtr2.visit_id) vps ON vps.visit_id = pv.visit_id " +
+        "  WHERE l.created_by = :createdById AND vtr.created_at BETWEEN :startDate AND :endDate AND LOWER(vtr.test_status) = 'active' AND LOWER(pv.visit_status) != 'cancelled' " +
         "  GROUP BY t.category " +
         ") vtr_agg ON vtr_agg.category = cats.category " +
         "ORDER BY testCount DESC", nativeQuery = true)
@@ -273,8 +273,8 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
         "LEFT JOIN billing b ON pv.billing_id = b.billing_id " +
         "LEFT JOIN (SELECT vtr2.visit_id, SUM(t2.price) AS total_price " +
         "  FROM visit_test_result vtr2 JOIN tests t2 ON vtr2.test_id = t2.test_id " +
-        "  GROUP BY vtr2.visit_id) vps ON vps.visit_id = pv.visit_id " +
-        "WHERE l.created_by = :createdById AND LOWER(pv.visit_status) != 'cancelled' " +
+        "  WHERE LOWER(vtr2.test_status) = 'active' GROUP BY vtr2.visit_id) vps ON vps.visit_id = pv.visit_id " +
+        "WHERE l.created_by = :createdById AND LOWER(vtr.test_status) = 'active' AND LOWER(pv.visit_status) != 'cancelled' " +
         "GROUP BY t.category, t.test_id, t.name, t.test_code, t.price " +
         "ORDER BY t.category, paidAmount DESC", nativeQuery = true)
     List<TestEarningsByTestProjection> getEarningsByTestBySuperAdmin(@Param("createdById") Long createdById);
@@ -296,8 +296,8 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
         "LEFT JOIN billing b ON pv.billing_id = b.billing_id " +
         "LEFT JOIN (SELECT vtr2.visit_id, SUM(t2.price) AS total_price " +
         "  FROM visit_test_result vtr2 JOIN tests t2 ON vtr2.test_id = t2.test_id " +
-        "  GROUP BY vtr2.visit_id) vps ON vps.visit_id = pv.visit_id " +
-        "WHERE l.created_by = :createdById AND vtr.created_at BETWEEN :startDate AND :endDate AND LOWER(pv.visit_status) != 'cancelled' " +
+        "  WHERE LOWER(vtr2.test_status) = 'active' GROUP BY vtr2.visit_id) vps ON vps.visit_id = pv.visit_id " +
+        "WHERE l.created_by = :createdById AND vtr.created_at BETWEEN :startDate AND :endDate AND LOWER(vtr.test_status) = 'active' AND LOWER(pv.visit_status) != 'cancelled' " +
         "GROUP BY t.category, t.test_id, t.name, t.test_code, t.price " +
         "ORDER BY t.category, paidAmount DESC", nativeQuery = true)
     List<TestEarningsByTestProjection> getEarningsByTestBySuperAdminWithDateRange(
@@ -332,7 +332,7 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
         "JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
         "JOIN tests t ON vtr.test_id = t.test_id " +
         "LEFT JOIN billing b ON pv.billing_id = b.billing_id " +
-        "WHERE lv.lab_id = :labId AND LOWER(pv.visit_status) != 'cancelled' " +
+        "WHERE lv.lab_id = :labId AND LOWER(vtr.test_status) = 'active' AND LOWER(pv.visit_status) != 'cancelled' " +
         "GROUP BY t.category, t.test_id, t.name, t.test_code, t.price " +
         "ORDER BY t.category, totalEarnings DESC", nativeQuery = true)
     List<TestEarningsByTestProjection> getEarningsByTestByLabId(@Param("labId") Long labId);
@@ -352,7 +352,7 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
         "JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
         "JOIN tests t ON vtr.test_id = t.test_id " +
         "LEFT JOIN billing b ON pv.billing_id = b.billing_id " +
-        "WHERE lv.lab_id = :labId AND vtr.created_at BETWEEN :startDate AND :endDate AND LOWER(pv.visit_status) != 'cancelled' " +
+        "WHERE lv.lab_id = :labId AND vtr.created_at BETWEEN :startDate AND :endDate AND LOWER(vtr.test_status) = 'active' AND LOWER(pv.visit_status) != 'cancelled' " +
         "GROUP BY t.category, t.test_id, t.name, t.test_code, t.price " +
         "ORDER BY t.category, totalEarnings DESC", nativeQuery = true)
     List<TestEarningsByTestProjection> getEarningsByTestByLabIdWithDateRange(
@@ -409,8 +409,8 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
         "  ) bt_agg ON bt_agg.billing_id = b.billing_id " +
         "  LEFT JOIN (SELECT vtr2.visit_id, SUM(t2.price) AS total_price " +
         "    FROM visit_test_result vtr2 JOIN tests t2 ON vtr2.test_id = t2.test_id " +
-        "    GROUP BY vtr2.visit_id) vps ON vps.visit_id = pv.visit_id " +
-        "  WHERE lv.lab_id = :labId AND LOWER(pv.visit_status) != 'cancelled' " +
+        "    WHERE LOWER(vtr2.test_status) = 'active' GROUP BY vtr2.visit_id) vps ON vps.visit_id = pv.visit_id " +
+        "  WHERE lv.lab_id = :labId AND LOWER(vtr.test_status) = 'active' AND LOWER(pv.visit_status) != 'cancelled' " +
         "  GROUP BY t.category " +
         ") vtr_agg ON vtr_agg.category = cats.category " +
         "ORDER BY testCount DESC", nativeQuery = true)
@@ -465,8 +465,8 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
         "  ) bt_agg ON bt_agg.billing_id = b.billing_id " +
         "  LEFT JOIN (SELECT vtr2.visit_id, SUM(t2.price) AS total_price " +
         "    FROM visit_test_result vtr2 JOIN tests t2 ON vtr2.test_id = t2.test_id " +
-        "    GROUP BY vtr2.visit_id) vps ON vps.visit_id = pv.visit_id " +
-        "  WHERE lv.lab_id = :labId AND vtr.created_at BETWEEN :startDate AND :endDate AND LOWER(pv.visit_status) != 'cancelled' " +
+        "    WHERE LOWER(vtr2.test_status) = 'active' GROUP BY vtr2.visit_id) vps ON vps.visit_id = pv.visit_id " +
+        "  WHERE lv.lab_id = :labId AND vtr.created_at BETWEEN :startDate AND :endDate AND LOWER(vtr.test_status) = 'active' AND LOWER(pv.visit_status) != 'cancelled' " +
         "  GROUP BY t.category " +
         ") vtr_agg ON vtr_agg.category = cats.category " +
         "ORDER BY testCount DESC", nativeQuery = true)
