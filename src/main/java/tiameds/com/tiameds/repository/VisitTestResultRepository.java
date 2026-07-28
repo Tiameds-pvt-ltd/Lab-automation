@@ -102,17 +102,23 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
             "ORDER BY testCount DESC", nativeQuery = true)
     List<TestsByCategoryProjection> getPatientTestsByCategoryBySuperAdminWithDateRange(@Param("createdById") Long createdById, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 
-    // Patient-ordered tests grouped by category — lab admin scope (all categories shown, 0 if no orders)
-    @Query(value = "SELECT cats.category AS category, COALESCE(vtr_agg.testCount, 0) AS testCount, COALESCE(vtr_agg.revenue, 0) AS revenue " +
-            "FROM (SELECT DISTINCT t.category FROM tests t JOIN lab_tests lt ON t.test_id = lt.test_id WHERE lt.lab_id = :labId) cats " +
-            "LEFT JOIN (SELECT t.category, COUNT(*) AS testCount, SUM(t.price) AS revenue FROM visit_test_result vtr JOIN lab_visit lv ON vtr.visit_id = lv.visit_id JOIN tests t ON vtr.test_id = t.test_id WHERE lv.lab_id = :labId GROUP BY t.category) vtr_agg ON vtr_agg.category = cats.category " +
-            "ORDER BY testCount DESC", nativeQuery = true)
+    // Patient-ordered tests grouped by category — lab admin scope
+    @Query(value = "SELECT t.category AS category, COUNT(*) AS testCount, SUM(t.price) AS revenue " +
+            "FROM visit_test_result vtr " +
+            "JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
+            "JOIN tests t ON vtr.test_id = t.test_id " +
+            "WHERE EXISTS (SELECT 1 FROM lab_visit lv WHERE lv.visit_id = vtr.visit_id AND lv.lab_id = :labId) " +
+            "AND LOWER(vtr.test_status) = 'active' AND LOWER(pv.visit_status) != 'cancelled' " +
+            "GROUP BY t.category ORDER BY testCount DESC", nativeQuery = true)
     List<TestsByCategoryProjection> getPatientTestsByCategoryByLabId(@Param("labId") Long labId);
 
-    @Query(value = "SELECT cats.category AS category, COALESCE(vtr_agg.testCount, 0) AS testCount, COALESCE(vtr_agg.revenue, 0) AS revenue " +
-            "FROM (SELECT DISTINCT t.category FROM tests t JOIN lab_tests lt ON t.test_id = lt.test_id WHERE lt.lab_id = :labId) cats " +
-            "LEFT JOIN (SELECT t.category, COUNT(*) AS testCount, SUM(t.price) AS revenue FROM visit_test_result vtr JOIN lab_visit lv ON vtr.visit_id = lv.visit_id JOIN tests t ON vtr.test_id = t.test_id WHERE lv.lab_id = :labId AND vtr.created_at BETWEEN :startDate AND :endDate GROUP BY t.category) vtr_agg ON vtr_agg.category = cats.category " +
-            "ORDER BY testCount DESC", nativeQuery = true)
+    @Query(value = "SELECT t.category AS category, COUNT(*) AS testCount, SUM(t.price) AS revenue " +
+            "FROM visit_test_result vtr " +
+            "JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
+            "JOIN tests t ON vtr.test_id = t.test_id " +
+            "WHERE EXISTS (SELECT 1 FROM lab_visit lv WHERE lv.visit_id = vtr.visit_id AND lv.lab_id = :labId) " +
+            "AND vtr.created_at BETWEEN :startDate AND :endDate AND LOWER(vtr.test_status) = 'active' AND LOWER(pv.visit_status) != 'cancelled' " +
+            "GROUP BY t.category ORDER BY testCount DESC", nativeQuery = true)
     List<TestsByCategoryProjection> getPatientTestsByCategoryByLabIdWithDateRange(@Param("labId") Long labId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 
     @Query(value = "SELECT AVG(EXTRACT(EPOCH FROM (r.created_at - v.created_at)) / 3600.0) FROM lab_report r JOIN patient_visits v ON r.visit_id = v.visit_id WHERE r.lab_id = :labId", nativeQuery = true)
@@ -479,9 +485,9 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
     @Query(value = "SELECT t.name AS testName, t.test_code AS testCode, COUNT(*) AS orderedCount " +
             "FROM visit_test_result vtr " +
             "JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
-            "JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
             "JOIN tests t ON vtr.test_id = t.test_id " +
-            "WHERE lv.lab_id = :labId AND LOWER(pv.visit_status) != 'cancelled' " +
+            "WHERE EXISTS (SELECT 1 FROM lab_visit lv WHERE lv.visit_id = vtr.visit_id AND lv.lab_id = :labId) " +
+            "AND LOWER(pv.visit_status) != 'cancelled' AND LOWER(vtr.test_status) = 'active' " +
             "GROUP BY t.test_id, t.name, t.test_code " +
             "ORDER BY orderedCount DESC " +
             "LIMIT :limit", nativeQuery = true)
@@ -490,9 +496,9 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
     @Query(value = "SELECT t.name AS testName, t.test_code AS testCode, COUNT(*) AS orderedCount " +
             "FROM visit_test_result vtr " +
             "JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
-            "JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
             "JOIN tests t ON vtr.test_id = t.test_id " +
-            "WHERE lv.lab_id = :labId AND vtr.created_at BETWEEN :startDate AND :endDate AND LOWER(pv.visit_status) != 'cancelled' " +
+            "WHERE EXISTS (SELECT 1 FROM lab_visit lv WHERE lv.visit_id = vtr.visit_id AND lv.lab_id = :labId) " +
+            "AND vtr.created_at BETWEEN :startDate AND :endDate AND LOWER(pv.visit_status) != 'cancelled' AND LOWER(vtr.test_status) = 'active' " +
             "GROUP BY t.test_id, t.name, t.test_code " +
             "ORDER BY orderedCount DESC " +
             "LIMIT :limit", nativeQuery = true)

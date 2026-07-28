@@ -306,7 +306,14 @@ public class AdminStatsController {
                 ? visitTestResultRepository.getTopOrderedTestsByLabIdAndCreatedAtBetween(labId, toStart(startDate), toEnd(endDate), limit)
                 : visitTestResultRepository.getTopOrderedTestsByLabId(labId, limit);
 
-        return ApiResponseHelper.successResponse("Top ordered tests retrieved successfully", tests);
+        long total = (startDate != null && endDate != null)
+                ? visitTestResultRepository.countAllTestsByLabIdAndCreatedAtBetween(labId, toStart(startDate), toEnd(endDate))
+                : visitTestResultRepository.countAllTestsByLabId(labId);
+
+        Map<String, Object> topTestsResponse = new LinkedHashMap<>();
+        topTestsResponse.put("total", total);
+        topTestsResponse.put("tests", tests);
+        return ApiResponseHelper.successResponse("Top ordered tests retrieved successfully", topTestsResponse);
     }
 
     @GetMapping("/{labId}/revenue-by-collection-method")
