@@ -106,18 +106,18 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
     @Query(value = "SELECT t.category AS category, COUNT(*) AS testCount, SUM(t.price) AS revenue " +
             "FROM visit_test_result vtr " +
             "JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
+            "JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
             "JOIN tests t ON vtr.test_id = t.test_id " +
-            "WHERE EXISTS (SELECT 1 FROM lab_visit lv WHERE lv.visit_id = vtr.visit_id AND lv.lab_id = :labId) " +
-            "AND LOWER(vtr.test_status) = 'active' AND LOWER(pv.visit_status) != 'cancelled' " +
+            "WHERE lv.lab_id = :labId AND LOWER(vtr.test_status) = 'active' AND LOWER(pv.visit_status) != 'cancelled' " +
             "GROUP BY t.category ORDER BY testCount DESC", nativeQuery = true)
     List<TestsByCategoryProjection> getPatientTestsByCategoryByLabId(@Param("labId") Long labId);
 
     @Query(value = "SELECT t.category AS category, COUNT(*) AS testCount, SUM(t.price) AS revenue " +
             "FROM visit_test_result vtr " +
             "JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
+            "JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
             "JOIN tests t ON vtr.test_id = t.test_id " +
-            "WHERE EXISTS (SELECT 1 FROM lab_visit lv WHERE lv.visit_id = vtr.visit_id AND lv.lab_id = :labId) " +
-            "AND vtr.created_at BETWEEN :startDate AND :endDate AND LOWER(vtr.test_status) = 'active' AND LOWER(pv.visit_status) != 'cancelled' " +
+            "WHERE lv.lab_id = :labId AND vtr.created_at BETWEEN :startDate AND :endDate AND LOWER(vtr.test_status) = 'active' AND LOWER(pv.visit_status) != 'cancelled' " +
             "GROUP BY t.category ORDER BY testCount DESC", nativeQuery = true)
     List<TestsByCategoryProjection> getPatientTestsByCategoryByLabIdWithDateRange(@Param("labId") Long labId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 
@@ -481,32 +481,29 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
 
-    // Top ordered tests for a specific lab
+    // Top ordered tests for a specific lab (all tests, ordered by count desc)
     @Query(value = "SELECT t.name AS testName, t.test_code AS testCode, COUNT(*) AS orderedCount " +
             "FROM visit_test_result vtr " +
             "JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
+            "JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
             "JOIN tests t ON vtr.test_id = t.test_id " +
-            "WHERE EXISTS (SELECT 1 FROM lab_visit lv WHERE lv.visit_id = vtr.visit_id AND lv.lab_id = :labId) " +
-            "AND LOWER(pv.visit_status) != 'cancelled' AND LOWER(vtr.test_status) = 'active' " +
+            "WHERE lv.lab_id = :labId AND LOWER(pv.visit_status) != 'cancelled' AND LOWER(vtr.test_status) = 'active' " +
             "GROUP BY t.test_id, t.name, t.test_code " +
-            "ORDER BY orderedCount DESC " +
-            "LIMIT :limit", nativeQuery = true)
-    List<TopOrderedTestProjection> getTopOrderedTestsByLabId(@Param("labId") Long labId, @Param("limit") int limit);
+            "ORDER BY orderedCount DESC", nativeQuery = true)
+    List<TopOrderedTestProjection> getTopOrderedTestsByLabId(@Param("labId") Long labId);
 
     @Query(value = "SELECT t.name AS testName, t.test_code AS testCode, COUNT(*) AS orderedCount " +
             "FROM visit_test_result vtr " +
             "JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
+            "JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
             "JOIN tests t ON vtr.test_id = t.test_id " +
-            "WHERE EXISTS (SELECT 1 FROM lab_visit lv WHERE lv.visit_id = vtr.visit_id AND lv.lab_id = :labId) " +
-            "AND vtr.created_at BETWEEN :startDate AND :endDate AND LOWER(pv.visit_status) != 'cancelled' AND LOWER(vtr.test_status) = 'active' " +
+            "WHERE lv.lab_id = :labId AND vtr.created_at BETWEEN :startDate AND :endDate AND LOWER(pv.visit_status) != 'cancelled' AND LOWER(vtr.test_status) = 'active' " +
             "GROUP BY t.test_id, t.name, t.test_code " +
-            "ORDER BY orderedCount DESC " +
-            "LIMIT :limit", nativeQuery = true)
+            "ORDER BY orderedCount DESC", nativeQuery = true)
     List<TopOrderedTestProjection> getTopOrderedTestsByLabIdAndCreatedAtBetween(
             @Param("labId") Long labId,
             @Param("startDate") LocalDateTime startDate,
-            @Param("endDate") LocalDateTime endDate,
-            @Param("limit") int limit);
+            @Param("endDate") LocalDateTime endDate);
 
     interface TopOrderedTestProjection {
         String getTestName();

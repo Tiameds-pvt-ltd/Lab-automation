@@ -296,24 +296,16 @@ public class AdminStatsController {
             @RequestHeader("Authorization") String token,
             @PathVariable Long labId,
             @RequestParam(required = false) LocalDate startDate,
-            @RequestParam(required = false) LocalDate endDate,
-            @RequestParam(defaultValue = "5") int limit) {
+            @RequestParam(required = false) LocalDate endDate) {
         Object[] u = new Object[1], l = new Object[1];
         ResponseEntity<?> err = authenticate(token, labId, u, l);
         if (err != null) return err;
 
         List<VisitTestResultRepository.TopOrderedTestProjection> tests = (startDate != null && endDate != null)
-                ? visitTestResultRepository.getTopOrderedTestsByLabIdAndCreatedAtBetween(labId, toStart(startDate), toEnd(endDate), limit)
-                : visitTestResultRepository.getTopOrderedTestsByLabId(labId, limit);
+                ? visitTestResultRepository.getTopOrderedTestsByLabIdAndCreatedAtBetween(labId, toStart(startDate), toEnd(endDate))
+                : visitTestResultRepository.getTopOrderedTestsByLabId(labId);
 
-        long total = (startDate != null && endDate != null)
-                ? visitTestResultRepository.countAllTestsByLabIdAndCreatedAtBetween(labId, toStart(startDate), toEnd(endDate))
-                : visitTestResultRepository.countAllTestsByLabId(labId);
-
-        Map<String, Object> topTestsResponse = new LinkedHashMap<>();
-        topTestsResponse.put("total", total);
-        topTestsResponse.put("tests", tests);
-        return ApiResponseHelper.successResponse("Top ordered tests retrieved successfully", topTestsResponse);
+        return ApiResponseHelper.successResponse("Top ordered tests retrieved successfully", tests);
     }
 
     @GetMapping("/{labId}/revenue-by-collection-method")
