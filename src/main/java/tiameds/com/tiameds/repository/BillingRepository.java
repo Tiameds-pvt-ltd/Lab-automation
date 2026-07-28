@@ -348,7 +348,8 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
         "LEFT JOIN (SELECT bt.billing_id, COALESCE(SUM(bt.cash_amount), 0) AS cash_total, " +
         "  COALESCE(SUM(bt.upi_amount), 0) AS upi_total, COALESCE(SUM(bt.card_amount), 0) AS card_total " +
         "  FROM billing_transaction bt GROUP BY bt.billing_id) bt_agg ON bt_agg.billing_id = b.billing_id " +
-        "WHERE lb.lab_id = :labId AND LOWER(pv.visit_status) != 'cancelled'", nativeQuery = true)
+        "WHERE lb.lab_id = :labId AND LOWER(pv.visit_status) != 'cancelled' " +
+        "AND EXISTS (SELECT 1 FROM visit_test_result vtr WHERE vtr.visit_id = pv.visit_id AND LOWER(vtr.report_status) = 'active')", nativeQuery = true)
     java.util.Optional<RevenueByCollectionMethodProjection> getRevenueByCollectionMethodByLabId(@Param("labId") Long labId);
 
     @Query(value =
@@ -366,7 +367,8 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
         "LEFT JOIN (SELECT bt.billing_id, COALESCE(SUM(bt.cash_amount), 0) AS cash_total, " +
         "  COALESCE(SUM(bt.upi_amount), 0) AS upi_total, COALESCE(SUM(bt.card_amount), 0) AS card_total " +
         "  FROM billing_transaction bt GROUP BY bt.billing_id) bt_agg ON bt_agg.billing_id = b.billing_id " +
-        "WHERE lb.lab_id = :labId AND b.created_at BETWEEN :startDate AND :endDate AND LOWER(pv.visit_status) != 'cancelled'", nativeQuery = true)
+        "WHERE lb.lab_id = :labId AND b.created_at BETWEEN :startDate AND :endDate AND LOWER(pv.visit_status) != 'cancelled' " +
+        "AND EXISTS (SELECT 1 FROM visit_test_result vtr WHERE vtr.visit_id = pv.visit_id AND LOWER(vtr.report_status) = 'active')", nativeQuery = true)
     java.util.Optional<RevenueByCollectionMethodProjection> getRevenueByCollectionMethodByLabIdAndDateRange(
             @Param("labId") Long labId,
             @Param("startDate") Instant startDate,

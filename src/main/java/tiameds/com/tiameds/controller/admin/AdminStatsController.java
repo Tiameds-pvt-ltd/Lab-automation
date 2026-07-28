@@ -1,6 +1,8 @@
 package tiameds.com.tiameds.controller.admin;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -858,6 +860,37 @@ public class AdminStatsController {
         return Math.round(val * 10.0) / 10.0;
     }
 
+    // ─── Grid endpoint ────────────────────────────────────────────────────────
+
+    @GetMapping("/{labId}/grid")
+    public ResponseEntity<?> getGridReport(
+            @RequestHeader("Authorization") String token,
+            @PathVariable Long labId,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        Object[] u = new Object[1], l = new Object[1];
+        ResponseEntity<?> err = authenticate(token, labId, u, l);
+        if (err != null) return err;
+
+        boolean hasDates = startDate != null && endDate != null;
+        PageRequest pageable = PageRequest.of(page, size);
+
+        Page<BillingRepository.GridReportRowProjection> pageResult = hasDates
+                ? billingRepository.getGridReportByLabIdWithDateRange(labId, toInstantStart(startDate), toInstantEnd(endDate), pageable)
+                : billingRepository.getGridReportByLabId(labId, pageable);
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("page",         pageResult.getNumber());
+        response.put("size",         pageResult.getSize());
+        response.put("totalRecords", pageResult.getTotalElements());
+        response.put("totalPages",   pageResult.getTotalPages());
+        response.put("rows",         pageResult.getContent());
+
+        return ApiResponseHelper.successResponse("Grid report retrieved successfully", response);
+    }
+
     // ─── Combined /all endpoint ───────────────────────────────────────────────
 
     @GetMapping("/{labId}/all")
@@ -876,6 +909,7 @@ public class AdminStatsController {
 
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("kpis",                  buildAllKpis(labId, startDate, endDate, hasDates));
+        response.put("dashboardSummary",       buildAdminDashboardSummary(labId, startDate, endDate, hasDates));
         response.put("testsByCategory",        buildAllTestsByCategory(labId, startDate, endDate, hasDates));
         if (hasDates) {
             response.put("revenueTrend",       buildAllRevenueTrend(labId, startDate, endDate));
@@ -926,6 +960,54 @@ public class AdminStatsController {
         kpis.put("reportsGenerated", reportsGenerated);
         kpis.put("pendingSamples",   pendingSamples);
         return kpis;
+    }
+
+    private Map<String, Object> buildAdminDashboardSummary(Long labId, LocalDate startDate, LocalDate endDate, boolean hasDates) {
+        LabRepository.LabPerformanceSummaryProjection row;
+        if (hasDates) {
+            long periodDays = ChronoUnit.DAYS.between(startDate, endDate) + 1;
+            LocalDate prevEnd   = startDate.minusDays(1);
+            LocalDate prevStart = prevEnd.minusDays(periodDays - 1);
+            Optional<LabRepository.LabPerformanceSummaryProjection> opt =
+                    labRepository.getLabPerformanceByLabIdAndDateRange(
+                            labId, toInstantStart(startDate), toInstantEnd(endDate),
+                            toInstantStart(prevStart), toInstantEnd(prevEnd));
+            if (opt.isEmpty()) return new LinkedHashMap<>();
+            row = opt.get();
+        } else {
+            Optional<LabRepository.LabPerformanceSummaryProjection> opt = labRepository.getLabPerformanceByLabIdAllTime(labId);
+            if (opt.isEmpty()) return new LinkedHashMap<>();
+            row = opt.get();
+        }
+
+        BigDecimal rev = row.getRevenue()          != null ? row.getRevenue()          : BigDecimal.ZERO;
+        long tests     = row.getTestCount()        != null ? row.getTestCount()        : 0L;
+        long patients  = row.getPatientCount()     != null ? row.getPatientCount()     : 0L;
+        long pending   = row.getPendingSamples()   != null ? row.getPendingSamples()   : 0L;
+        long reports   = row.getReportsGenerated() != null ? row.getReportsGenerated() : 0L;
+
+        Map<String, Object> labEntry = new LinkedHashMap<>();
+        labEntry.put("labId",            row.getLabId());
+        labEntry.put("labName",          row.getLabName());
+        labEntry.put("revenue",          rev.setScale(2, RoundingMode.HALF_UP));
+        labEntry.put("tests",            tests);
+        labEntry.put("patients",         patients);
+        labEntry.put("pendingSamples",   pending);
+        labEntry.put("reportsGenerated", reports);
+        labEntry.put("avgTatHours",      row.getAvgTatHours());
+
+        Map<String, Object> cumulative = new LinkedHashMap<>();
+        cumulative.put("totalLabs",        1);
+        cumulative.put("totalRevenue",     rev.setScale(2, RoundingMode.HALF_UP));
+        cumulative.put("totalTests",       tests);
+        cumulative.put("totalPatients",    patients);
+        cumulative.put("reportsGenerated", reports);
+        cumulative.put("pendingSamples",   pending);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("cumulative", cumulative);
+        result.put("labWise",    List.of(labEntry));
+        return result;
     }
 
     private Map<String, Object> buildAllTestsByCategory(Long labId, LocalDate startDate, LocalDate endDate, boolean hasDates) {
