@@ -335,37 +335,25 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
     // Revenue by collection method (Cash / UPI / Card / Credit-due) for a specific lab
     @Query(value =
         "SELECT " +
-        "ROUND(COALESCE(SUM(CASE WHEN bt_agg.billing_id IS NOT NULL THEN bt_agg.cash_total " +
-        "  WHEN UPPER(b.payment_method) = 'CASH' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END), 0), 2) AS totalCash, " +
-        "ROUND(COALESCE(SUM(CASE WHEN bt_agg.billing_id IS NOT NULL THEN bt_agg.upi_total " +
-        "  WHEN UPPER(b.payment_method) = 'UPI' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END), 0), 2) AS totalUpi, " +
-        "ROUND(COALESCE(SUM(CASE WHEN bt_agg.billing_id IS NOT NULL THEN bt_agg.card_total " +
-        "  WHEN UPPER(b.payment_method) = 'CARD' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END), 0), 2) AS totalCard, " +
+        "ROUND(COALESCE(SUM(CASE WHEN UPPER(b.payment_method) = 'CASH' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END), 0), 2) AS totalCash, " +
+        "ROUND(COALESCE(SUM(CASE WHEN UPPER(b.payment_method) = 'UPI'  THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END), 0), 2) AS totalUpi, " +
+        "ROUND(COALESCE(SUM(CASE WHEN UPPER(b.payment_method) = 'CARD' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END), 0), 2) AS totalCard, " +
         "ROUND(COALESCE(SUM(b.due_amount), 0), 2) AS totalCredit " +
         "FROM billing b " +
         "JOIN lab_billing lb ON b.billing_id = lb.billing_id " +
         "LEFT JOIN patient_visits pv ON pv.billing_id = b.billing_id " +
-        "LEFT JOIN (SELECT bt.billing_id, COALESCE(SUM(bt.cash_amount), 0) AS cash_total, " +
-        "  COALESCE(SUM(bt.upi_amount), 0) AS upi_total, COALESCE(SUM(bt.card_amount), 0) AS card_total " +
-        "  FROM billing_transaction bt GROUP BY bt.billing_id) bt_agg ON bt_agg.billing_id = b.billing_id " +
         "WHERE lb.lab_id = :labId AND (pv.visit_id IS NULL OR LOWER(pv.visit_status) != 'cancelled')", nativeQuery = true)
     java.util.Optional<RevenueByCollectionMethodProjection> getRevenueByCollectionMethodByLabId(@Param("labId") Long labId);
 
     @Query(value =
         "SELECT " +
-        "ROUND(COALESCE(SUM(CASE WHEN bt_agg.billing_id IS NOT NULL THEN bt_agg.cash_total " +
-        "  WHEN UPPER(b.payment_method) = 'CASH' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END), 0), 2) AS totalCash, " +
-        "ROUND(COALESCE(SUM(CASE WHEN bt_agg.billing_id IS NOT NULL THEN bt_agg.upi_total " +
-        "  WHEN UPPER(b.payment_method) = 'UPI' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END), 0), 2) AS totalUpi, " +
-        "ROUND(COALESCE(SUM(CASE WHEN bt_agg.billing_id IS NOT NULL THEN bt_agg.card_total " +
-        "  WHEN UPPER(b.payment_method) = 'CARD' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END), 0), 2) AS totalCard, " +
+        "ROUND(COALESCE(SUM(CASE WHEN UPPER(b.payment_method) = 'CASH' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END), 0), 2) AS totalCash, " +
+        "ROUND(COALESCE(SUM(CASE WHEN UPPER(b.payment_method) = 'UPI'  THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END), 0), 2) AS totalUpi, " +
+        "ROUND(COALESCE(SUM(CASE WHEN UPPER(b.payment_method) = 'CARD' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END), 0), 2) AS totalCard, " +
         "ROUND(COALESCE(SUM(b.due_amount), 0), 2) AS totalCredit " +
         "FROM billing b " +
         "JOIN lab_billing lb ON b.billing_id = lb.billing_id " +
         "LEFT JOIN patient_visits pv ON pv.billing_id = b.billing_id " +
-        "LEFT JOIN (SELECT bt.billing_id, COALESCE(SUM(bt.cash_amount), 0) AS cash_total, " +
-        "  COALESCE(SUM(bt.upi_amount), 0) AS upi_total, COALESCE(SUM(bt.card_amount), 0) AS card_total " +
-        "  FROM billing_transaction bt GROUP BY bt.billing_id) bt_agg ON bt_agg.billing_id = b.billing_id " +
         "WHERE lb.lab_id = :labId AND b.created_at BETWEEN :startDate AND :endDate AND (pv.visit_id IS NULL OR LOWER(pv.visit_status) != 'cancelled')", nativeQuery = true)
     java.util.Optional<RevenueByCollectionMethodProjection> getRevenueByCollectionMethodByLabIdAndDateRange(
             @Param("labId") Long labId,
