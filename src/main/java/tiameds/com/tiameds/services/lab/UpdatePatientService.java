@@ -1386,6 +1386,12 @@ public class UpdatePatientService {
         // handle billing
         if (visitDTO.getBilling() != null) {
             BillingEntity billing = mapBillingDTOToEntity(visitDTO.getBilling(), lab, currentUser);
+            billing.setPackageAmt(visit.getPackages().stream()
+                    .map(p -> BigDecimal.valueOf(p.getPrice()))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add));
+            billing.setPackageDiscount(visit.getPackages().stream()
+                    .map(p -> BigDecimal.valueOf(p.getDiscount()))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add));
             billing = billingRepository.save(billing); // 💥 Save billing before using it in discounts
             visit.setBilling(billing);
             if (visitDTO.getListOfEachTestDiscount() != null && !visitDTO.getListOfEachTestDiscount().isEmpty()) {
@@ -1553,6 +1559,8 @@ public class UpdatePatientService {
         billing.setIgstAmount(billingDTO.getIgstAmount() != null ? billingDTO.getIgstAmount() : BigDecimal.ZERO);
         billing.setNetAmount(billingDTO.getNetAmount() != null ? billingDTO.getNetAmount() : BigDecimal.ZERO);
         billing.setDiscountReason(billingDTO.getDiscountReason());
+        billing.setPackageAmt(billingDTO.getPackageAmt());
+        billing.setPackageDiscount(billingDTO.getPackageDiscount());
         // Note: receivedAmount and dueAmount are calculated by BillingManagementService
         // Initialize with zero values, will be updated by BillingManagementService
         billing.setReceivedAmount(BigDecimal.ZERO);

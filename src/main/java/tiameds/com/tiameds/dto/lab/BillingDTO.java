@@ -135,7 +135,13 @@ public class BillingDTO {
     
     @JsonProperty("refund_amount")
     private BigDecimal refundAmount;
-    
+
+    @JsonProperty("package_amt")
+    private BigDecimal packageAmt;
+
+    @JsonProperty("package_discount")
+    private BigDecimal packageDiscount;
+
     private String createdBy;
     private LocalTime billingTime;
     private String billingDate;
@@ -169,6 +175,8 @@ public class BillingDTO {
                 .reduce(BigDecimal.ZERO, BigDecimal::add) : 
             BigDecimal.ZERO;
         
+        this.packageAmt = billing.getPackageAmt();
+        this.packageDiscount = billing.getPackageDiscount();
         this.createdBy = billing.getCreatedBy();
         this.billingTime = billing.getBillingTime();
         this.billingDate = billing.getBillingDate();

@@ -116,6 +116,12 @@ public class BillingEntity {
 
     @Column(name = "billing_code", unique = true)
     private String billingCode;
+
+    @Column(name = "package_amt")
+    private BigDecimal packageAmt;
+
+    @Column(name = "package_discount")
+    private BigDecimal packageDiscount;
 //
 //    public void setRefundAmount(BigDecimal bigDecimal) {
 //        // Method implementation can be added here if needed

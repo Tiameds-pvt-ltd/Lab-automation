@@ -10,6 +10,7 @@ import tiameds.com.tiameds.dto.visits.VisitDetailsDTO;
 import tiameds.com.tiameds.entity.*;
 import tiameds.com.tiameds.repository.*;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -117,6 +118,12 @@ public class VisitService {
 //        billingEntity.setSgstAmount(visitDTO.getBilling().getSgstAmount());
 //        billingEntity.setIgstAmount(visitDTO.getBilling().getIgstAmount());
         billingEntity.setNetAmount(visitDTO.getBilling().getNetAmount());
+        billingEntity.setPackageAmt(healthPackages.stream()
+                .map(p -> BigDecimal.valueOf(p.getPrice()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add));
+        billingEntity.setPackageDiscount(healthPackages.stream()
+                .map(p -> BigDecimal.valueOf(p.getDiscount()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add));
         billingRepository.save(billingEntity);
         visit.setBilling(billingEntity);
 
@@ -188,6 +195,8 @@ public class VisitService {
 
             billingDTO.setNetAmount(visitEntity.getBilling().getNetAmount());
             billingDTO.setDiscountReason(visitEntity.getBilling().getDiscountReason());
+            billingDTO.setPackageAmt(visitEntity.getBilling().getPackageAmt());
+            billingDTO.setPackageDiscount(visitEntity.getBilling().getPackageDiscount());
 
 
             if (billingDTO.getTransactions() != null) {
@@ -269,6 +278,8 @@ public class VisitService {
 //        billingEntity.setSgstAmount(visitDTO.getBilling().getSgstAmount());
 //        billingEntity.setIgstAmount(visitDTO.getBilling().getIgstAmount());
         billingEntity.setNetAmount(visitDTO.getBilling().getNetAmount());
+        billingEntity.setPackageAmt(visitDTO.getBilling().getPackageAmt());
+        billingEntity.setPackageDiscount(visitDTO.getBilling().getPackageDiscount());
         billingEntity.getLabs().add(labOptional.get());
         billingRepository.save(billingEntity);
         visit.setBilling(billingEntity);
