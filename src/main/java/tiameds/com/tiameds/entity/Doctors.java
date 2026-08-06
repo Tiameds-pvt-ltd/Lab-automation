@@ -59,7 +59,7 @@ public class Doctors {
 
     @NotBlank(message = "Phone is required")
     @Size(max = 10, message = "Phone number cannot exceed 15 characters")
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String phone;
 
     @NotBlank(message = "Address is required")
