@@ -25,6 +25,8 @@ public interface HealthPackageRepository extends JpaRepository<HealthPackage, Lo
 
     List<HealthPackage> findAllByLabsAndIsActiveTrue(Lab lab);
 
+    List<HealthPackage> findAllByLabsAndIsActiveFalse(Lab lab);
+
     @Query("SELECT COUNT(h) FROM HealthPackage h JOIN h.labs l WHERE l.id = :labId AND h.createdAt BETWEEN :startDate AND :endDate")
     long countByLabId(@Param("labId") Long labId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 

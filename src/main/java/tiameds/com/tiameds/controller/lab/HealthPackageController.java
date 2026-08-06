@@ -114,6 +114,104 @@ public class HealthPackageController {
 
 
     @Transactional
+    @GetMapping("{labId}/packages/disabled")
+    public ResponseEntity<?> getDisabledHealthPackages(
+            @PathVariable("labId") Long labId) {
+
+        User currentUser = getAuthenticatedUser().orElse(null);
+        if (currentUser == null) {
+            return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+        }
+
+        Optional<Lab> lab = labRepository.findById(labId);
+        if (lab.isEmpty()) {
+            return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
+        }
+
+        boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+        if (!isAccessible) {
+            return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+        }
+
+        if (!currentUser.getLabs().contains(lab.get())) {
+            return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
+        }
+
+        List<HealthPackage> disabledPackages = healthPackageRepository.findAllByLabsAndIsActiveFalse(lab.get());
+
+        return ApiResponseHelper.successResponse(
+                "Disabled health packages fetched successfully",
+                disabledPackages
+        );
+    }
+
+
+    @Transactional
+    @PatchMapping("{labId}/package/{packageId}/enable")
+    public ResponseEntity<?> enableHealthPackage(
+            @PathVariable("labId") Long labId,
+            @PathVariable("packageId") Long packageId,
+            HttpServletRequest request) {
+
+        User currentUser = getAuthenticatedUser().orElse(null);
+        if (currentUser == null) {
+            return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+        }
+
+        Optional<Lab> labOptional = labRepository.findById(labId);
+        if (labOptional.isEmpty()) {
+            return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
+        }
+
+        Lab lab = labOptional.get();
+
+        boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+        if (!isAccessible) {
+            return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+        }
+
+        if (!currentUser.getLabs().contains(lab)) {
+            return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
+        }
+
+        Optional<HealthPackage> healthPackageOptional = healthPackageRepository.findById(packageId);
+        if (healthPackageOptional.isEmpty()) {
+            return ApiResponseHelper.errorResponse("Health package not found", HttpStatus.NOT_FOUND);
+        }
+
+        HealthPackage healthPackage = healthPackageOptional.get();
+
+        if (!healthPackage.getLabs().contains(lab)) {
+            return ApiResponseHelper.errorResponse("Health package not associated with this lab", HttpStatus.NOT_FOUND);
+        }
+
+        if (healthPackage.isActive()) {
+            return ApiResponseHelper.errorResponse("Health package is already active", HttpStatus.BAD_REQUEST);
+        }
+
+        Map<String, Object> oldData = toAuditMap(healthPackage);
+        healthPackage.setActive(true);
+        HealthPackage enabledPackage = healthPackageRepository.save(healthPackage);
+
+        logHealthPackageAudit(
+                labId,
+                "PACKAGE_ENABLE",
+                oldData,
+                toAuditMap(enabledPackage),
+                "Enabled package " + enabledPackage.getPackageName(),
+                currentUser,
+                request,
+                enabledPackage.getId()
+        );
+
+        return ApiResponseHelper.successResponse(
+                "Health package enabled successfully",
+                enabledPackage
+        );
+    }
+
+
+    @Transactional
     @PostMapping("{labId}/package")
     public ResponseEntity<?> createHealthPackage(
             @PathVariable("labId") Long labId,
