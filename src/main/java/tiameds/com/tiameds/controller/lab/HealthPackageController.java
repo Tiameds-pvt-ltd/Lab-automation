@@ -103,7 +103,7 @@ public class HealthPackageController {
         }
 
         // Fetch the health packages of the lab
-        List<HealthPackage> healthPackages = healthPackageRepository.findAllByLabs(lab.get());
+        List<HealthPackage> healthPackages = healthPackageRepository.findAllByLabsAndIsActiveTrue(lab.get());
 
         // Return the success response with the fetched health packages
         return ApiResponseHelper.successResponse(
@@ -162,6 +162,7 @@ public class HealthPackageController {
         healthPackage.setPrice(packageRequest.getPrice());
         healthPackage.setDiscount(packageRequest.getDiscount());
         healthPackage.setTests(new HashSet<>(tests)); // Convert List to Set before adding tests
+        healthPackage.setActive(true);
 
         // Establish bidirectional relationship
         healthPackage.getLabs().add(lab); // Add lab to healthPackage
@@ -385,20 +386,24 @@ public class HealthPackageController {
         Map<String, Object> oldData = toAuditMap(healthPackage);
         long packageIdValue = healthPackage.getId();
 
-        // Remove the association of the health package with the lab
-        lab.getHealthPackages().remove(healthPackage);
+//        // Remove the association of the health package with the lab
+//        lab.getHealthPackages().remove(healthPackage);
+//
+//        // Remove package from tests association
+//        for (Test test : new HashSet<>(healthPackage.getTests())) {
+//            test.getHealthPackages().remove(healthPackage);
+//        }
+//        healthPackage.getTests().clear();
+//
+//        // Save the updated lab to ensure the association is removed
+//        labRepository.save(lab);
+//
+//        // Delete the health package from the database
+//        healthPackageRepository.delete(healthPackage);
 
-        // Remove package from tests association
-        for (Test test : new HashSet<>(healthPackage.getTests())) {
-            test.getHealthPackages().remove(healthPackage);
-        }
-        healthPackage.getTests().clear();
-
-        // Save the updated lab to ensure the association is removed
-        labRepository.save(lab);
-
-        // Delete the health package from the database
-        healthPackageRepository.delete(healthPackage);
+        // Soft delete: mark as inactive instead of removing from the database
+        healthPackage.setActive(false);
+        healthPackageRepository.save(healthPackage);
 
         logHealthPackageAudit(
                 labId,
@@ -497,6 +502,7 @@ public class HealthPackageController {
         data.put("packageName", healthPackage.getPackageName());
         data.put("price", healthPackage.getPrice());
         data.put("discount", healthPackage.getDiscount());
+        data.put("isActive", healthPackage.isActive());
         Set<Long> testIds = healthPackage.getTests().stream()
                 .map(Test::getId)
                 .collect(Collectors.toCollection(TreeSet::new));

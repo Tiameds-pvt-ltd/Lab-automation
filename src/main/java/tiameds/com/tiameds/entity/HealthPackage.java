@@ -66,6 +66,9 @@ public class   HealthPackage {
     @Column(name = "package_code", unique = true)
     private String packageCode;
 
+    @Column(name = "is_active", nullable = false, columnDefinition = "BOOLEAN DEFAULT TRUE")
+    private boolean isActive = true;
+
     public Object getPackageId() {
         return id;
     }
