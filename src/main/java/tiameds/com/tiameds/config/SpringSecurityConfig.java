@@ -81,7 +81,6 @@ public class SpringSecurityConfig {
                                         "/lab/*/add-patient",
                                         "/lab/*/patients",
 //                                        "/admin/lab/*/doctors/{doctorId}",
-                                        "/admin/lab/*/packages",
                                         "/lab/*/update-patient-details/{patientId}",
                                         "/lab/admin/insurance/{labId}"
                                 ).hasAnyRole("ADMIN", "DESKROLE","SUPERADMIN")
@@ -125,6 +124,8 @@ public class SpringSecurityConfig {
                                         "admin/lab/*/test",
                                         "admin/lab/*/package/{packageId}",
                                         "admin/lab/*/package",
+                                        "/admin/lab/*/packages/disabled",
+                                        "/admin/lab/*/package/*/enable",
                                         "admin/lab/*/test-reference/{testReferenceId}",
                                         "admin/lab/*/test-reference",
                                         "admin/lab/*/test-reference/{testReferenceId}/update",
