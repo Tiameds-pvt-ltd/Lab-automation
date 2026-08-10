@@ -5,6 +5,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import tiameds.com.tiameds.entity.PatientEntity;
 import tiameds.com.tiameds.entity.VisitEntity;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Comparator;
 
@@ -29,6 +30,7 @@ public class PatientDTO {
     private VisitDTO visit;
     private String createdBy;
     private String updatedBy;
+    private Instant registeredAt;
 
 
     public PatientDTO(PatientEntity patient) {
@@ -47,6 +49,7 @@ public class PatientDTO {
         this.age = patient.getAge();
         this.createdBy = patient.getCreatedBy();
         this.updatedBy = patient.getUpdatedBy();
+        this.registeredAt = patient.getCreatedAt();
 
         // Get latest visit
         if (patient.getVisits() != null && !patient.getVisits().isEmpty()) {

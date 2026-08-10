@@ -177,6 +177,7 @@ public class PatientService {
         patientDTO.setAge(patient.getAge());
 
         patientDTO.setGender(patient.getGender());
+        patientDTO.setRegisteredAt(patient.getCreatedAt());
         return patientDTO;
     }
 

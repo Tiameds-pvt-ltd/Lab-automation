@@ -30,6 +30,7 @@ import tiameds.com.tiameds.repository.LabRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.Comparator;
 import java.util.Locale;
 import java.util.stream.Collectors;
 
@@ -317,7 +318,7 @@ public class PatientVisitSample {
                             })
                             .collect(Collectors.toList());
 
-                    return new VisitSampleDto(
+                    VisitSampleDto visitSampleDto = new VisitSampleDto(
                             visit.getVisitId(),
                             visit.getPatient().getFirstName() + " " + visit.getPatient().getLastName(),
                             visit.getPatient().getGender(),
@@ -340,6 +341,13 @@ public class PatientVisitSample {
                                     .collect(Collectors.toList()),
                             testResults
                     );
+                    visit.getVisitSamples().stream()
+                            .map(VisitSample::getCreatedAt)
+                            .filter(Objects::nonNull)
+                            .min(Comparator.naturalOrder())
+                            .ifPresent(visitSampleDto::setSampleCollectedAt);
+                    visitSampleDto.setPatientRegisteredAt(visit.getPatient().getCreatedAt());
+                    return visitSampleDto;
                 })
                 .collect(Collectors.toList());
 
