@@ -29,6 +29,8 @@ import tiameds.com.tiameds.repository.LabRepository;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.Comparator;
 import java.util.Locale;
@@ -344,9 +346,13 @@ public class PatientVisitSample {
                     visit.getVisitSamples().stream()
                             .map(VisitSample::getCreatedAt)
                             .filter(Objects::nonNull)
-                            .min(Comparator.naturalOrder())
+                            .max(Comparator.naturalOrder())
+                            .map(dt -> dt.atZone(ZoneId.systemDefault())
+                                    .withZoneSameInstant(ZoneId.of("Asia/Kolkata"))
+                                    .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
                             .ifPresent(visitSampleDto::setSampleCollectedAt);
-                    visitSampleDto.setPatientRegisteredAt(visit.getPatient().getCreatedAt());
+                    visitSampleDto.setPatientRegisteredAt(
+                            visit.getVisitTime() != null ? visit.getVisitTime() : visit.getCreatedAt());
                     return visitSampleDto;
                 })
                 .collect(Collectors.toList());

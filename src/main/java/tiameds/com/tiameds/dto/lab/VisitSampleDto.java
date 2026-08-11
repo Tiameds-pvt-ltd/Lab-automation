@@ -4,7 +4,6 @@ import lombok.Data;
 
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
@@ -26,7 +25,7 @@ public class VisitSampleDto {
     private List<TestSummaryDto> tests;
     private List<Long> packageIds;
     private List<VisitTestResultResponseDTO> testResult;
-    private LocalDateTime sampleCollectedAt;
+    private String sampleCollectedAt;
     private Instant patientRegisteredAt;
 
 
