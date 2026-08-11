@@ -1,6 +1,7 @@
 package tiameds.com.tiameds.controller.lab;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.transaction.Transactional;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -19,7 +20,6 @@ import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
 
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -43,6 +43,7 @@ public class AiClinicalObservationController {
         this.userService = userService;
     }
 
+    @Transactional
     @PostMapping("/{labId}/visit/{visitId}/ai-clinical-observation")
     public ResponseEntity<?> saveObservation(
             @PathVariable Long labId,
@@ -63,14 +64,29 @@ public class AiClinicalObservationController {
                 return ApiResponseHelper.errorResponse("Visit not found", HttpStatus.NOT_FOUND);
             }
 
-            AiClinicalObservation observation = new AiClinicalObservation();
-            observation.setVisit(visitOptional.get());
+            VisitEntity visit = visitOptional.get();
+            boolean visitInLab = visit.getLabs().stream().anyMatch(l -> l.getId() == labId);
+            if (!visitInLab) {
+                return ApiResponseHelper.errorResponse("Visit not found", HttpStatus.NOT_FOUND);
+            }
+
+            AiClinicalObservation observation = observationRepository
+                    .findTopByVisit_VisitIdOrderByCreatedAtDesc(visitId)
+                    .orElseGet(AiClinicalObservation::new);
+
+            observation.setVisit(visit);
             observation.setProvisionalDiagnosis(request.getProvisionalDiagnosis());
             observation.setClinicalInterpretation(request.getClinicalInterpretation());
             observation.setDoctorToVisit(request.getDoctorToVisit());
             observation.setPatientInterpretation(request.getPatientInterpretation());
             observation.setTips(request.getTips());
-            observation.setCreatedBy(currentUser.get().getUsername());
+            observation.setContentHash(request.getContentHash());
+
+            if (observation.getId() == null) {
+                observation.setCreatedBy(currentUser.get().getUsername());
+            } else {
+                observation.setUpdatedBy(currentUser.get().getUsername());
+            }
 
             observationRepository.save(observation);
 
@@ -95,17 +111,21 @@ public class AiClinicalObservationController {
                 return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
             }
 
-            if (visitRepository.findById(visitId).isEmpty()) {
+            Optional<VisitEntity> visitOptional = visitRepository.findById(visitId);
+            if (visitOptional.isEmpty()) {
                 return ApiResponseHelper.errorResponse("Visit not found", HttpStatus.NOT_FOUND);
             }
 
-            List<AiClinicalObservation> observations = observationRepository.findByVisit_VisitId(visitId);
+            boolean visitInLab = visitOptional.get().getLabs().stream().anyMatch(l -> l.getId() == labId);
+            if (!visitInLab) {
+                return ApiResponseHelper.errorResponse("Visit not found", HttpStatus.NOT_FOUND);
+            }
 
-            List<Map<String, Object>> data = observations.stream()
-                    .map(this::buildResponse)
-                    .toList();
-
-            return ApiResponseHelper.successResponse("AI clinical observations retrieved successfully", data);
+            return observationRepository.findTopByVisit_VisitIdOrderByCreatedAtDesc(visitId)
+                    .map(obs -> ApiResponseHelper.successResponse(
+                            "AI clinical observation retrieved successfully", buildResponse(obs)))
+                    .orElseGet(() -> ApiResponseHelper.successResponse(
+                            "No AI clinical observation found", null));
 
         } catch (Exception e) {
             return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
@@ -121,6 +141,7 @@ public class AiClinicalObservationController {
         map.put("doctorToVisit", obs.getDoctorToVisit());
         map.put("patientInterpretation", obs.getPatientInterpretation());
         map.put("tips", obs.getTips());
+        map.put("contentHash", obs.getContentHash());
         map.put("createdBy", obs.getCreatedBy());
         map.put("createdAt", obs.getCreatedAt());
         map.put("updatedAt", obs.getUpdatedAt());

@@ -7,6 +7,7 @@ public class AiClinicalObservationRequest {
     private String doctorToVisit;
     private String patientInterpretation;
     private String tips;
+    private String contentHash;
 
     public String getProvisionalDiagnosis() { return provisionalDiagnosis; }
     public void setProvisionalDiagnosis(String provisionalDiagnosis) { this.provisionalDiagnosis = provisionalDiagnosis; }
@@ -22,4 +23,7 @@ public class AiClinicalObservationRequest {
 
     public String getTips() { return tips; }
     public void setTips(String tips) { this.tips = tips; }
+
+    public String getContentHash() { return contentHash; }
+    public void setContentHash(String contentHash) { this.contentHash = contentHash; }
 }

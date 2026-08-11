@@ -15,7 +15,8 @@ import java.time.Instant;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "ai_clinical_observations")
+@Table(name = "ai_clinical_observations",
+        uniqueConstraints = @UniqueConstraint(name = "uq_ai_obs_visit", columnNames = "visit_id"))
 public class AiClinicalObservation {
 
     @Id
@@ -41,6 +42,9 @@ public class AiClinicalObservation {
 
     @Column(name = "tips", columnDefinition = "TEXT")
     private String tips;
+
+    @Column(name = "content_hash", length = 64)
+    private String contentHash;
 
     @Column(name = "created_by")
     private String createdBy;
