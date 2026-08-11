@@ -49,7 +49,7 @@ public class ReportEntity {
     @Column(name = "reference_age_range")
     private String referenceAgeRange;
 
-    @Column(name = "entered_value")
+    @Column(name = "entered_value", length = 1000)
     private String enteredValue;
 
     @Column(name = "unit")
