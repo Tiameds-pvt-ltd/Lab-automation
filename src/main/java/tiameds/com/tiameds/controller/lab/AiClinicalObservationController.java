@@ -97,6 +97,14 @@ public class AiClinicalObservationController {
         }
     }
 
+    // Transactional for the same reason the save is: spring.jpa.open-in-view is false, so
+    // the Hibernate session closes as soon as the repository call returns. Both the lab
+    // check below (VisitEntity.labs is a LAZY @ManyToMany) and buildResponse's
+    // obs.getVisit().getVisitId() touch lazy state, and without a transaction around them
+    // they throw LazyInitializationException -- which the blanket catch here turns into a
+    // 500. The client reads that failure as "never generated" and re-runs the model on
+    // every single open, so the whole point of storing observations is lost silently.
+    @Transactional
     @GetMapping("/{labId}/visit/{visitId}/ai-clinical-observation")
     public ResponseEntity<?> getObservations(
             @PathVariable Long labId,
