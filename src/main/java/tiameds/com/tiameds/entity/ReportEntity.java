@@ -102,5 +102,11 @@ public class ReportEntity {
 
     @Transient
     private String createdDateTime;
+
+    @Transient
+    private String registeredDateTime;
+
+    @Transient
+    private String sampleCollectedDateTime;
 }
 

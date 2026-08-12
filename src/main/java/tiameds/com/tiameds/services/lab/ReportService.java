@@ -12,12 +12,15 @@ import tiameds.com.tiameds.entity.ReportEntity;
 import tiameds.com.tiameds.entity.TestRow;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.entity.VisitEntity;
+import tiameds.com.tiameds.entity.VisitSample;
 import tiameds.com.tiameds.entity.VisitTestResult;
 import tiameds.com.tiameds.repository.*;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.ZonedDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
@@ -37,6 +40,37 @@ public class ReportService {
         this.labRepository = labRepository;
         this.visitTestResultRepository = visitTestResultRepository;
         this.sequenceGeneratorService = sequenceGeneratorService;
+    }
+
+    private static final ZoneId IST_ZONE = ZoneId.of("Asia/Kolkata");
+
+    private static String istFromInstant(Instant instant) {
+        if (instant == null) return null;
+        return instant.atZone(IST_ZONE).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+    }
+
+    // VisitSample.createdAt is a LocalDateTime written by Hibernate's @CreationTimestamp,
+    // which is generated from Clock.systemUTC() internally regardless of JVM default zone —
+    // so it must be reinterpreted as UTC, not systemDefault(), before converting to IST.
+    private static String istFromLocalDateTime(LocalDateTime localDateTime) {
+        if (localDateTime == null) return null;
+        return localDateTime.atZone(ZoneOffset.UTC)
+                .withZoneSameInstant(IST_ZONE)
+                .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+    }
+
+    private static String resolveRegisteredDateTime(VisitEntity visit) {
+        return istFromInstant(visit.getVisitTime() != null ? visit.getVisitTime() : visit.getCreatedAt());
+    }
+
+    private static String resolveSampleCollectedDateTime(VisitEntity visit) {
+        if (visit.getVisitSamples() == null) return null;
+        return visit.getVisitSamples().stream()
+                .map(VisitSample::getCreatedAt)
+                .filter(Objects::nonNull)
+                .max(Comparator.naturalOrder())
+                .map(ReportService::istFromLocalDateTime)
+                .orElse(null);
     }
 
 //    public ResponseEntity<?> createReports(List<ReportDto> reportDtoList, Long labId, User user) {
@@ -92,6 +126,8 @@ public class ReportService {
 
         String patientCode = null;
         String visitCode = null;
+        String registeredDateTime = null;
+        String sampleCollectedDateTime = null;
         Optional<VisitEntity> visitOptional = visitRepository.findById(visitId);
         if (visitOptional.isPresent()) {
             VisitEntity visit = visitOptional.get();
@@ -99,19 +135,21 @@ public class ReportService {
             if (visit.getPatient() != null) {
                 patientCode = visit.getPatient().getPatientCode();
             }
+            registeredDateTime = resolveRegisteredDateTime(visit);
+            sampleCollectedDateTime = resolveSampleCollectedDateTime(visit);
         }
 
         final String finalPatientCode = patientCode;
         final String finalVisitCode = visitCode;
+        final String finalRegisteredDateTime = registeredDateTime;
+        final String finalSampleCollectedDateTime = sampleCollectedDateTime;
         reportEntities.forEach(report -> {
             report.setTestRows(buildTestRows(report));
             report.setPatientCode(finalPatientCode);
             report.setVisitCode(finalVisitCode);
-            // Format createdDateTime in IST for display (createdAt remains UTC)
-            if (report.getCreatedAt() != null) {
-                ZonedDateTime istDateTime = report.getCreatedAt().atZone(ZoneId.of("Asia/Kolkata"));
-                report.setCreatedDateTime(istDateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
-            }
+            report.setRegisteredDateTime(finalRegisteredDateTime);
+            report.setSampleCollectedDateTime(finalSampleCollectedDateTime);
+            report.setCreatedDateTime(istFromInstant(report.getCreatedAt()));
         });
 
         return ApiResponseHelper.successResponse("Report fetched successfully", reportEntities);
@@ -132,6 +170,8 @@ public class ReportService {
 
         String patientCode = null;
         String visitCode = null;
+        String registeredDateTime = null;
+        String sampleCollectedDateTime = null;
         if (report.getVisitId() != null) {
             Optional<VisitEntity> visitOptional = visitRepository.findById(report.getVisitId());
             if (visitOptional.isPresent()) {
@@ -140,6 +180,8 @@ public class ReportService {
                 if (visit.getPatient() != null) {
                     patientCode = visit.getPatient().getPatientCode();
                 }
+                registeredDateTime = resolveRegisteredDateTime(visit);
+                sampleCollectedDateTime = resolveSampleCollectedDateTime(visit);
             }
         }
 
@@ -147,10 +189,9 @@ public class ReportService {
         report.setTestRows(buildTestRows(report));
         report.setPatientCode(patientCode);
         report.setVisitCode(visitCode);
-        if (report.getCreatedAt() != null) {
-            ZonedDateTime istDateTime = report.getCreatedAt().atZone(ZoneId.of("Asia/Kolkata"));
-            report.setCreatedDateTime(istDateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
-        }
+        report.setRegisteredDateTime(registeredDateTime);
+        report.setSampleCollectedDateTime(sampleCollectedDateTime);
+        report.setCreatedDateTime(istFromInstant(report.getCreatedAt()));
 
         return ApiResponseHelper.successResponse("Report fetched successfully", report);
     }
