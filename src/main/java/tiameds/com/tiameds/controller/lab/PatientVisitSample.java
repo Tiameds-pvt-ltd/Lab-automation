@@ -335,8 +335,8 @@ public class PatientVisitSample {
                             visit.getSamples().stream()
                                     .map(SampleEntity::getName)
                                     .collect(Collectors.toSet()),
-                            visit.getTests().stream()
-                                    .map(test -> new TestSummaryDto(test.getId(), test.getName()))
+                            visit.getVisitTests().stream()
+                                    .map(vt -> new TestSummaryDto(vt.getTest().getId(), vt.getTestName(), vt.getTestPrice()))
                                     .collect(Collectors.toList()),
                             visit.getPackages().stream()
                                     .map(pkg -> pkg.getId())
