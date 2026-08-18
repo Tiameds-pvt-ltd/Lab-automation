@@ -44,14 +44,28 @@ public class VisitEntity {
     @JoinColumn(name = "patient_id", nullable = false)
     private PatientEntity patient;
 
-    @ManyToMany(fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
-    @JoinTable(
-            name = "patient_visit_tests",
-            joinColumns = @JoinColumn(name = "visit_id"),
-            inverseJoinColumns = @JoinColumn(name = "test_id")
-    )
-    @JsonBackReference
-    private Set<Test> tests = new HashSet<>();
+    @OneToMany(mappedBy = "visit", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<VisitTest> visitTests = new HashSet<>();
+
+    public Set<Test> getTests() {
+        return visitTests.stream()
+                .map(VisitTest::getTest)
+                .collect(Collectors.toSet());
+    }
+
+    public void setTests(Set<Test> tests) {
+        this.visitTests.clear();
+        if (tests != null) {
+            for (Test test : tests) {
+                VisitTest vt = new VisitTest();
+                vt.setVisit(this);
+                vt.setTest(test);
+                vt.setTestName(test.getName());
+                vt.setTestPrice(test.getPrice());
+                this.visitTests.add(vt);
+            }
+        }
+    }
 
     @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @JoinColumn(name = "billing_id", referencedColumnName = "billing_id")
