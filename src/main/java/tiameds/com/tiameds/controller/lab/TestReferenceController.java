@@ -470,11 +470,12 @@ public class TestReferenceController {
 
 
 
+//    get the list of refenance by test name will be multiple
     @Transactional
     @GetMapping("/{labId}/test")
-    public ResponseEntity<?> getTestReferenceByTestId(
+    public ResponseEntity<?> getTestReferenceByTestNameQuery(
             @PathVariable Long labId,
-            @RequestParam Long id) {
+            @RequestParam String testName) {
         try {
             Optional<User> userOptional = getAuthenticatedUser();
             if (userOptional.isEmpty()) {
@@ -496,7 +497,9 @@ public class TestReferenceController {
                 return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
             }
 
-            List<TestReferenceDTO> testReferenceEntities = testReferenceServices.getTestReferenceByTestId(lab, id);
+            LOGGER.info("Searching for test name: '" + testName + "' in lab: " + labId);
+            List<TestReferenceDTO> testReferenceEntities = testReferenceServices.getTestReferenceByTestName(lab, testName);
+            LOGGER.info("Found " + testReferenceEntities.size() + " test references for test name: '" + testName + "'");
             return ApiResponseHelper.successResponseWithDataAndMessage("Test references fetched successfully", HttpStatus.OK, testReferenceEntities);
 
         } catch (Exception e) {

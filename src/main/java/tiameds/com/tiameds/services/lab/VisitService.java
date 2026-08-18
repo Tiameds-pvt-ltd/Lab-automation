@@ -321,32 +321,32 @@ public class VisitService {
             visitTestResultRepository.deleteAll(visit.getTestResults());
         }
         
-        // 2. Clear relationships
-        visit.getVisitTests().clear();
+        // 2. Clear many-to-many relationships
+        visit.getTests().clear();
         visit.getPackages().clear();
         visit.getInsurance().clear();
         visit.getSamples().clear();
         visit.getLabs().clear();
-
+        
         // 3. Delete billing and related entities
         if (visit.getBilling() != null) {
             BillingEntity billing = visit.getBilling();
-
+            
             // Delete test discounts related to billing
             if (billing.getTestDiscounts() != null && !billing.getTestDiscounts().isEmpty()) {
                 testDiscountRepository.deleteAll(billing.getTestDiscounts());
             }
-
+            
             // Delete transactions related to billing
             if (billing.getTransactions() != null && !billing.getTransactions().isEmpty()) {
                 // Note: TransactionRepository would be needed if transactions need explicit deletion
                 // For now, relying on cascade delete
             }
-
+            
             // Delete the billing entity
             billingRepository.delete(billing);
         }
-
+        
         // 4. Finally delete the visit entity
         visitRepository.delete(visit);
     }
@@ -383,8 +383,8 @@ public class VisitService {
                     visitTestResultRepository.deleteAll(visit.getTestResults());
                 }
                 
-                // 2. Clear relationships
-                visit.getVisitTests().clear();
+                // 2. Clear many-to-many relationships
+                visit.getTests().clear();
                 visit.getPackages().clear();
                 visit.getInsurance().clear();
                 visit.getSamples().clear();
@@ -502,9 +502,9 @@ public class VisitService {
                     visitDetailDto.setVisitStatus(visit.getVisitStatus());
                     visitDetailDto.setDoctorId(visit.getDoctor() != null ? visit.getDoctor().getId() : null);
 
-                    // Map tests from patient_visit_tests (snapshot name + price)
-                    visitDetailDto.setTests(visit.getVisitTests().stream()
-                            .map(vt -> new TestSummaryDto(vt.getTest().getId(), vt.getTestName(), vt.getTestPrice()))
+                    // Map tests with id+name (avoid duplicate testIds list)
+                    visitDetailDto.setTests(visit.getTests().stream()
+                            .map(test -> new TestSummaryDto(test.getId(), test.getName()))
                             .collect(Collectors.toList()));
                     visitDetailDto.setPackageIds(visit.getPackages().stream()
                             .map(HealthPackage::getId)

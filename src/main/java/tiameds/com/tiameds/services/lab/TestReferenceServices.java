@@ -16,7 +16,6 @@ import tiameds.com.tiameds.dto.lab.TestReferenceDTO;
 import tiameds.com.tiameds.entity.*;
 import tiameds.com.tiameds.repository.LabTestReferenceLinkRepository;
 import tiameds.com.tiameds.repository.TestReferenceRepository;
-import tiameds.com.tiameds.repository.TestRepository;
 import tiameds.com.tiameds.utils.EncodingUtils;
 
 import java.io.BufferedReader;
@@ -35,7 +34,6 @@ public class TestReferenceServices {
     private final TestReferenceRepository testReferenceRepository;
     private final SequenceGeneratorService sequenceGeneratorService;
     private final LabTestReferenceLinkRepository labTestReferenceLinkRepository;
-    private final TestRepository testRepository;
     private static final Logger LOGGER = Logger.getLogger(TestReferenceServices.class.getName());
 
     @PersistenceContext
@@ -43,12 +41,10 @@ public class TestReferenceServices {
 
     public TestReferenceServices(TestReferenceRepository testReferenceRepository,
                                  SequenceGeneratorService sequenceGeneratorService,
-                                 LabTestReferenceLinkRepository labTestReferenceLinkRepository,
-                                 TestRepository testRepository) {
+                                 LabTestReferenceLinkRepository labTestReferenceLinkRepository) {
         this.testReferenceRepository = testReferenceRepository;
         this.sequenceGeneratorService = sequenceGeneratorService;
         this.labTestReferenceLinkRepository = labTestReferenceLinkRepository;
-        this.testRepository = testRepository;
     }
 
     public List<TestReferenceDTO> getAllTestReferences(Lab lab) {
@@ -676,15 +672,6 @@ public class TestReferenceServices {
                     return dto;
                 }).toList();
         return testReferenceDTOS;
-    }
-
-    public List<TestReferenceDTO> getTestReferenceByTestId(Lab lab, Long testId) {
-        Test test = testRepository.findById(testId).orElse(null);
-        if (test == null) {
-            LOGGER.warning("Test not found for id: " + testId);
-            return new ArrayList<>();
-        }
-        return getTestReferenceByTestName(lab, test.getName());
     }
 
     public void deleteAllTestReferences(Lab lab) {

@@ -107,7 +107,7 @@ public class SpringSecurityConfig {
                                         "/lab/delete-samples",
                                         "/lab/*/get-visit-samples",
                                         "lab/*/report",
-                                        "lab/test-reference/{labId}/test",
+                                        "lab/test-reference/{labId}/test/{testName}",
                                         "lab/*/report/{visitId}",
                                         "/lab/*/complete-visit/{visitId}",
                                         "lab/test-reference/{labId}/add",

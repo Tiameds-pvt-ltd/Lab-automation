@@ -54,6 +54,10 @@ public class Test {
     private Set<HealthPackage> healthPackages = new HashSet<>();
 
 
+    @ManyToMany(mappedBy = "tests", fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @JsonBackReference
+    private Set<VisitEntity> visits = new HashSet<>();
+
     @Column(name = "test_code", unique = true)
     private String testCode;
 
