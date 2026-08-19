@@ -20,6 +20,7 @@ import tiameds.com.tiameds.entity.Test;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.repository.LabRepository;
 import tiameds.com.tiameds.repository.TestRepository;
+import tiameds.com.tiameds.repository.VisitTestRepository;
 import tiameds.com.tiameds.services.auth.MyUserDetails;
 import tiameds.com.tiameds.services.auth.UserService;
 import tiameds.com.tiameds.services.lab.SequenceGeneratorService;
@@ -48,6 +49,7 @@ public class TestController {
     private final FieldChangeTracker fieldChangeTracker;
     private final SequenceGeneratorService sequenceGeneratorService;
     private final UserService userService;
+    private final VisitTestRepository visitTestRepository;
 
     public TestController(LabRepository labRepository,
                           TestRepository testRepository,
@@ -56,7 +58,8 @@ public class TestController {
                           AuditLogService auditLogService,
                           FieldChangeTracker fieldChangeTracker,
                           SequenceGeneratorService sequenceGeneratorService,
-                          UserService userService) {
+                          UserService userService,
+                          VisitTestRepository visitTestRepository) {
         this.labRepository = labRepository;
         this.testRepository = testRepository;
         this.labAccessableFilter = labAccessableFilter;
@@ -65,6 +68,7 @@ public class TestController {
         this.fieldChangeTracker = fieldChangeTracker;
         this.sequenceGeneratorService = sequenceGeneratorService;
         this.userService = userService;
+        this.visitTestRepository = visitTestRepository;
     }
     // 1. Get all tests in a lab
     @Transactional
@@ -289,7 +293,8 @@ public class TestController {
     @GetMapping("/{labId}/test/{testId}")
     public ResponseEntity<?> getTest(
             @PathVariable Long labId,
-            @PathVariable Long testId) {
+            @PathVariable Long testId,
+            @RequestParam(required = false) Long visitId) {
         try {
             User currentUser = getAuthenticatedUser()
                     .orElseThrow(() -> new RuntimeException("User not found"));
@@ -319,7 +324,7 @@ public class TestController {
                 return ApiResponseHelper.successResponseWithDataAndMessage("Test does not belong to this lab", HttpStatus.BAD_REQUEST, null);
             }
 
-            // Map the test to a DTO
+            // Map the test to a DTO — name and price from patient_visit_tests snapshot
             TestDTO testDTO = new TestDTO(
                     test.getId(),
                     test.getTestCode(),
@@ -329,6 +334,20 @@ public class TestController {
                     test.getCreatedAt(),
                     test.getUpdatedAt()
             );
+
+            if (visitId != null) {
+                visitTestRepository.findByVisitIdAndTestId(visitId, testId).ifPresent(vt -> {
+                    testDTO.setName(vt.getTestName());
+                    testDTO.setPrice(vt.getTestPrice());
+                });
+            } else {
+                visitTestRepository.findByTestIdOrderByIdDesc(testId).stream()
+                        .findFirst()
+                        .ifPresent(vt -> {
+                            testDTO.setName(vt.getTestName());
+                            testDTO.setPrice(vt.getTestPrice());
+                        });
+            }
 
             return ApiResponseHelper.successResponseWithDataAndMessage("Test retrieved successfully", HttpStatus.OK, testDTO);
 

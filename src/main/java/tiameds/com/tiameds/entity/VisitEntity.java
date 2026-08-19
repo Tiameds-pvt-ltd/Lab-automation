@@ -54,9 +54,21 @@ public class VisitEntity {
     }
 
     public void setTests(Set<Test> tests) {
-        this.visitTests.clear();
-        if (tests != null) {
-            for (Test test : tests) {
+        if (tests == null || tests.isEmpty()) {
+            this.visitTests.clear();
+            return;
+        }
+        Set<Long> newTestIds = tests.stream()
+                .map(Test::getId)
+                .collect(Collectors.toSet());
+        // Remove entries for tests no longer in the set
+        this.visitTests.removeIf(vt -> !newTestIds.contains(vt.getTest().getId()));
+        // Only add entries for truly new tests (preserves existing snapshots)
+        Set<Long> existingTestIds = this.visitTests.stream()
+                .map(vt -> vt.getTest().getId())
+                .collect(Collectors.toSet());
+        for (Test test : tests) {
+            if (!existingTestIds.contains(test.getId())) {
                 VisitTest vt = new VisitTest();
                 vt.setVisit(this);
                 vt.setTest(test);

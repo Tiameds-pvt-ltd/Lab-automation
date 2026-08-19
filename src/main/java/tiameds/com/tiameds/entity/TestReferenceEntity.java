@@ -29,6 +29,9 @@ public class TestReferenceEntity {
     private Long id;
 
 
+    @Column(name = "test_id")
+    private Long testId;
+
     @Column(nullable = false)
     private String category;
 

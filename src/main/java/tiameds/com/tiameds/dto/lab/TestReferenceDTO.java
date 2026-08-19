@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 @Data
 public class TestReferenceDTO {
     private Long id;
+    private Long testId;
     private Long labId;
     private String testReferenceCode;
     private String category;

@@ -16,6 +16,8 @@ public interface TestRepository extends JpaRepository<Test, Long> {
 
     List<Test> findByLabs(Lab lab);
 
+    java.util.Optional<Test> findByNameIgnoreCase(String name);
+
     boolean existsByLabs_Id(Long labId);
     boolean existsByTestCode(String testCode);
 

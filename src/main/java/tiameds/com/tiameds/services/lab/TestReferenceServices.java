@@ -57,6 +57,7 @@ public class TestReferenceServices {
                 .map(TestReferenceEntity -> {
                     TestReferenceDTO dto = new TestReferenceDTO();
                     dto.setId(TestReferenceEntity.getId());
+                    dto.setTestId(TestReferenceEntity.getTestId());
                     dto.setTestReferenceCode(TestReferenceEntity.getTestReferenceCode());
                     dto.setCategory(TestReferenceEntity.getCategory());
                     dto.setTestName(TestReferenceEntity.getTestName());
@@ -73,11 +74,11 @@ public class TestReferenceServices {
                     dto.setUpdatedBy(TestReferenceEntity.getUpdatedBy());
                     dto.setCreatedAt(TestReferenceEntity.getCreatedAt());
                     dto.setUpdatedAt(TestReferenceEntity.getUpdatedAt());
-                    
+
                     // Add JSON fields
                     dto.setReportJson(TestReferenceEntity.getReportJson());
                     dto.setReferenceRanges(TestReferenceEntity.getReferenceRanges());
-                    
+
                     return dto;
                 }).toList();
         return testReferenceDTOS;
@@ -252,6 +253,7 @@ public class TestReferenceServices {
         }
         
         // Update the entity fields
+        testReferenceEntity.setTestId(resolveTestId(testReferenceDTO.getTestId(), testReferenceDTO.getTestName()));
         testReferenceEntity.setCategory(testReferenceDTO.getCategory());
         testReferenceEntity.setTestName(testReferenceDTO.getTestName());
         testReferenceEntity.setTestDescription(testReferenceDTO.getTestDescription());
@@ -282,6 +284,7 @@ public class TestReferenceServices {
         // Map to DTO for response
         TestReferenceDTO dto = new TestReferenceDTO();
         dto.setId(testReferenceEntity.getId());
+        dto.setTestId(testReferenceEntity.getTestId());
         dto.setTestReferenceCode(testReferenceEntity.getTestReferenceCode());
         dto.setCategory(testReferenceEntity.getCategory());
         dto.setTestName(testReferenceEntity.getTestName());
@@ -416,10 +419,21 @@ public class TestReferenceServices {
         LOGGER.info("Successfully deleted test reference with ID: " + testReferenceId);
     }
 
+    private Long resolveTestId(Long providedId, String testName) {
+        if (providedId != null) return providedId;
+        if (testName != null && !testName.isBlank()) {
+            return testRepository.findByNameIgnoreCase(testName.trim())
+                    .map(t -> t.getId())
+                    .orElse(null);
+        }
+        return null;
+    }
+
     public TestReferenceDTO addTestReference(Lab lab, TestReferenceDTO testReferenceDTO, User currentUser) {
         alignReferenceSequence(lab.getId());
 
         TestReferenceEntity entity = new TestReferenceEntity();
+        entity.setTestId(resolveTestId(testReferenceDTO.getTestId(), testReferenceDTO.getTestName()));
         entity.setCategory(testReferenceDTO.getCategory());
         entity.setTestName(testReferenceDTO.getTestName());
         entity.setTestDescription(testReferenceDTO.getTestDescription());
@@ -453,6 +467,7 @@ public class TestReferenceServices {
 
         TestReferenceDTO dto = new TestReferenceDTO();
         dto.setId(saved.getId());
+        dto.setTestId(saved.getTestId());
         dto.setCategory(saved.getCategory());
         dto.setTestName(saved.getTestName());
         dto.setTestDescription(saved.getTestDescription());
@@ -679,12 +694,36 @@ public class TestReferenceServices {
     }
 
     public List<TestReferenceDTO> getTestReferenceByTestId(Lab lab, Long testId) {
-        Test test = testRepository.findById(testId).orElse(null);
-        if (test == null) {
-            LOGGER.warning("Test not found for id: " + testId);
-            return new ArrayList<>();
-        }
-        return getTestReferenceByTestName(lab, test.getName());
+        return lab.getTestReferences().stream()
+                .filter(ref -> testId.equals(ref.getTestId()))
+                .sorted(Comparator.comparingLong(TestReferenceEntity::getId))
+                .map(ref -> {
+                    TestReferenceDTO dto = new TestReferenceDTO();
+                    dto.setId(ref.getId());
+                    dto.setTestId(ref.getTestId());
+                    dto.setTestReferenceCode(ref.getTestReferenceCode());
+                    dto.setCategory(ref.getCategory());
+                    dto.setTestName(ref.getTestName());
+                    dto.setTestDescription(ref.getTestDescription());
+                    dto.setUnits(ref.getUnits());
+                    dto.setGender(ref.getGender());
+                    dto.setMinReferenceRange(ref.getMinReferenceRange());
+                    dto.setMaxReferenceRange(ref.getMaxReferenceRange());
+                    dto.setAgeMin(ref.getAgeMin());
+                    dto.setMinAgeUnit(ref.getMinAgeUnit() != null ? ref.getMinAgeUnit().toString() : null);
+                    dto.setAgeMax(ref.getAgeMax());
+                    dto.setMaxAgeUnit(ref.getMaxAgeUnit() != null ? ref.getMaxAgeUnit().toString() : null);
+                    dto.setCreatedBy(ref.getCreatedBy());
+                    dto.setUpdatedBy(ref.getUpdatedBy());
+                    dto.setCreatedAt(ref.getCreatedAt());
+                    dto.setUpdatedAt(ref.getUpdatedAt());
+                    dto.setReportJson(ref.getReportJson());
+                    dto.setReferenceRanges(ref.getReferenceRanges());
+                    dto.setDropdown(ref.getDropdown());
+                    dto.setImpression(ref.getImpression());
+                    return dto;
+                })
+                .toList();
     }
 
     public void deleteAllTestReferences(Lab lab) {
