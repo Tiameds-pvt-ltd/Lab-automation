@@ -29,12 +29,14 @@ public interface DoctorRepository extends JpaRepository<Doctors, Long> {
     @Query(value = "SELECT d.doctor_id AS doctorId, d.name AS doctorName, d.speciality AS speciality, " +
             "COUNT(DISTINCT lv.lab_id) AS labCount, " +
             "COUNT(DISTINCT v.patient_id) AS patientCount, " +
-            "COALESCE(SUM(b.actual_received_amount), 0) AS revenue " +
+            "COALESCE(SUM(b.actual_received_amount), 0) AS revenue, " +
+            "COUNT(vtr.id) AS totalTests " +
             "FROM doctors d " +
             "JOIN patient_visits v ON v.doctor_id = d.doctor_id " +
             "JOIN lab_visit lv ON lv.visit_id = v.visit_id " +
             "JOIN labs l ON l.lab_id = lv.lab_id " +
             "LEFT JOIN billing b ON v.billing_id = b.billing_id " +
+            "LEFT JOIN visit_test_result vtr ON vtr.visit_id = v.visit_id AND LOWER(vtr.test_status) = 'active' " +
             "WHERE l.created_by = :createdById AND LOWER(v.visit_status) != 'cancelled' " +
             "GROUP BY d.doctor_id, d.name, d.speciality " +
             "ORDER BY revenue DESC " +
@@ -44,12 +46,14 @@ public interface DoctorRepository extends JpaRepository<Doctors, Long> {
     @Query(value = "SELECT d.doctor_id AS doctorId, d.name AS doctorName, d.speciality AS speciality, " +
             "COUNT(DISTINCT lv.lab_id) AS labCount, " +
             "COUNT(DISTINCT v.patient_id) AS patientCount, " +
-            "COALESCE(SUM(b.actual_received_amount), 0) AS revenue " +
+            "COALESCE(SUM(b.actual_received_amount), 0) AS revenue, " +
+            "COUNT(vtr.id) AS totalTests " +
             "FROM doctors d " +
             "JOIN patient_visits v ON v.doctor_id = d.doctor_id " +
             "JOIN lab_visit lv ON lv.visit_id = v.visit_id " +
             "JOIN labs l ON l.lab_id = lv.lab_id " +
             "LEFT JOIN billing b ON v.billing_id = b.billing_id " +
+            "LEFT JOIN visit_test_result vtr ON vtr.visit_id = v.visit_id AND LOWER(vtr.test_status) = 'active' " +
             "WHERE l.created_by = :createdById " +
             "AND v.created_at BETWEEN :startDate AND :endDate AND LOWER(v.visit_status) != 'cancelled' " +
             "GROUP BY d.doctor_id, d.name, d.speciality " +
@@ -63,11 +67,13 @@ public interface DoctorRepository extends JpaRepository<Doctors, Long> {
     @Query(value = "SELECT d.doctor_id AS doctorId, d.name AS doctorName, d.speciality AS speciality, " +
             "COUNT(DISTINCT lv.lab_id) AS labCount, " +
             "COUNT(DISTINCT v.patient_id) AS patientCount, " +
-            "COALESCE(SUM(b.actual_received_amount), 0) AS revenue " +
+            "COALESCE(SUM(b.actual_received_amount), 0) AS revenue, " +
+            "COUNT(vtr.id) AS totalTests " +
             "FROM doctors d " +
             "JOIN patient_visits v ON v.doctor_id = d.doctor_id " +
             "JOIN lab_visit lv ON lv.visit_id = v.visit_id " +
             "LEFT JOIN billing b ON v.billing_id = b.billing_id " +
+            "LEFT JOIN visit_test_result vtr ON vtr.visit_id = v.visit_id AND LOWER(vtr.test_status) = 'active' " +
             "WHERE lv.lab_id = :labId AND LOWER(v.visit_status) != 'cancelled' " +
             "GROUP BY d.doctor_id, d.name, d.speciality " +
             "ORDER BY revenue DESC " +
@@ -77,11 +83,13 @@ public interface DoctorRepository extends JpaRepository<Doctors, Long> {
     @Query(value = "SELECT d.doctor_id AS doctorId, d.name AS doctorName, d.speciality AS speciality, " +
             "COUNT(DISTINCT lv.lab_id) AS labCount, " +
             "COUNT(DISTINCT v.patient_id) AS patientCount, " +
-            "COALESCE(SUM(b.actual_received_amount), 0) AS revenue " +
+            "COALESCE(SUM(b.actual_received_amount), 0) AS revenue, " +
+            "COUNT(vtr.id) AS totalTests " +
             "FROM doctors d " +
             "JOIN patient_visits v ON v.doctor_id = d.doctor_id " +
             "JOIN lab_visit lv ON lv.visit_id = v.visit_id " +
             "LEFT JOIN billing b ON v.billing_id = b.billing_id " +
+            "LEFT JOIN visit_test_result vtr ON vtr.visit_id = v.visit_id AND LOWER(vtr.test_status) = 'active' " +
             "WHERE lv.lab_id = :labId " +
             "AND v.created_at BETWEEN :startDate AND :endDate AND LOWER(v.visit_status) != 'cancelled' " +
             "GROUP BY d.doctor_id, d.name, d.speciality " +
@@ -96,5 +104,6 @@ public interface DoctorRepository extends JpaRepository<Doctors, Long> {
         Long getLabCount();
         Long getPatientCount();
         BigDecimal getRevenue();
+        Long getTotalTests();
     }
 }
