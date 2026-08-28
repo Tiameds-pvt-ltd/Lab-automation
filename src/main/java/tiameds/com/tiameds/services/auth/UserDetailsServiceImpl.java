@@ -2,6 +2,7 @@ package tiameds.com.tiameds.services.auth;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -22,6 +23,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     }
 
     @Override
+    @Cacheable(value = "userDetails", key = "#loginIdentifier")
     public UserDetails loadUserByUsername(String loginIdentifier) throws UsernameNotFoundException {
         User user = userRepository.findByUsername(loginIdentifier)
                 .orElseGet(() -> userRepository.findByEmail(loginIdentifier).orElse(null)); // Use Optional
