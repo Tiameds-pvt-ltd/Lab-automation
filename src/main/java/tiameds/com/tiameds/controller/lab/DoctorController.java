@@ -124,6 +124,7 @@ public class DoctorController {
     }
 
 
+
     // delete doctor
     @DeleteMapping("{labId}/doctors/{doctorId}")
     public ResponseEntity<?> deleteDoctor(
