@@ -7,8 +7,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
@@ -49,7 +47,6 @@ public class TestReferenceServices {
         this.labTestReferenceLinkRepository = labTestReferenceLinkRepository;
     }
 
-    @Cacheable(value = "testReferences", key = "#lab.id")
     public List<TestReferenceDTO> getAllTestReferences(Lab lab) {
         List<TestReferenceDTO> testReferenceDTOS = lab.getTestReferences().stream()
                 .sorted(Comparator.comparingLong(TestReferenceEntity::getId))
@@ -83,7 +80,6 @@ public class TestReferenceServices {
 
     }
 
-    @Cacheable(value = "testReferencesPage", key = "#lab.id + '-' + #page + '-' + #size")
     public Map<String, Object> getAllTestReferences(Lab lab, int page, int size) {
         List<TestReferenceDTO> allTestReferences = lab.getTestReferences().stream()
                 .sorted(Comparator.comparingLong(TestReferenceEntity::getId))
@@ -142,7 +138,6 @@ public class TestReferenceServices {
         return response;
     }
 
-    @CacheEvict(value = {"testReferences", "testReferencesPage"}, key = "#lab.id")
     public TestReferenceDTO updateTestReference(Lab lab, Long testReferenceId, TestReferenceDTO testReferenceDTO, User currentUser) {
         LOGGER.info("Attempting to update test reference with ID: " + testReferenceId + " or code: " + (testReferenceDTO != null ? testReferenceDTO.getTestReferenceCode() : null) + " for lab ID: " + lab.getId());
         
@@ -309,7 +304,6 @@ public class TestReferenceServices {
         return dto;
     }
 
-    @CacheEvict(value = {"testReferences", "testReferencesPage"}, key = "#lab.id")
     public void deleteTestReference(Lab lab, Long testReferenceId, String testReferenceCode) {
         LOGGER.info("Attempting to delete test reference with ID: " + testReferenceId + " or code: " + testReferenceCode + " for lab ID: " + lab.getId());
         
@@ -418,7 +412,6 @@ public class TestReferenceServices {
         LOGGER.info("Successfully deleted test reference with ID: " + testReferenceId);
     }
 
-    @CacheEvict(value = {"testReferences", "testReferencesPage"}, key = "#lab.id")
     public TestReferenceDTO addTestReference(Lab lab, TestReferenceDTO testReferenceDTO, User currentUser) {
         alignReferenceSequence(lab.getId());
 
