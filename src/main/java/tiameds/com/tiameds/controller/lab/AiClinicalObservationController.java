@@ -96,7 +96,6 @@ public class AiClinicalObservationController {
             return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
-
     // Transactional for the same reason the save is: spring.jpa.open-in-view is false, so
     // the Hibernate session closes as soon as the repository call returns. Both the lab
     // check below (VisitEntity.labs is a LAZY @ManyToMany) and buildResponse's
