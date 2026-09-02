@@ -148,6 +148,16 @@
                 <version>7.6.0</version>
             </dependency>
 
+            <!-- Flyway: automatic DB migration on startup -->
+            <dependency>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-core</artifactId>
+            </dependency>
+            <dependency>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-database-postgresql</artifactId>
+            </dependency>
+
 
         </dependencies>
 

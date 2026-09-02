@@ -1,23 +1,71 @@
+server:
+  servlet:
+    context-path: /api/v1
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain,application/javascript,text/css
+  error:
+    whitelabel:
+      enabled: false
+
+logging:
+  level:
+    org.springframework: INFO
+    org.springframework.security: WARN
+    com:
+      fasterxml:
+        jackson: WARN
+
 spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/tiameds?charSet=UTF8
-    username: postgres
-    password: root
-    driver-class-name: org.postgresql.Driver
-
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-        default_batch_fetch_size: 10
-
   servlet:
     multipart:
       max-file-size: 10MB
       max-request-size: 10MB
+
+  datasource:
+    hikari:
+      auto-commit: false
+      data-source-properties:
+        cachePrepStmts: true
+        prepStmtCacheSize: 500
+        prepStmtCacheSqlLimit: 1024
+        useServerPrepStmts: false
+      minimum-idle: 0
+      max-lifetime: 900000
+      maximum-pool-size: 40
+      transaction-isolation: TRANSACTION_READ_COMMITTED
+
+    url: jdbc:postgresql://localhost:5432/testlabnew?charSet=UTF8
+    username: postgres
+    password: root
+    driver-class-name: org.postgresql.Driver
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: 10
+    validate-on-migrate: true
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    properties:
+      hibernate:
+        connection:
+          provider_disables_autocommit: true
+        jdbc:
+          batch_size: 15
+          time_zone: UTC
+        order_inserts: true
+        order_updates: true
+        query:
+          fail_on_pagination_over_collection_fetch: true
+          in_clause_parameter_padding: true
+          plan_cache_max_size: 4096
+        default_batch_fetch_size: 10
+    show-sql: false
 
   mail:
     host: ${SPRING_MAIL_HOST:smtp.gmail.com}
@@ -37,30 +85,42 @@ springdoc:
   swagger-ui:
     path: /doc
 
-logging:
-  level:
-    org.springframework: INFO
-    org.springframework.security: DEBUG
-    com:
-      fasterxml:
-        jackson: DEBUG
+security-scanning:
+  sonarqube:
+    host-url: ${SONAR_HOST_URL}
+    project-key: ${SONAR_PROJECT_KEY}
+    token: ${SONAR_TOKEN}
+  spotbugs:
+    enabled: ${SPOTBUGS_ENABLED:false}
+    report-path: ${SPOTBUGS_REPORT_PATH:build/reports/spotbugs/spotbugs.xml}
+  dependency-check:
+    enabled: ${OWASP_DC_ENABLED:false}
+    suppression-file: ${OWASP_DC_SUPPRESSION_FILE:./config/dependency-check-suppressions.xml}
+    report-path: ${OWASP_DC_REPORT_PATH:./reports/dependency-check-report.html}
 
-# Server configuration
-server:
-  port: 8080
-  servlet:
-    context-path: /api/v1
-  base-url: ${SERVER_BASE_URL:http://localhost:8080/api/v1}  # Backend base URL for email links
+
+# Onboarding Configuration
+onboarding:
+  frontend:
+    base-url: http://localhost:3000
+    verification-url: http://localhost:3000/verify-email
+    onboarding-url: http://localhost:3000/onboarding
+# Rate limiting configuration (user-based only)
+rate:
+  limit:
+    login:
+      attempts: 100  # Max login attempts per user
+      window: 10   # Time window in minutes (user is blocked for this duration if limit exceeded)
 
 # Security configuration
 security:
   jwt:
     issuer: ${JWT_ISSUER:tiameds-lab-automation}
     audience: ${JWT_AUDIENCE:tiameds-clients}
-    access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:PT2M}
+    access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:PT15M}
     refresh-token-ttl: ${JWT_REFRESH_TOKEN_TTL:P1D}
-    private-key-location: classpath:keys/private_key.pem
-    public-key-location: classpath:keys/public_key.pem
+    private-key-location: ${JWT_PRIVATE_KEY_LOCATION:classpath:keys/private_key.pem}
+    public-key-location: ${JWT_PUBLIC_KEY_LOCATION:classpath:keys/public_key.pem}
     access-cookie-name: ${JWT_ACCESS_COOKIE_NAME:accessToken}
     refresh-cookie-name: ${JWT_REFRESH_COOKIE_NAME:refreshToken}
     cookie-domain: ${JWT_COOKIE_DOMAIN:}
@@ -68,6 +128,10 @@ security:
     cookie-secure: ${JWT_COOKIE_SECURE:false}
     same-site: ${JWT_COOKIE_SAMESITE:Lax}
     subject-encryption-key: ${JWT_SUBJECT_ENCRYPTION_KEY:MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=}
+  ip:
+    whitelist:
+      enabled: false  # Set to true to enable IP whitelisting
+      ips: ""  # Comma-separated list of allowed IPs (e.g., "192.168.1.1,10.0.0.1")
 
 # Password reset configuration
 # Database-backed rate limiting (shared across all instances)
@@ -77,7 +141,7 @@ password:
       expiry:
         minutes: ${PASSWORD_RESET_TOKEN_EXPIRY_MINUTES:15}  # Default 15 minutes, optional 30
       length: ${PASSWORD_RESET_TOKEN_LENGTH:32}  # Token length in bytes (32+ recommended)
-    url: ${PASSWORD_RESET_URL:http://localhost:3000/reset-password}  # Frontend reset password URL
+    url: http://localhost:3000/reset-password  # Frontend reset password URL
     rate:
       limit:
         email:
@@ -88,23 +152,3 @@ password:
           max: ${PASSWORD_RESET_RATE_LIMIT_IP_MAX:3}  # Max requests per IP per window
           window:
             minutes: ${PASSWORD_RESET_RATE_LIMIT_IP_WINDOW:1}  # Time window in minutes
-
-# S3 upload configuration
-aws:
-  s3:
-    bucket: ${AWS_S3_BUCKET:}
-    region: ${AWS_REGION:}
-    cdn-base-url: ${AWS_S3_CDN_BASE_URL:}
-    presign-expiry-minutes: ${AWS_S3_PRESIGN_EXPIRY_MINUTES:10}
-
-# Onboarding Configuration
-onboarding:
-  token:
-    expiry-minutes: 15  # Token expiration time in minutes (default: 15)
-  rate-limit:
-    max-emails-per-hour: 3  # Maximum verification emails per hour per email address
-    window-minutes: 60  # Rate limit window in minutes
-  frontend:
-    base-url: http://localhost:3000  # Frontend base URL
-    verification-url: http://localhost:3000/verify-email  # Email verification endpoint URL
-    onboarding-url: http://localhost:3000/onboarding  # Onboarding form URL

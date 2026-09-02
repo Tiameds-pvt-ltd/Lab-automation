@@ -29,7 +29,7 @@ public interface DoctorRepository extends JpaRepository<Doctors, Long> {
     @Query(value = "SELECT d.doctor_id AS doctorId, d.name AS doctorName, d.speciality AS speciality, " +
             "COUNT(DISTINCT lv.lab_id) AS labCount, " +
             "COUNT(DISTINCT v.patient_id) AS patientCount, " +
-            "COALESCE(SUM(b.actual_received_amount), 0) AS revenue, " +
+            "COALESCE(SUM(b.actual_received_amount::numeric), 0) AS revenue, " +
             "COUNT(vtr.id) AS totalTests " +
             "FROM doctors d " +
             "JOIN patient_visits v ON v.doctor_id = d.doctor_id " +
@@ -46,7 +46,7 @@ public interface DoctorRepository extends JpaRepository<Doctors, Long> {
     @Query(value = "SELECT d.doctor_id AS doctorId, d.name AS doctorName, d.speciality AS speciality, " +
             "COUNT(DISTINCT lv.lab_id) AS labCount, " +
             "COUNT(DISTINCT v.patient_id) AS patientCount, " +
-            "COALESCE(SUM(b.actual_received_amount), 0) AS revenue, " +
+            "COALESCE(SUM(b.actual_received_amount::numeric), 0) AS revenue, " +
             "COUNT(vtr.id) AS totalTests " +
             "FROM doctors d " +
             "JOIN patient_visits v ON v.doctor_id = d.doctor_id " +
@@ -67,7 +67,7 @@ public interface DoctorRepository extends JpaRepository<Doctors, Long> {
     @Query(value = "SELECT d.doctor_id AS doctorId, d.name AS doctorName, d.speciality AS speciality, " +
             "COUNT(DISTINCT lv.lab_id) AS labCount, " +
             "COUNT(DISTINCT v.patient_id) AS patientCount, " +
-            "COALESCE(SUM(b.actual_received_amount), 0) AS revenue, " +
+            "COALESCE(SUM(b.actual_received_amount::numeric), 0) AS revenue, " +
             "COUNT(vtr.id) AS totalTests " +
             "FROM doctors d " +
             "JOIN patient_visits v ON v.doctor_id = d.doctor_id " +
@@ -83,7 +83,7 @@ public interface DoctorRepository extends JpaRepository<Doctors, Long> {
     @Query(value = "SELECT d.doctor_id AS doctorId, d.name AS doctorName, d.speciality AS speciality, " +
             "COUNT(DISTINCT lv.lab_id) AS labCount, " +
             "COUNT(DISTINCT v.patient_id) AS patientCount, " +
-            "COALESCE(SUM(b.actual_received_amount), 0) AS revenue, " +
+            "COALESCE(SUM(b.actual_received_amount::numeric), 0) AS revenue, " +
             "COUNT(vtr.id) AS totalTests " +
             "FROM doctors d " +
             "JOIN patient_visits v ON v.doctor_id = d.doctor_id " +

@@ -53,14 +53,14 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "ROUND(COALESCE(vstats.avgTatHours, 0.0), 1) AS avgTatHours " +
         "FROM labs l " +
         "LEFT JOIN ( " +
-        "    SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue" +
+        "    SELECT lb.lab_id, SUM(b.actual_received_amount::numeric) AS revenue" +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
         "    JOIN patient_visits pv ON pv.billing_id = b.billing_id " +
         "    WHERE b.created_at BETWEEN :startDate AND :endDate AND LOWER(pv.visit_status) != 'cancelled' " +
         "    GROUP BY lb.lab_id " +
         ") curr ON curr.lab_id = l.lab_id " +
         "LEFT JOIN ( " +
-        "    SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue" +
+        "    SELECT lb.lab_id, SUM(b.actual_received_amount::numeric) AS revenue" +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
         "    JOIN patient_visits pv ON pv.billing_id = b.billing_id " +
         "    WHERE b.created_at BETWEEN :prevStartDate AND :prevEndDate AND LOWER(pv.visit_status) != 'cancelled' " +
@@ -72,7 +72,7 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "        COUNT(DISTINCT v.patient_id) AS patientCount, " +
         "        COUNT(DISTINCT CASE WHEN v.visit_status = 'Pending' THEN v.visit_id END) AS pendingSamples, " +
         "        COUNT(DISTINCT CASE WHEN vtr.report_status = 'Completed' THEN vtr.id END) AS reportsGenerated, " +
-        "        AVG(CASE WHEN r.report_id IS NOT NULL THEN EXTRACT(EPOCH FROM (r.created_at - v.created_at)) / 3600.0 END) AS avgTatHours " +
+        "        AVG(CASE WHEN r.report_id IS NOT NULL THEN EXTRACT(EPOCH FROM (r.created_at::timestamptz - v.created_at::timestamptz)) / 3600.0 END) AS avgTatHours " +
         "    FROM lab_visit lv " +
         "    JOIN patient_visits v ON v.visit_id = lv.visit_id " +
         "    LEFT JOIN visit_test_result vtr ON vtr.visit_id = v.visit_id AND LOWER(vtr.test_status) = 'active' " +
@@ -102,7 +102,7 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "ROUND(COALESCE(vstats.avgTatHours, 0.0), 1) AS avgTatHours " +
         "FROM labs l " +
         "LEFT JOIN ( " +
-        "    SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue" +
+        "    SELECT lb.lab_id, SUM(b.actual_received_amount::numeric) AS revenue" +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
         "    JOIN patient_visits pv ON pv.billing_id = b.billing_id " +
         "    WHERE LOWER(pv.visit_status) != 'cancelled' " +
@@ -114,7 +114,7 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "        COUNT(DISTINCT v.patient_id) AS patientCount, " +
         "        COUNT(DISTINCT CASE WHEN v.visit_status = 'Pending' THEN v.visit_id END) AS pendingSamples, " +
         "        COUNT(DISTINCT CASE WHEN vtr.report_status = 'Completed' THEN vtr.id END) AS reportsGenerated, " +
-        "        AVG(CASE WHEN r.report_id IS NOT NULL THEN EXTRACT(EPOCH FROM (r.created_at - v.created_at)) / 3600.0 END) AS avgTatHours " +
+        "        AVG(CASE WHEN r.report_id IS NOT NULL THEN EXTRACT(EPOCH FROM (r.created_at::timestamptz - v.created_at::timestamptz)) / 3600.0 END) AS avgTatHours " +
         "    FROM lab_visit lv " +
         "    JOIN patient_visits v ON v.visit_id = lv.visit_id " +
         "    LEFT JOIN visit_test_result vtr ON vtr.visit_id = v.visit_id AND LOWER(vtr.test_status) = 'active' " +
@@ -140,7 +140,7 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "ROUND(COALESCE(vstats.avgTatHours, 0.0), 1) AS avgTatHours " +
         "FROM labs l " +
         "LEFT JOIN ( " +
-        "    SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue" +
+        "    SELECT lb.lab_id, SUM(b.actual_received_amount::numeric) AS revenue" +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
         "    JOIN patient_visits pv ON pv.billing_id = b.billing_id " +
         "    WHERE LOWER(pv.visit_status) != 'cancelled' " +
@@ -152,7 +152,7 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "        COUNT(DISTINCT v.patient_id) AS patientCount, " +
         "        COUNT(DISTINCT CASE WHEN v.visit_status = 'Pending' THEN v.visit_id END) AS pendingSamples, " +
         "        COUNT(DISTINCT CASE WHEN vtr.report_status = 'Completed' THEN vtr.id END) AS reportsGenerated, " +
-        "        AVG(CASE WHEN r.report_id IS NOT NULL THEN EXTRACT(EPOCH FROM (r.created_at - v.created_at)) / 3600.0 END) AS avgTatHours " +
+        "        AVG(CASE WHEN r.report_id IS NOT NULL THEN EXTRACT(EPOCH FROM (r.created_at::timestamptz - v.created_at::timestamptz)) / 3600.0 END) AS avgTatHours " +
         "    FROM lab_visit lv " +
         "    JOIN patient_visits v ON v.visit_id = lv.visit_id " +
         "    LEFT JOIN visit_test_result vtr ON vtr.visit_id = v.visit_id AND LOWER(vtr.test_status) = 'active' " +
@@ -175,14 +175,14 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "ROUND(COALESCE(vstats.avgTatHours, 0.0), 1) AS avgTatHours " +
         "FROM labs l " +
         "LEFT JOIN ( " +
-        "    SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue" +
+        "    SELECT lb.lab_id, SUM(b.actual_received_amount::numeric) AS revenue" +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
         "    JOIN patient_visits pv ON pv.billing_id = b.billing_id " +
         "    WHERE b.created_at BETWEEN :startDate AND :endDate AND LOWER(pv.visit_status) != 'cancelled' " +
         "    GROUP BY lb.lab_id " +
         ") curr ON curr.lab_id = l.lab_id " +
         "LEFT JOIN ( " +
-        "    SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue" +
+        "    SELECT lb.lab_id, SUM(b.actual_received_amount::numeric) AS revenue" +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
         "    JOIN patient_visits pv ON pv.billing_id = b.billing_id " +
         "    WHERE b.created_at BETWEEN :prevStartDate AND :prevEndDate AND LOWER(pv.visit_status) != 'cancelled' " +
@@ -194,7 +194,7 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "        COUNT(DISTINCT v.patient_id) AS patientCount, " +
         "        COUNT(DISTINCT CASE WHEN v.visit_status = 'Pending' THEN v.visit_id END) AS pendingSamples, " +
         "        COUNT(DISTINCT CASE WHEN vtr.report_status = 'Completed' THEN vtr.id END) AS reportsGenerated, " +
-        "        AVG(CASE WHEN r.report_id IS NOT NULL THEN EXTRACT(EPOCH FROM (r.created_at - v.created_at)) / 3600.0 END) AS avgTatHours " +
+        "        AVG(CASE WHEN r.report_id IS NOT NULL THEN EXTRACT(EPOCH FROM (r.created_at::timestamptz - v.created_at::timestamptz)) / 3600.0 END) AS avgTatHours " +
         "    FROM lab_visit lv " +
         "    JOIN patient_visits v ON v.visit_id = lv.visit_id " +
         "    LEFT JOIN visit_test_result vtr ON vtr.visit_id = v.visit_id AND LOWER(vtr.test_status) = 'active' " +
@@ -222,14 +222,14 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "ROUND(COALESCE(vstats.avgTatHours, 0.0), 1) AS avgTatHours " +
         "FROM labs l " +
         "LEFT JOIN ( " +
-        "    SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue" +
+        "    SELECT lb.lab_id, SUM(b.actual_received_amount::numeric) AS revenue" +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
         "    JOIN patient_visits pv ON pv.billing_id = b.billing_id " +
         "    WHERE b.created_at BETWEEN :startDate AND :endDate AND LOWER(pv.visit_status) != 'cancelled' " +
         "    GROUP BY lb.lab_id " +
         ") curr ON curr.lab_id = l.lab_id " +
         "LEFT JOIN ( " +
-        "    SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue" +
+        "    SELECT lb.lab_id, SUM(b.actual_received_amount::numeric) AS revenue" +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
         "    JOIN patient_visits pv ON pv.billing_id = b.billing_id " +
         "    WHERE b.created_at BETWEEN :prevStartDate AND :prevEndDate AND LOWER(pv.visit_status) != 'cancelled' " +
@@ -241,7 +241,7 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "        COUNT(DISTINCT v.patient_id) AS patientCount, " +
         "        COUNT(DISTINCT CASE WHEN v.visit_status = 'Pending' THEN v.visit_id END) AS pendingSamples, " +
         "        COUNT(DISTINCT CASE WHEN vtr.report_status = 'Completed' THEN vtr.id END) AS reportsGenerated, " +
-        "        AVG(CASE WHEN r.report_id IS NOT NULL THEN EXTRACT(EPOCH FROM (r.created_at - v.created_at)) / 3600.0 END) AS avgTatHours " +
+        "        AVG(CASE WHEN r.report_id IS NOT NULL THEN EXTRACT(EPOCH FROM (r.created_at::timestamptz - v.created_at::timestamptz)) / 3600.0 END) AS avgTatHours " +
         "    FROM lab_visit lv " +
         "    JOIN patient_visits v ON v.visit_id = lv.visit_id " +
         "    LEFT JOIN visit_test_result vtr ON vtr.visit_id = v.visit_id AND LOWER(vtr.test_status) = 'active' " +
@@ -268,7 +268,7 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "ROUND(COALESCE(vstats.avgTatHours, 0.0), 1) AS avgTatHours " +
         "FROM labs l " +
         "LEFT JOIN ( " +
-        "    SELECT lb.lab_id, SUM(b.actual_received_amount) AS revenue" +
+        "    SELECT lb.lab_id, SUM(b.actual_received_amount::numeric) AS revenue" +
         "    FROM billing b JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
         "    JOIN patient_visits pv ON pv.billing_id = b.billing_id " +
         "    WHERE LOWER(pv.visit_status) != 'cancelled' " +
@@ -280,7 +280,7 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
         "        COUNT(DISTINCT v.patient_id) AS patientCount, " +
         "        COUNT(DISTINCT CASE WHEN v.visit_status = 'Pending' THEN v.visit_id END) AS pendingSamples, " +
         "        COUNT(DISTINCT CASE WHEN vtr.report_status = 'Completed' THEN vtr.id END) AS reportsGenerated, " +
-        "        AVG(CASE WHEN r.report_id IS NOT NULL THEN EXTRACT(EPOCH FROM (r.created_at - v.created_at)) / 3600.0 END) AS avgTatHours " +
+        "        AVG(CASE WHEN r.report_id IS NOT NULL THEN EXTRACT(EPOCH FROM (r.created_at::timestamptz - v.created_at::timestamptz)) / 3600.0 END) AS avgTatHours " +
         "    FROM lab_visit lv " +
         "    JOIN patient_visits v ON v.visit_id = lv.visit_id " +
         "    LEFT JOIN visit_test_result vtr ON vtr.visit_id = v.visit_id AND LOWER(vtr.test_status) = 'active' " +

@@ -73,6 +73,15 @@ public class SuperAdminDashboardController {
         Long userId = currentUser.getId();
         boolean hasDates = startDate != null && endDate != null;
 
+        // ── Shared data: fetched ONCE, reused in multiple sections ────────────
+        // Both testsByCategory and detailedBilling need testCategories.
+        // Both packagesSummary and detailedBilling need packages.
+        // Fetching here avoids 2 duplicate DB round-trips per request.
+        List<VisitTestResultRepository.TestsByCategoryDetailedProjection> sharedTestCategories =
+                fetchTestCategories(userId, currentUser, startDate, endDate, hasDates, labId);
+        List<HealthPackageRepository.PackageSummaryProjection> sharedPackages =
+                fetchPackages(userId, startDate, endDate, hasDates, labId);
+
         Map<String, Object> response = new LinkedHashMap<>();
 
         // ── KPIs ─────────────────────────────────────────────────────────────
@@ -82,7 +91,7 @@ public class SuperAdminDashboardController {
         response.put("dashboardSummary", buildDashboardSummary(userId, startDate, endDate, hasDates, labId));
 
         // ── Tests by category ─────────────────────────────────────────────────
-        response.put("testsByCategory", buildTestsByCategory(currentUser, userId, startDate, endDate, hasDates, labId));
+        response.put("testsByCategory", buildTestsByCategory(currentUser, userId, startDate, endDate, hasDates, labId, sharedTestCategories));
 
         // ── Revenue trend (only when date range supplied) ─────────────────────
         if (hasDates) {
@@ -98,11 +107,11 @@ public class SuperAdminDashboardController {
         // ── Top referring doctors ─────────────────────────────────────────────
         response.put("topReferringDoctors", buildTopReferringDoctors(userId, startDate, endDate, hasDates, limit, labId));
 
-        // ── Detailed billing ──────────────────────────────────────────────────
-        response.put("detailedBilling", buildDetailedBilling(userId, startDate, endDate, hasDates, labId));
+        // ── Detailed billing (reuses shared testCategories + packages) ────────
+        response.put("detailedBilling", buildDetailedBilling(userId, startDate, endDate, hasDates, labId, sharedTestCategories, sharedPackages));
 
-        // ── Packages summary ──────────────────────────────────────────────────
-        response.put("packagesSummary", buildPackagesSummary(userId, startDate, endDate, hasDates, labId));
+        // ── Packages summary (reuses shared packages) ─────────────────────────
+        response.put("packagesSummary", buildPackagesSummary(sharedPackages));
 
         // ── Earnings by category ──────────────────────────────────────────────
         response.put("earningsByCategory", buildEarningsByCategory(currentUser, startDate, endDate, hasDates, labId));
@@ -151,6 +160,34 @@ public class SuperAdminDashboardController {
         response.put("rows",        pageResult.getContent());
 
         return ApiResponseHelper.successResponse("Grid report retrieved successfully", response);
+    }
+
+    // ─── shared data fetchers (called once, results passed to multiple builders) ──
+
+    private List<VisitTestResultRepository.TestsByCategoryDetailedProjection> fetchTestCategories(
+            Long userId, User currentUser,
+            LocalDate startDate, LocalDate endDate, boolean hasDates, Long labId) {
+        if (labId != null) {
+            return hasDates
+                    ? visitTestResultRepository.getPatientTestsByCategoryDetailedByLabIdWithDateRange(labId, toStart(startDate), toEnd(endDate))
+                    : visitTestResultRepository.getPatientTestsByCategoryDetailedByLabId(labId);
+        }
+        return hasDates
+                ? visitTestResultRepository.getPatientTestsByCategoryDetailedBySuperAdminWithDateRange(userId, toStart(startDate), toEnd(endDate))
+                : visitTestResultRepository.getPatientTestsByCategoryDetailedBySuperAdmin(userId);
+    }
+
+    private List<HealthPackageRepository.PackageSummaryProjection> fetchPackages(
+            Long userId,
+            LocalDate startDate, LocalDate endDate, boolean hasDates, Long labId) {
+        if (labId != null) {
+            return hasDates
+                    ? healthPackageRepository.getPackageSummaryByLabIdWithDateRange(labId, toInstantStart(startDate), toInstantEnd(endDate))
+                    : healthPackageRepository.getPackageSummaryByLabId(labId);
+        }
+        return hasDates
+                ? healthPackageRepository.getPackageSummaryBySuperAdminWithDateRange(userId, toInstantStart(startDate), toInstantEnd(endDate))
+                : healthPackageRepository.getPackageSummaryBySuperAdmin(userId);
     }
 
     // ─── section builders ────────────────────────────────────────────────────
@@ -232,21 +269,28 @@ public class SuperAdminDashboardController {
         return kpis;
     }
 
+    /**
+     * Replaced N+1 loop (1 + N queries per role) with a single GROUP BY query.
+     * Old cost: 3 × (1 + N_labs) queries. New cost: 3 queries total.
+     * Labs with zero members for the given role are omitted from labWise but still
+     * contribute 0 to the total — correct behaviour.
+     */
     private Map<String, Object> buildRoleLabWise(String roleName, User currentUser,
                                                   LocalDate startDate, LocalDate endDate, boolean hasDates) {
-        List<tiameds.com.tiameds.entity.Lab> labs = labRepository.findByCreatedBy(currentUser);
-        List<Map<String, Object>> labWise = new ArrayList<>();
+        List<UserRepository.LabRoleCountProjection> counts = hasDates
+                ? userRepository.countRolesByLabsCreatedByAndCreatedAtBetween(currentUser, roleName, toStart(startDate), toEnd(endDate))
+                : userRepository.countRolesByLabsCreatedBy(currentUser, roleName);
+
         long total = 0;
-        for (tiameds.com.tiameds.entity.Lab lab : labs) {
-            long count = hasDates
-                    ? userRepository.countByRolesNameAndLabsIdAndCreatedAtBetween(roleName, lab.getId(), toStart(startDate), toEnd(endDate))
-                    : userRepository.countByRolesNameAndLabsId(roleName, lab.getId());
+        List<Map<String, Object>> labWise = new ArrayList<>(counts.size());
+        for (UserRepository.LabRoleCountProjection row : counts) {
+            long count = row.getCount() != null ? row.getCount() : 0L;
             total += count;
-            Map<String, Object> row = new LinkedHashMap<>();
-            row.put("labId",   lab.getId());
-            row.put("labName", lab.getName());
-            row.put("count",   count);
-            labWise.add(row);
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("labId",   row.getLabId());
+            entry.put("labName", row.getLabName());
+            entry.put("count",   count);
+            labWise.add(entry);
         }
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("total",   total);
@@ -254,10 +298,31 @@ public class SuperAdminDashboardController {
         return result;
     }
 
+    /**
+     * Fixed: was running a full multi-lab aggregation query then Java-filtering to
+     * one lab. Now routes to the single-lab SQL query when labId is specified,
+     * so the DB only aggregates the relevant lab's data.
+     */
     private Map<String, Object> buildDashboardSummary(Long userId,
                                                        LocalDate startDate, LocalDate endDate, boolean hasDates, Long labId) {
         List<LabRepository.LabPerformanceSummaryProjection> labRows;
-        if (hasDates) {
+
+        if (labId != null) {
+            // Single-lab path: use dedicated queries that WHERE on lab_id in SQL
+            if (hasDates) {
+                long periodDays = ChronoUnit.DAYS.between(startDate, endDate) + 1;
+                LocalDate prevEnd   = startDate.minusDays(1);
+                LocalDate prevStart = prevEnd.minusDays(periodDays - 1);
+                labRows = labRepository.getLabPerformanceByLabIdAndDateRange(
+                        labId,
+                        toInstantStart(startDate), toInstantEnd(endDate),
+                        toInstantStart(prevStart), toInstantEnd(prevEnd))
+                        .map(Collections::singletonList).orElse(Collections.emptyList());
+            } else {
+                labRows = labRepository.getLabPerformanceByLabIdAllTime(labId)
+                        .map(Collections::singletonList).orElse(Collections.emptyList());
+            }
+        } else if (hasDates) {
             long periodDays = ChronoUnit.DAYS.between(startDate, endDate) + 1;
             LocalDate prevEnd   = startDate.minusDays(1);
             LocalDate prevStart = prevEnd.minusDays(periodDays - 1);
@@ -267,13 +332,6 @@ public class SuperAdminDashboardController {
                     toInstantStart(prevStart), toInstantEnd(prevEnd));
         } else {
             labRows = labRepository.getAllLabsSummaryAllTime(userId);
-        }
-
-        if (labId != null) {
-            final Long filterLabId = labId;
-            labRows = labRows.stream()
-                    .filter(r -> r.getLabId() != null && r.getLabId().equals(filterLabId))
-                    .collect(Collectors.toList());
         }
 
         BigDecimal totalRevenue    = BigDecimal.ZERO;
@@ -319,36 +377,41 @@ public class SuperAdminDashboardController {
         return result;
     }
 
+    /**
+     * Now receives pre-fetched categories (from fetchTestCategories) to avoid the
+     * duplicate DB call that buildDetailedBilling also made.
+     *
+     * Fixed: removed the duplicate `totalRevenue` key that was identical to `totalPaid`.
+     * The billing-level paid/due totals are still fetched separately because the
+     * category-projected values use proportional attribution (test_price / visit_total_price)
+     * and may differ from raw billing sums when packages are mixed into visits.
+     */
     private Map<String, Object> buildTestsByCategory(User currentUser, Long userId,
-                                                      LocalDate startDate, LocalDate endDate, boolean hasDates, Long labId) {
-        List<VisitTestResultRepository.TestsByCategoryDetailedProjection> categories;
+                                                      LocalDate startDate, LocalDate endDate, boolean hasDates, Long labId,
+                                                      List<VisitTestResultRepository.TestsByCategoryDetailedProjection> categories) {
         BigDecimal totalPaid, totalDue;
 
         if (labId != null) {
             if (hasDates) {
                 Instant is = toInstantStart(startDate);
                 Instant ie = toInstantEnd(endDate);
-                categories = visitTestResultRepository.getPatientTestsByCategoryDetailedByLabIdWithDateRange(labId, toStart(startDate), toEnd(endDate));
                 totalPaid  = billingRepository.sumPaidAmountByLabId(labId, is, ie);
                 totalDue   = billingRepository.sumDueAmountByLabIdAndCreatedAtBetween(labId, is, ie);
             } else {
-                categories = visitTestResultRepository.getPatientTestsByCategoryDetailedByLabId(labId);
                 totalPaid  = billingRepository.sumPaidAmountByLabIdAllTime(labId);
                 totalDue   = billingRepository.sumDueAmountByLabId(labId);
             }
         } else if (hasDates) {
-            categories = visitTestResultRepository.getPatientTestsByCategoryDetailedBySuperAdminWithDateRange(userId, toStart(startDate), toEnd(endDate));
             totalPaid  = billingRepository.sumPaidAmountByLabsCreatedByAndCreatedAtBetween(currentUser, toInstantStart(startDate), toInstantEnd(endDate));
             totalDue   = billingRepository.sumDueAmountByLabsCreatedByAndCreatedAtBetween(currentUser, toInstantStart(startDate), toInstantEnd(endDate));
         } else {
-            categories = visitTestResultRepository.getPatientTestsByCategoryDetailedBySuperAdmin(userId);
             totalPaid  = billingRepository.sumPaidAmountByLabsCreatedBy(currentUser);
             totalDue   = billingRepository.sumDueAmountByLabsCreatedBy(currentUser);
         }
         if (totalPaid == null) totalPaid = BigDecimal.ZERO;
         if (totalDue  == null) totalDue  = BigDecimal.ZERO;
 
-        long totalTests      = categories.stream().mapToLong(VisitTestResultRepository.TestsByCategoryDetailedProjection::getTestCount).sum();
+        long totalTests          = categories.stream().mapToLong(VisitTestResultRepository.TestsByCategoryDetailedProjection::getTestCount).sum();
         BigDecimal totalDiscount = sumField(categories, VisitTestResultRepository.TestsByCategoryDetailedProjection::getDiscount);
         BigDecimal totalCash     = sumField(categories, VisitTestResultRepository.TestsByCategoryDetailedProjection::getCashRevenue);
         BigDecimal totalUpi      = sumField(categories, VisitTestResultRepository.TestsByCategoryDetailedProjection::getUpiRevenue);
@@ -356,7 +419,9 @@ public class SuperAdminDashboardController {
 
         Map<String, Object> summary = new LinkedHashMap<>();
         summary.put("totalTests",    totalTests);
-        summary.put("totalRevenue",  totalPaid);
+        // NOTE: totalPaid = actualReceivedAmount (cash collected); totalDue = outstanding.
+        // totalGross = what was billed (before collection) across these tests' visits.
+        summary.put("totalGross",    totalPaid.add(totalDue));
         summary.put("totalDiscount", totalDiscount);
         summary.put("totalPaid",     totalPaid);
         summary.put("totalDue",      totalDue);
@@ -406,10 +471,31 @@ public class SuperAdminDashboardController {
         return billingRepository.getRevenueByLabAllTime(userId);
     }
 
+    /**
+     * Fixed: was applying Java-filter for labId AFTER the SQL LIMIT, meaning any lab
+     * ranked below the limit (e.g. rank 11 with limit=10) would silently return empty.
+     * Now routes to the single-lab SQL queries when labId is specified.
+     */
     private List<Map<String, Object>> buildLabPerformance(Long userId,
                                                            LocalDate startDate, LocalDate endDate, boolean hasDates, int limit, Long labId) {
         List<LabRepository.LabPerformanceSummaryProjection> results;
-        if (hasDates) {
+
+        if (labId != null) {
+            // Single-lab path — no LIMIT in the SQL, correct lab in WHERE clause
+            if (hasDates) {
+                long periodDays = ChronoUnit.DAYS.between(startDate, endDate) + 1;
+                LocalDate prevEnd   = startDate.minusDays(1);
+                LocalDate prevStart = prevEnd.minusDays(periodDays - 1);
+                results = labRepository.getLabPerformanceByLabIdAndDateRange(
+                        labId,
+                        toInstantStart(startDate), toInstantEnd(endDate),
+                        toInstantStart(prevStart), toInstantEnd(prevEnd))
+                        .map(Collections::singletonList).orElse(Collections.emptyList());
+            } else {
+                results = labRepository.getLabPerformanceByLabIdAllTime(labId)
+                        .map(Collections::singletonList).orElse(Collections.emptyList());
+            }
+        } else if (hasDates) {
             long periodDays = ChronoUnit.DAYS.between(startDate, endDate) + 1;
             LocalDate prevEnd   = startDate.minusDays(1);
             LocalDate prevStart = prevEnd.minusDays(periodDays - 1);
@@ -418,13 +504,6 @@ public class SuperAdminDashboardController {
                     toInstantStart(prevStart), toInstantEnd(prevEnd), limit);
         } else {
             results = labRepository.getLabPerformanceSummaryAllTime(userId, limit);
-        }
-
-        if (labId != null) {
-            final Long filterLabId = labId;
-            results = results.stream()
-                    .filter(r -> r.getLabId() != null && r.getLabId().equals(filterLabId))
-                    .collect(Collectors.toList());
         }
 
         List<Map<String, Object>> labs = new ArrayList<>();
@@ -471,39 +550,36 @@ public class SuperAdminDashboardController {
         return doctorRepository.getTopReferringDoctors(userId, limit);
     }
 
+    /**
+     * Now receives pre-fetched testCategories and packages from the caller (getAllStats)
+     * to avoid duplicate DB queries. The billing summary and byStatus projections are
+     * still fetched here as they are unique to this section.
+     */
     private Map<String, Object> buildDetailedBilling(Long userId,
-                                                      LocalDate startDate, LocalDate endDate, boolean hasDates, Long labId) {
+                                                      LocalDate startDate, LocalDate endDate, boolean hasDates, Long labId,
+                                                      List<VisitTestResultRepository.TestsByCategoryDetailedProjection> testCategories,
+                                                      List<HealthPackageRepository.PackageSummaryProjection> packages) {
         List<BillingRepository.DetailedBillingSummaryProjection> summaryList;
         List<BillingRepository.BillingByStatusProjection> byStatus;
-        List<VisitTestResultRepository.TestsByCategoryDetailedProjection> testCategories;
-        List<HealthPackageRepository.PackageSummaryProjection> packages;
 
         if (labId != null) {
             if (hasDates) {
                 Instant iStart = toInstantStart(startDate);
                 Instant iEnd   = toInstantEnd(endDate);
-                summaryList    = billingRepository.getDetailedBillingSummaryByLabIdWithDateRange(labId, iStart, iEnd);
-                byStatus       = billingRepository.getBillingByStatusByLabIdWithDateRange(labId, iStart, iEnd);
-                testCategories = visitTestResultRepository.getPatientTestsByCategoryDetailedByLabIdWithDateRange(labId, toStart(startDate), toEnd(endDate));
-                packages       = healthPackageRepository.getPackageSummaryByLabIdWithDateRange(labId, iStart, iEnd);
+                summaryList = billingRepository.getDetailedBillingSummaryByLabIdWithDateRange(labId, iStart, iEnd);
+                byStatus    = billingRepository.getBillingByStatusByLabIdWithDateRange(labId, iStart, iEnd);
             } else {
-                summaryList    = billingRepository.getDetailedBillingSummaryByLabId(labId);
-                byStatus       = billingRepository.getBillingByStatusByLabId(labId);
-                testCategories = visitTestResultRepository.getPatientTestsByCategoryDetailedByLabId(labId);
-                packages       = healthPackageRepository.getPackageSummaryByLabId(labId);
+                summaryList = billingRepository.getDetailedBillingSummaryByLabId(labId);
+                byStatus    = billingRepository.getBillingByStatusByLabId(labId);
             }
         } else if (hasDates) {
             Instant iStart = toInstantStart(startDate);
             Instant iEnd   = toInstantEnd(endDate);
-            summaryList    = billingRepository.getDetailedBillingSummaryWithDateRange(userId, iStart, iEnd);
-            byStatus       = billingRepository.getBillingByStatusWithDateRange(userId, iStart, iEnd);
-            testCategories = visitTestResultRepository.getPatientTestsByCategoryDetailedBySuperAdminWithDateRange(userId, toStart(startDate), toEnd(endDate));
-            packages       = healthPackageRepository.getPackageSummaryBySuperAdminWithDateRange(userId, iStart, iEnd);
+            summaryList = billingRepository.getDetailedBillingSummaryWithDateRange(userId, iStart, iEnd);
+            byStatus    = billingRepository.getBillingByStatusWithDateRange(userId, iStart, iEnd);
         } else {
-            summaryList    = billingRepository.getDetailedBillingSummary(userId);
-            byStatus       = billingRepository.getBillingByStatus(userId);
-            testCategories = visitTestResultRepository.getPatientTestsByCategoryDetailedBySuperAdmin(userId);
-            packages       = healthPackageRepository.getPackageSummaryBySuperAdmin(userId);
+            summaryList = billingRepository.getDetailedBillingSummary(userId);
+            byStatus    = billingRepository.getBillingByStatus(userId);
         }
 
         BillingRepository.DetailedBillingSummaryProjection raw = summaryList.isEmpty() ? null : summaryList.get(0);
@@ -579,22 +655,11 @@ public class SuperAdminDashboardController {
         return result;
     }
 
-    private Map<String, Object> buildPackagesSummary(Long userId,
-                                                      LocalDate startDate, LocalDate endDate, boolean hasDates, Long labId) {
-        List<HealthPackageRepository.PackageSummaryProjection> packages;
-
-        if (labId != null) {
-            if (hasDates) {
-                packages = healthPackageRepository.getPackageSummaryByLabIdWithDateRange(labId, toInstantStart(startDate), toInstantEnd(endDate));
-            } else {
-                packages = healthPackageRepository.getPackageSummaryByLabId(labId);
-            }
-        } else if (hasDates) {
-            packages = healthPackageRepository.getPackageSummaryBySuperAdminWithDateRange(userId, toInstantStart(startDate), toInstantEnd(endDate));
-        } else {
-            packages = healthPackageRepository.getPackageSummaryBySuperAdmin(userId);
-        }
-
+    /**
+     * Now receives pre-fetched packages (from fetchPackages) — eliminates the
+     * duplicate query that buildDetailedBilling also made.
+     */
+    private Map<String, Object> buildPackagesSummary(List<HealthPackageRepository.PackageSummaryProjection> packages) {
         Map<String, Object> summary = new LinkedHashMap<>();
         summary.put("totalPackages",  packages.size());
         summary.put("totalVisits",    packages.stream().mapToLong(p -> p.getVisitCount() != null ? p.getVisitCount() : 0L).sum());

@@ -16,6 +16,41 @@ import java.util.Optional;
 @Repository
 public interface UserRepository extends CrudRepository<User, Long> {
 
+    // ── Batch role-count per lab (replaces the N+1 loop in buildRoleLabWise) ──
+
+    /**
+     * One query instead of N: returns (labId, labName, count) for every lab owned
+     * by {@code createdBy} that has at least one enabled member with {@code roleName}.
+     * Labs with zero members for that role are NOT included — caller treats missing
+     * labs as count=0.
+     */
+    @Query("SELECT l.id AS labId, l.name AS labName, COUNT(u.id) AS count " +
+           "FROM Lab l JOIN l.members u JOIN u.roles r " +
+           "WHERE l.createdBy = :createdBy AND r.name = :roleName AND u.enabled = true " +
+           "GROUP BY l.id, l.name")
+    List<LabRoleCountProjection> countRolesByLabsCreatedBy(
+            @Param("createdBy") User createdBy,
+            @Param("roleName") String roleName);
+
+    @Query("SELECT l.id AS labId, l.name AS labName, COUNT(u.id) AS count " +
+           "FROM Lab l JOIN l.members u JOIN u.roles r " +
+           "WHERE l.createdBy = :createdBy AND r.name = :roleName AND u.enabled = true " +
+           "AND u.createdAt BETWEEN :startDate AND :endDate " +
+           "GROUP BY l.id, l.name")
+    List<LabRoleCountProjection> countRolesByLabsCreatedByAndCreatedAtBetween(
+            @Param("createdBy") User createdBy,
+            @Param("roleName") String roleName,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
+
+    interface LabRoleCountProjection {
+        Long getLabId();
+        String getLabName();
+        Long getCount();
+    }
+
+
+
     @Query("SELECT u FROM User u WHERE u.username = :username")
     public User getUserByUsername(@Param("username") String username);
     Optional<User> findByUsername(String username);

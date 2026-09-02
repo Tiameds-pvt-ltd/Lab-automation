@@ -36,34 +36,34 @@ public interface HealthPackageRepository extends JpaRepository<HealthPackage, Lo
         "ROUND(hp.price::numeric * COUNT(DISTINCT pvp.visit_id), 2) AS revenue, " +
         "ROUND(COALESCE(SUM(hp.discount::numeric), 0), 2) AS discount, " +
         "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 " +
-        "  ELSE hp.price::numeric * COALESCE(b.actual_received_amount, 0) / vps.total_price END), 0)::numeric, 2) AS paidRevenue, " +
+        "  ELSE hp.price::numeric * COALESCE(b.actual_received_amount::numeric, 0) / vps.total_price END), 0)::numeric, 2) AS paidRevenue, " +
         "ROUND(COALESCE(SUM(" +
         "  hp.price::numeric - COALESCE(hp.discount::numeric, 0) " +
         "  - CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 " +
-        "    ELSE hp.price::numeric * COALESCE(b.actual_received_amount, 0) / vps.total_price END" +
+        "    ELSE hp.price::numeric * COALESCE(b.actual_received_amount::numeric, 0) / vps.total_price END" +
         "), 0)::numeric, 2) AS dueRevenue, " +
         "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 ELSE " +
         "  hp.price::numeric * CASE WHEN bt_agg.billing_id IS NOT NULL THEN COALESCE(bt_agg.cash_total, 0) " +
-        "    WHEN UPPER(b.payment_method) = 'CASH' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END / vps.total_price END), 0)::numeric, 2) AS cashRevenue, " +
+        "    WHEN UPPER(b.payment_method) = 'CASH' THEN COALESCE(b.actual_received_amount::numeric, 0) ELSE 0 END / vps.total_price END), 0)::numeric, 2) AS cashRevenue, " +
         "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 ELSE " +
         "  hp.price::numeric * CASE WHEN bt_agg.billing_id IS NOT NULL THEN COALESCE(bt_agg.upi_total, 0) " +
-        "    WHEN UPPER(b.payment_method) = 'UPI' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END / vps.total_price END), 0)::numeric, 2) AS upiRevenue, " +
+        "    WHEN UPPER(b.payment_method) = 'UPI' THEN COALESCE(b.actual_received_amount::numeric, 0) ELSE 0 END / vps.total_price END), 0)::numeric, 2) AS upiRevenue, " +
         "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 ELSE " +
         "  hp.price::numeric * CASE WHEN bt_agg.billing_id IS NOT NULL THEN COALESCE(bt_agg.card_total, 0) " +
-        "    WHEN UPPER(b.payment_method) = 'CARD' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END / vps.total_price END), 0)::numeric, 2) AS cardRevenue " +
+        "    WHEN UPPER(b.payment_method) = 'CARD' THEN COALESCE(b.actual_received_amount::numeric, 0) ELSE 0 END / vps.total_price END), 0)::numeric, 2) AS cardRevenue " +
         "FROM health_packages hp " +
         "JOIN lab_packages lp ON hp.package_id = lp.package_id " +
         "JOIN labs l ON lp.lab_id = l.lab_id " +
         "LEFT JOIN patient_visit_packages pvp ON pvp.package_id = hp.package_id " +
         "LEFT JOIN patient_visits pv ON pvp.visit_id = pv.visit_id " +
         "LEFT JOIN billing b ON pv.billing_id = b.billing_id " +
-        "LEFT JOIN (SELECT bt.billing_id, COALESCE(SUM(bt.cash_amount), 0) AS cash_total, " +
-        "  COALESCE(SUM(bt.upi_amount), 0) AS upi_total, COALESCE(SUM(bt.card_amount), 0) AS card_total " +
+        "LEFT JOIN (SELECT bt.billing_id, COALESCE(SUM(bt.cash_amount::numeric), 0) AS cash_total, " +
+        "  COALESCE(SUM(bt.upi_amount::numeric), 0) AS upi_total, COALESCE(SUM(bt.card_amount::numeric), 0) AS card_total " +
         "  FROM billing_transaction bt GROUP BY bt.billing_id) bt_agg ON bt_agg.billing_id = b.billing_id " +
         "LEFT JOIN (SELECT pv2.visit_id, " +
         "  COALESCE(ts.test_total, 0) + COALESCE(ps.pkg_total, 0) AS total_price " +
         "  FROM patient_visits pv2 " +
-        "  LEFT JOIN (SELECT vtr2.visit_id, SUM(t2.price) AS test_total " +
+        "  LEFT JOIN (SELECT vtr2.visit_id, SUM(t2.price::numeric) AS test_total " +
         "    FROM visit_test_result vtr2 JOIN tests t2 ON vtr2.test_id = t2.test_id " +
         "    GROUP BY vtr2.visit_id) ts ON ts.visit_id = pv2.visit_id " +
         "  LEFT JOIN (SELECT pvp2.visit_id, SUM(hp2.price::numeric) AS pkg_total " +
@@ -81,21 +81,21 @@ public interface HealthPackageRepository extends JpaRepository<HealthPackage, Lo
         "ROUND(hp.price::numeric * COUNT(DISTINCT pvp.visit_id), 2) AS revenue, " +
         "ROUND(COALESCE(SUM(hp.discount::numeric), 0), 2) AS discount, " +
         "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 " +
-        "  ELSE hp.price::numeric * COALESCE(b.actual_received_amount, 0) / vps.total_price END), 0)::numeric, 2) AS paidRevenue, " +
+        "  ELSE hp.price::numeric * COALESCE(b.actual_received_amount::numeric, 0) / vps.total_price END), 0)::numeric, 2) AS paidRevenue, " +
         "ROUND(COALESCE(SUM(" +
         "  hp.price::numeric - COALESCE(hp.discount::numeric, 0) " +
         "  - CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 " +
-        "    ELSE hp.price::numeric * COALESCE(b.actual_received_amount, 0) / vps.total_price END" +
+        "    ELSE hp.price::numeric * COALESCE(b.actual_received_amount::numeric, 0) / vps.total_price END" +
         "), 0)::numeric, 2) AS dueRevenue, " +
         "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 ELSE " +
         "  hp.price::numeric * CASE WHEN bt_agg.billing_id IS NOT NULL THEN COALESCE(bt_agg.cash_total, 0) " +
-        "    WHEN UPPER(b.payment_method) = 'CASH' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END / vps.total_price END), 0)::numeric, 2) AS cashRevenue, " +
+        "    WHEN UPPER(b.payment_method) = 'CASH' THEN COALESCE(b.actual_received_amount::numeric, 0) ELSE 0 END / vps.total_price END), 0)::numeric, 2) AS cashRevenue, " +
         "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 ELSE " +
         "  hp.price::numeric * CASE WHEN bt_agg.billing_id IS NOT NULL THEN COALESCE(bt_agg.upi_total, 0) " +
-        "    WHEN UPPER(b.payment_method) = 'UPI' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END / vps.total_price END), 0)::numeric, 2) AS upiRevenue, " +
+        "    WHEN UPPER(b.payment_method) = 'UPI' THEN COALESCE(b.actual_received_amount::numeric, 0) ELSE 0 END / vps.total_price END), 0)::numeric, 2) AS upiRevenue, " +
         "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 ELSE " +
         "  hp.price::numeric * CASE WHEN bt_agg.billing_id IS NOT NULL THEN COALESCE(bt_agg.card_total, 0) " +
-        "    WHEN UPPER(b.payment_method) = 'CARD' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END / vps.total_price END), 0)::numeric, 2) AS cardRevenue " +
+        "    WHEN UPPER(b.payment_method) = 'CARD' THEN COALESCE(b.actual_received_amount::numeric, 0) ELSE 0 END / vps.total_price END), 0)::numeric, 2) AS cardRevenue " +
         "FROM health_packages hp " +
         "JOIN lab_packages lp ON hp.package_id = lp.package_id " +
         "JOIN labs l ON lp.lab_id = l.lab_id " +
@@ -105,13 +105,13 @@ public interface HealthPackageRepository extends JpaRepository<HealthPackage, Lo
         "  WHERE pv_f.created_at BETWEEN :startDate AND :endDate) pvp ON pvp.package_id = hp.package_id " +
         "JOIN patient_visits pv ON pvp.visit_id = pv.visit_id " +
         "LEFT JOIN billing b ON pv.billing_id = b.billing_id " +
-        "LEFT JOIN (SELECT bt.billing_id, COALESCE(SUM(bt.cash_amount), 0) AS cash_total, " +
-        "  COALESCE(SUM(bt.upi_amount), 0) AS upi_total, COALESCE(SUM(bt.card_amount), 0) AS card_total " +
+        "LEFT JOIN (SELECT bt.billing_id, COALESCE(SUM(bt.cash_amount::numeric), 0) AS cash_total, " +
+        "  COALESCE(SUM(bt.upi_amount::numeric), 0) AS upi_total, COALESCE(SUM(bt.card_amount::numeric), 0) AS card_total " +
         "  FROM billing_transaction bt GROUP BY bt.billing_id) bt_agg ON bt_agg.billing_id = b.billing_id " +
         "LEFT JOIN (SELECT pv2.visit_id, " +
         "  COALESCE(ts.test_total, 0) + COALESCE(ps.pkg_total, 0) AS total_price " +
         "  FROM patient_visits pv2 " +
-        "  LEFT JOIN (SELECT vtr2.visit_id, SUM(t2.price) AS test_total " +
+        "  LEFT JOIN (SELECT vtr2.visit_id, SUM(t2.price::numeric) AS test_total " +
         "    FROM visit_test_result vtr2 JOIN tests t2 ON vtr2.test_id = t2.test_id " +
         "    GROUP BY vtr2.visit_id) ts ON ts.visit_id = pv2.visit_id " +
         "  LEFT JOIN (SELECT pvp2.visit_id, SUM(hp2.price::numeric) AS pkg_total " +
@@ -132,33 +132,33 @@ public interface HealthPackageRepository extends JpaRepository<HealthPackage, Lo
         "ROUND(hp.price::numeric * COUNT(DISTINCT pvp.visit_id), 2) AS revenue, " +
         "ROUND(COALESCE(SUM(hp.discount::numeric), 0), 2) AS discount, " +
         "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 " +
-        "  ELSE hp.price::numeric * COALESCE(b.actual_received_amount, 0) / vps.total_price END), 0)::numeric, 2) AS paidRevenue, " +
+        "  ELSE hp.price::numeric * COALESCE(b.actual_received_amount::numeric, 0) / vps.total_price END), 0)::numeric, 2) AS paidRevenue, " +
         "ROUND(COALESCE(SUM(" +
         "  hp.price::numeric - COALESCE(hp.discount::numeric, 0) " +
         "  - CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 " +
-        "    ELSE hp.price::numeric * COALESCE(b.actual_received_amount, 0) / vps.total_price END" +
+        "    ELSE hp.price::numeric * COALESCE(b.actual_received_amount::numeric, 0) / vps.total_price END" +
         "), 0)::numeric, 2) AS dueRevenue, " +
         "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 ELSE " +
         "  hp.price::numeric * CASE WHEN bt_agg.billing_id IS NOT NULL THEN COALESCE(bt_agg.cash_total, 0) " +
-        "    WHEN UPPER(b.payment_method) = 'CASH' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END / vps.total_price END), 0)::numeric, 2) AS cashRevenue, " +
+        "    WHEN UPPER(b.payment_method) = 'CASH' THEN COALESCE(b.actual_received_amount::numeric, 0) ELSE 0 END / vps.total_price END), 0)::numeric, 2) AS cashRevenue, " +
         "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 ELSE " +
         "  hp.price::numeric * CASE WHEN bt_agg.billing_id IS NOT NULL THEN COALESCE(bt_agg.upi_total, 0) " +
-        "    WHEN UPPER(b.payment_method) = 'UPI' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END / vps.total_price END), 0)::numeric, 2) AS upiRevenue, " +
+        "    WHEN UPPER(b.payment_method) = 'UPI' THEN COALESCE(b.actual_received_amount::numeric, 0) ELSE 0 END / vps.total_price END), 0)::numeric, 2) AS upiRevenue, " +
         "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 ELSE " +
         "  hp.price::numeric * CASE WHEN bt_agg.billing_id IS NOT NULL THEN COALESCE(bt_agg.card_total, 0) " +
-        "    WHEN UPPER(b.payment_method) = 'CARD' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END / vps.total_price END), 0)::numeric, 2) AS cardRevenue " +
+        "    WHEN UPPER(b.payment_method) = 'CARD' THEN COALESCE(b.actual_received_amount::numeric, 0) ELSE 0 END / vps.total_price END), 0)::numeric, 2) AS cardRevenue " +
         "FROM health_packages hp " +
         "JOIN lab_packages lp ON hp.package_id = lp.package_id " +
         "LEFT JOIN patient_visit_packages pvp ON pvp.package_id = hp.package_id " +
         "LEFT JOIN patient_visits pv ON pvp.visit_id = pv.visit_id " +
         "LEFT JOIN billing b ON pv.billing_id = b.billing_id " +
-        "LEFT JOIN (SELECT bt.billing_id, COALESCE(SUM(bt.cash_amount), 0) AS cash_total, " +
-        "  COALESCE(SUM(bt.upi_amount), 0) AS upi_total, COALESCE(SUM(bt.card_amount), 0) AS card_total " +
+        "LEFT JOIN (SELECT bt.billing_id, COALESCE(SUM(bt.cash_amount::numeric), 0) AS cash_total, " +
+        "  COALESCE(SUM(bt.upi_amount::numeric), 0) AS upi_total, COALESCE(SUM(bt.card_amount::numeric), 0) AS card_total " +
         "  FROM billing_transaction bt GROUP BY bt.billing_id) bt_agg ON bt_agg.billing_id = b.billing_id " +
         "LEFT JOIN (SELECT pv2.visit_id, " +
         "  COALESCE(ts.test_total, 0) + COALESCE(ps.pkg_total, 0) AS total_price " +
         "  FROM patient_visits pv2 " +
-        "  LEFT JOIN (SELECT vtr2.visit_id, SUM(t2.price) AS test_total " +
+        "  LEFT JOIN (SELECT vtr2.visit_id, SUM(t2.price::numeric) AS test_total " +
         "    FROM visit_test_result vtr2 JOIN tests t2 ON vtr2.test_id = t2.test_id " +
         "    GROUP BY vtr2.visit_id) ts ON ts.visit_id = pv2.visit_id " +
         "  LEFT JOIN (SELECT pvp2.visit_id, SUM(hp2.price::numeric) AS pkg_total " +
@@ -176,21 +176,21 @@ public interface HealthPackageRepository extends JpaRepository<HealthPackage, Lo
         "ROUND(hp.price::numeric * COUNT(DISTINCT pvp.visit_id), 2) AS revenue, " +
         "ROUND(COALESCE(SUM(hp.discount::numeric), 0), 2) AS discount, " +
         "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 " +
-        "  ELSE hp.price::numeric * COALESCE(b.actual_received_amount, 0) / vps.total_price END), 0)::numeric, 2) AS paidRevenue, " +
+        "  ELSE hp.price::numeric * COALESCE(b.actual_received_amount::numeric, 0) / vps.total_price END), 0)::numeric, 2) AS paidRevenue, " +
         "ROUND(COALESCE(SUM(" +
         "  hp.price::numeric - COALESCE(hp.discount::numeric, 0) " +
         "  - CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 " +
-        "    ELSE hp.price::numeric * COALESCE(b.actual_received_amount, 0) / vps.total_price END" +
+        "    ELSE hp.price::numeric * COALESCE(b.actual_received_amount::numeric, 0) / vps.total_price END" +
         "), 0)::numeric, 2) AS dueRevenue, " +
         "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 ELSE " +
         "  hp.price::numeric * CASE WHEN bt_agg.billing_id IS NOT NULL THEN COALESCE(bt_agg.cash_total, 0) " +
-        "    WHEN UPPER(b.payment_method) = 'CASH' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END / vps.total_price END), 0)::numeric, 2) AS cashRevenue, " +
+        "    WHEN UPPER(b.payment_method) = 'CASH' THEN COALESCE(b.actual_received_amount::numeric, 0) ELSE 0 END / vps.total_price END), 0)::numeric, 2) AS cashRevenue, " +
         "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 ELSE " +
         "  hp.price::numeric * CASE WHEN bt_agg.billing_id IS NOT NULL THEN COALESCE(bt_agg.upi_total, 0) " +
-        "    WHEN UPPER(b.payment_method) = 'UPI' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END / vps.total_price END), 0)::numeric, 2) AS upiRevenue, " +
+        "    WHEN UPPER(b.payment_method) = 'UPI' THEN COALESCE(b.actual_received_amount::numeric, 0) ELSE 0 END / vps.total_price END), 0)::numeric, 2) AS upiRevenue, " +
         "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(vps.total_price, 0) IS NULL THEN 0 ELSE " +
         "  hp.price::numeric * CASE WHEN bt_agg.billing_id IS NOT NULL THEN COALESCE(bt_agg.card_total, 0) " +
-        "    WHEN UPPER(b.payment_method) = 'CARD' THEN COALESCE(b.actual_received_amount, 0) ELSE 0 END / vps.total_price END), 0)::numeric, 2) AS cardRevenue " +
+        "    WHEN UPPER(b.payment_method) = 'CARD' THEN COALESCE(b.actual_received_amount::numeric, 0) ELSE 0 END / vps.total_price END), 0)::numeric, 2) AS cardRevenue " +
         "FROM health_packages hp " +
         "JOIN lab_packages lp ON hp.package_id = lp.package_id " +
         "JOIN (SELECT pvp_f.package_id, pvp_f.visit_id " +
@@ -199,13 +199,13 @@ public interface HealthPackageRepository extends JpaRepository<HealthPackage, Lo
         "  WHERE pv_f.created_at BETWEEN :startDate AND :endDate) pvp ON pvp.package_id = hp.package_id " +
         "JOIN patient_visits pv ON pvp.visit_id = pv.visit_id " +
         "LEFT JOIN billing b ON pv.billing_id = b.billing_id " +
-        "LEFT JOIN (SELECT bt.billing_id, COALESCE(SUM(bt.cash_amount), 0) AS cash_total, " +
-        "  COALESCE(SUM(bt.upi_amount), 0) AS upi_total, COALESCE(SUM(bt.card_amount), 0) AS card_total " +
+        "LEFT JOIN (SELECT bt.billing_id, COALESCE(SUM(bt.cash_amount::numeric), 0) AS cash_total, " +
+        "  COALESCE(SUM(bt.upi_amount::numeric), 0) AS upi_total, COALESCE(SUM(bt.card_amount::numeric), 0) AS card_total " +
         "  FROM billing_transaction bt GROUP BY bt.billing_id) bt_agg ON bt_agg.billing_id = b.billing_id " +
         "LEFT JOIN (SELECT pv2.visit_id, " +
         "  COALESCE(ts.test_total, 0) + COALESCE(ps.pkg_total, 0) AS total_price " +
         "  FROM patient_visits pv2 " +
-        "  LEFT JOIN (SELECT vtr2.visit_id, SUM(t2.price) AS test_total " +
+        "  LEFT JOIN (SELECT vtr2.visit_id, SUM(t2.price::numeric) AS test_total " +
         "    FROM visit_test_result vtr2 JOIN tests t2 ON vtr2.test_id = t2.test_id " +
         "    GROUP BY vtr2.visit_id) ts ON ts.visit_id = pv2.visit_id " +
         "  LEFT JOIN (SELECT pvp2.visit_id, SUM(hp2.price::numeric) AS pkg_total " +
@@ -223,14 +223,14 @@ public interface HealthPackageRepository extends JpaRepository<HealthPackage, Lo
     @Query(value =
         "SELECT hp.package_id AS packageId, hp.package_name AS packageName, hp.package_code AS packageCode, " +
         "COUNT(DISTINCT pvp.visit_id) AS visitCount, " +
-        "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount, 0) IS NULL THEN 0 " +
-        "  ELSE hp.price::numeric * COALESCE(b.actual_received_amount, 0) / b.total_amount END), 0), 2) AS revenue, " +
+        "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount::numeric, 0) IS NULL THEN 0 " +
+        "  ELSE hp.price::numeric * COALESCE(b.actual_received_amount::numeric, 0) / b.total_amount::numeric END), 0), 2) AS revenue, " +
         "ROUND(0, 2) AS discount, " +
-        "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount, 0) IS NULL THEN 0 " +
-        "  ELSE hp.price::numeric * COALESCE(b.actual_received_amount, 0) / b.total_amount END), 0), 2) AS paidRevenue, " +
+        "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount::numeric, 0) IS NULL THEN 0 " +
+        "  ELSE hp.price::numeric * COALESCE(b.actual_received_amount::numeric, 0) / b.total_amount::numeric END), 0), 2) AS paidRevenue, " +
         "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL THEN hp.price::numeric " +
-        "  WHEN NULLIF(b.total_amount, 0) IS NULL THEN hp.price::numeric " +
-        "  ELSE hp.price::numeric * COALESCE(b.due_amount, 0) / b.total_amount END), 0), 2) AS dueRevenue, " +
+        "  WHEN NULLIF(b.total_amount::numeric, 0) IS NULL THEN hp.price::numeric " +
+        "  ELSE hp.price::numeric * COALESCE(b.due_amount::numeric, 0) / b.total_amount::numeric END), 0), 2) AS dueRevenue, " +
         "ROUND(0, 2) AS cashRevenue, ROUND(0, 2) AS upiRevenue, ROUND(0, 2) AS cardRevenue " +
         "FROM health_packages hp " +
         "JOIN lab_packages lp ON hp.package_id = lp.package_id " +
@@ -249,14 +249,14 @@ public interface HealthPackageRepository extends JpaRepository<HealthPackage, Lo
     @Query(value =
         "SELECT hp.package_id AS packageId, hp.package_name AS packageName, hp.package_code AS packageCode, " +
         "COUNT(DISTINCT pvp.visit_id) AS visitCount, " +
-        "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount, 0) IS NULL THEN 0 " +
-        "  ELSE hp.price::numeric * COALESCE(b.actual_received_amount, 0) / b.total_amount END), 0), 2) AS revenue, " +
+        "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount::numeric, 0) IS NULL THEN 0 " +
+        "  ELSE hp.price::numeric * COALESCE(b.actual_received_amount::numeric, 0) / b.total_amount::numeric END), 0), 2) AS revenue, " +
         "ROUND(0, 2) AS discount, " +
-        "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount, 0) IS NULL THEN 0 " +
-        "  ELSE hp.price::numeric * COALESCE(b.actual_received_amount, 0) / b.total_amount END), 0), 2) AS paidRevenue, " +
+        "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount::numeric, 0) IS NULL THEN 0 " +
+        "  ELSE hp.price::numeric * COALESCE(b.actual_received_amount::numeric, 0) / b.total_amount::numeric END), 0), 2) AS paidRevenue, " +
         "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL THEN hp.price::numeric " +
-        "  WHEN NULLIF(b.total_amount, 0) IS NULL THEN hp.price::numeric " +
-        "  ELSE hp.price::numeric * COALESCE(b.due_amount, 0) / b.total_amount END), 0), 2) AS dueRevenue, " +
+        "  WHEN NULLIF(b.total_amount::numeric, 0) IS NULL THEN hp.price::numeric " +
+        "  ELSE hp.price::numeric * COALESCE(b.due_amount::numeric, 0) / b.total_amount::numeric END), 0), 2) AS dueRevenue, " +
         "ROUND(0, 2) AS cashRevenue, ROUND(0, 2) AS upiRevenue, ROUND(0, 2) AS cardRevenue " +
         "FROM health_packages hp " +
         "JOIN lab_packages lp ON hp.package_id = lp.package_id " +
