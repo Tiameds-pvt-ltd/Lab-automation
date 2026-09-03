@@ -36,6 +36,7 @@ public class PatientService {
     private final VisitRepository visitRepository;
     private final BillingManagementService billingManagementService;
     private final SequenceGeneratorService sequenceGeneratorService;
+    private final DashboardRollupService dashboardRollupService;
 
     public PatientService(LabRepository labRepository,
                           TestRepository testRepository,
@@ -48,7 +49,8 @@ public class PatientService {
                           TestDiscountRepository testDiscountRepository,
                           VisitRepository visitRepository,
                           BillingManagementService billingManagementService,
-                          SequenceGeneratorService sequenceGeneratorService
+                          SequenceGeneratorService sequenceGeneratorService,
+                          DashboardRollupService dashboardRollupService
     ) {
         this.labRepository = labRepository;
         this.testRepository = testRepository;
@@ -62,6 +64,7 @@ public class PatientService {
         this.visitRepository = visitRepository;
         this.billingManagementService = billingManagementService;
         this.sequenceGeneratorService = sequenceGeneratorService;
+        this.dashboardRollupService = dashboardRollupService;
     }
 
 
@@ -152,12 +155,16 @@ public class PatientService {
     public PatientDTO addVisitAndBillingToExistingPatient(Lab lab, PatientDTO patientDTO, PatientEntity existingPatient, String currentUser) {
         if (patientDTO.getLastName() != null) existingPatient.setLastName(patientDTO.getLastName());
         if (patientDTO.getEmail() != null) existingPatient.setEmail(patientDTO.getEmail());
+        VisitEntity visit = null;
         if (patientDTO.getVisit() != null) {
-            VisitEntity visit = mapVisitDTOToEntity(patientDTO.getVisit(), lab, currentUser);
+            visit = mapVisitDTOToEntity(patientDTO.getVisit(), lab, currentUser);
             visit.setPatient(existingPatient);
             existingPatient.getVisits().add(visit);
         }
         patientRepository.save(existingPatient);
+        if (visit != null && visit.getCreatedAt() != null) {
+            dashboardRollupService.recomputeDay(lab.getId(), visit.getCreatedAt().atZone(ZoneId.systemDefault()).toLocalDate());
+        }
         return new PatientDTO(existingPatient);
     }
 

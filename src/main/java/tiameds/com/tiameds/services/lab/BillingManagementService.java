@@ -1405,6 +1405,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tiameds.com.tiameds.entity.BillingEntity;
+import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.entity.TransactionEntity;
 import tiameds.com.tiameds.repository.BillingRepository;
 import tiameds.com.tiameds.repository.TransactionRepository;
@@ -1428,10 +1429,29 @@ public class BillingManagementService {
 
     private final BillingRepository billingRepository;
     private final TransactionRepository transactionRepository;
+    private final DashboardRollupService dashboardRollupService;
 
-    public BillingManagementService(BillingRepository billingRepository, TransactionRepository transactionRepository) {
+    public BillingManagementService(BillingRepository billingRepository, TransactionRepository transactionRepository,
+                                     DashboardRollupService dashboardRollupService) {
         this.billingRepository = billingRepository;
         this.transactionRepository = transactionRepository;
+        this.dashboardRollupService = dashboardRollupService;
+    }
+
+    /**
+     * Recomputes the daily_lab_stats rollup row(s) affected by a billing amount change.
+     * Uses billing.getCreatedAt() (not "now") because dashboard queries bucket billing by
+     * its original created_at date — recomputing "today" for an old billing's payment
+     * update would update the wrong day's row.
+     */
+    private void recomputeRollupForBilling(BillingEntity billing) {
+        if (billing.getCreatedAt() == null || billing.getLabs() == null) {
+            return;
+        }
+        LocalDate date = billing.getCreatedAt().atZone(ZoneId.systemDefault()).toLocalDate();
+        for (Lab lab : billing.getLabs()) {
+            dashboardRollupService.recomputeDay(lab.getId(), date);
+        }
     }
 
     /**
@@ -1495,6 +1515,7 @@ public class BillingManagementService {
 
         // Save billing first
         billing = billingRepository.save(billing);
+        recomputeRollupForBilling(billing);
 
         // FIXED: Create refund only if needed
         if (refundAmount.compareTo(BigDecimal.ZERO) > 0) {
@@ -1557,6 +1578,7 @@ public class BillingManagementService {
         billing.setUpdatedBy(username);
 
         billing = billingRepository.save(billing);
+        recomputeRollupForBilling(billing);
 
         logger.info("FIXED: Inline discount change completed - Total: {}, NewNet: {}, Discount: {}, ARA: {}, Due: {}, Status: {}",
                 currentTotalAmount, newNetAmount, globalDiscount, currentAra, newDueAmount, newPaymentStatus);
@@ -1606,6 +1628,7 @@ public class BillingManagementService {
         billing.setUpdatedBy(username);
 
         billing = billingRepository.save(billing);
+        recomputeRollupForBilling(billing);
 
         logger.info("FIXED: Discount change completed - NewNet: {}, ARA: {}, Due: {}, Status: {}",
                 newNetAmount, currentAra, newDueAmount, newPaymentStatus);
@@ -1729,6 +1752,7 @@ public class BillingManagementService {
         billing.setUpdatedBy(username);
 
         billing = billingRepository.save(billing);
+        recomputeRollupForBilling(billing);
 
         // Create payment transaction
         createPaymentTransaction(billing, paymentAmount, paymentMethod, upiId, upiAmount, cardAmount, cashAmount, username);

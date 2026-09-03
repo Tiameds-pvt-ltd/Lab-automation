@@ -961,9 +961,10 @@ public class UpdatePatientService {
     private final LabRepository labRepository;
     private final TransactionRepository transactionRepository;
     private final BillingManagementService billingManagementService;
+    private final DashboardRollupService dashboardRollupService;
     private static final Logger logger = org.slf4j.LoggerFactory.getLogger(UpdatePatientService.class);
 
-    public UpdatePatientService(PatientRepository patientRepository, DoctorRepository doctorRepository, TestRepository testRepository, HealthPackageRepository healthPackageRepository, InsuranceRepository insuranceRepository, BillingRepository billingRepository, TestDiscountRepository testDiscountRepository, VisitRepository visitRepository, LabRepository labRepository, TransactionRepository transactionRepository, BillingManagementService billingManagementService) {
+    public UpdatePatientService(PatientRepository patientRepository, DoctorRepository doctorRepository, TestRepository testRepository, HealthPackageRepository healthPackageRepository, InsuranceRepository insuranceRepository, BillingRepository billingRepository, TestDiscountRepository testDiscountRepository, VisitRepository visitRepository, LabRepository labRepository, TransactionRepository transactionRepository, BillingManagementService billingManagementService, DashboardRollupService dashboardRollupService) {
         this.patientRepository = patientRepository;
         this.doctorRepository = doctorRepository;
         this.testRepository = testRepository;
@@ -975,6 +976,15 @@ public class UpdatePatientService {
         this.labRepository = labRepository;
         this.transactionRepository = transactionRepository;
         this.billingManagementService = billingManagementService;
+        this.dashboardRollupService = dashboardRollupService;
+    }
+
+    /** Recompute the rollup row for the billing's original created_at date (see DashboardRollupService). */
+    private void recomputeRollupForBilling(Lab lab, BillingEntity billing) {
+        if (lab == null || billing == null || billing.getCreatedAt() == null) {
+            return;
+        }
+        dashboardRollupService.recomputeDay(lab.getId(), billing.getCreatedAt().atZone(ZoneId.systemDefault()).toLocalDate());
     }
 
     @Transactional
@@ -1252,6 +1262,7 @@ public class UpdatePatientService {
 
         billing.getLabs().add(lab);
         billing = billingRepository.save(billing);
+        recomputeRollupForBilling(lab, billing);
 
         // FIXED: Use appropriate billing service method based on discount type
         BigDecimal finalNewNetAmount = newNetAmount;
@@ -1393,6 +1404,7 @@ public class UpdatePatientService {
                     .map(p -> BigDecimal.valueOf(p.getDiscount()))
                     .reduce(BigDecimal.ZERO, BigDecimal::add));
             billing = billingRepository.save(billing); // 💥 Save billing before using it in discounts
+            recomputeRollupForBilling(lab, billing);
             visit.setBilling(billing);
             if (visitDTO.getListOfEachTestDiscount() != null && !visitDTO.getListOfEachTestDiscount().isEmpty()) {
                 BillingEntity finalBilling = billing;
@@ -1578,6 +1590,7 @@ public class UpdatePatientService {
         // Add lab association (avoid duplicates)
         billing.getLabs().add(lab);
         billing = billingRepository.save(billing);
+        recomputeRollupForBilling(lab, billing);
 
         // Handle transactions - Use BillingManagementService for proper payment and refund handling
         if (billingDTO.getTransactions() != null && !billingDTO.getTransactions().isEmpty()) {

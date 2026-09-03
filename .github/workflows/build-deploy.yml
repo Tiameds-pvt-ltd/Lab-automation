@@ -211,6 +211,28 @@ jobs:
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
 
+      # Step 11.5: Snapshot the production RDS database before deploying —
+      # every deploy carries Flyway migrations that run automatically on startup,
+      # so a fresh, deploy-specific restore point must exist first. Non-destructive,
+      # doesn't lock or interrupt the live database.
+      - name: Snapshot RDS before deploy
+        env:
+          DB_INSTANCE_ID: ${{ secrets.RDS_DB_INSTANCE_IDENTIFIER }}
+        run: |
+          SNAPSHOT_ID="labprod-predeploy-$(date +%Y%m%d%H%M%S)-${GITHUB_SHA::7}"
+          echo "Creating RDS snapshot: $SNAPSHOT_ID"
+          aws rds create-db-snapshot \
+            --db-instance-identifier "$DB_INSTANCE_ID" \
+            --db-snapshot-identifier "$SNAPSHOT_ID"
+
+          echo "Waiting for snapshot to become available..."
+          aws rds wait db-snapshot-available \
+            --db-instance-identifier "$DB_INSTANCE_ID" \
+            --db-snapshot-identifier "$SNAPSHOT_ID"
+
+          echo "Snapshot ready: $SNAPSHOT_ID"
+          echo "SNAPSHOT_ID=$SNAPSHOT_ID" >> $GITHUB_ENV
+
       # Step 12: Build, Tag, and Push Docker Image to Amazon ECR
       - name: Build, Tag, and Push Docker Image to Amazon ECR
         env:

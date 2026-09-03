@@ -35,9 +35,9 @@ spring:
       maximum-pool-size: 40
       transaction-isolation: TRANSACTION_READ_COMMITTED
 
-    url: jdbc:postgresql://localhost:5432/testlabnew?charSet=UTF8
+    url: jdbc:postgresql://localhost:5432/labprod_local?charSet=UTF8
     username: postgres
-    password: root
+    password: 1234
     driver-class-name: org.postgresql.Driver
 
   flyway:

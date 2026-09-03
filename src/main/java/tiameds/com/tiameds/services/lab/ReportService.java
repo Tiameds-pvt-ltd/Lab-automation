@@ -32,14 +32,16 @@ public class ReportService {
     private final LabRepository labRepository;
     private final VisitTestResultRepository visitTestResultRepository;
     private final SequenceGeneratorService sequenceGeneratorService;
+    private final DashboardRollupService dashboardRollupService;
 
-    public ReportService(ReportRepository reportRepository, VisitRepository visitRepository, TestRepository testRepository, LabRepository labRepository, VisitTestResultRepository visitTestResultRepository, SequenceGeneratorService sequenceGeneratorService) {
+    public ReportService(ReportRepository reportRepository, VisitRepository visitRepository, TestRepository testRepository, LabRepository labRepository, VisitTestResultRepository visitTestResultRepository, SequenceGeneratorService sequenceGeneratorService, DashboardRollupService dashboardRollupService) {
         this.reportRepository = reportRepository;
         this.visitRepository = visitRepository;
         this.testRepository = testRepository;
         this.labRepository = labRepository;
         this.visitTestResultRepository = visitTestResultRepository;
         this.sequenceGeneratorService = sequenceGeneratorService;
+        this.dashboardRollupService = dashboardRollupService;
     }
 
     private static final ZoneId IST_ZONE = ZoneId.of("Asia/Kolkata");
@@ -322,12 +324,13 @@ public class ReportService {
         // Update VisitTestResult
         Optional<VisitTestResult> optionalVisitTestResult = visitTestResultRepository.findByVisitIdAndTestId(reportDtoList.get(0).getVisitId(), testResultDto.getTestId());
 
+        VisitTestResult existingVisitTestResult;
         if (optionalVisitTestResult.isPresent()) {
-            VisitTestResult existingVisitTestResult = optionalVisitTestResult.get();
+            existingVisitTestResult = optionalVisitTestResult.get();
             existingVisitTestResult.setIsFilled(testResultDto.getIsFilled());
             existingVisitTestResult.setUpdatedBy(String.valueOf(user.getId()));
             existingVisitTestResult.setReportStatus("Completed");
-            visitTestResultRepository.save(existingVisitTestResult);
+            existingVisitTestResult = visitTestResultRepository.save(existingVisitTestResult);
         } else {
             return ApiResponseHelper.errorResponse("Visit Test Result not found for the given visit and test ID", HttpStatus.NOT_FOUND);
         }
@@ -342,6 +345,13 @@ public class ReportService {
         VisitEntity visit = optionalVisit.get();
         visit.setVisitStatus("Completed");
         visitRepository.save(visit);
+
+        // reports_generated/pending_samples are bucketed by the VisitTestResult's original
+        // created_at date (matches VisitTestResultRepository.countCompletedReportsByLabId*),
+        // not "today" — recompute that day's rollup row for the lab this report belongs to.
+        if (existingVisitTestResult.getCreatedAt() != null) {
+            dashboardRollupService.recomputeDay(labId, existingVisitTestResult.getCreatedAt().toLocalDate());
+        }
 
         ReportEntity reportEntity = new ReportEntity();
 

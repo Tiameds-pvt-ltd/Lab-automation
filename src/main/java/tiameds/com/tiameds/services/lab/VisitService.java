@@ -29,6 +29,7 @@ public class VisitService {
     private final TestDiscountRepository testDiscountRepository;
     private final VisitTestResultRepository visitTestResultRepository;
     private final SequenceGeneratorService sequenceGeneratorService;
+    private final DashboardRollupService dashboardRollupService;
 
     public VisitService(PatientRepository patientRepository,
                         LabRepository labRepository,
@@ -37,10 +38,11 @@ public class VisitService {
                         DoctorRepository doctorRepository,
                         InsuranceRepository insuranceRepository,
                         BillingRepository billingRepository,
-                        VisitRepository visitRepository, 
+                        VisitRepository visitRepository,
                         TestDiscountRepository testDiscountRepository,
                         VisitTestResultRepository visitTestResultRepository,
-                        SequenceGeneratorService sequenceGeneratorService) {
+                        SequenceGeneratorService sequenceGeneratorService,
+                        DashboardRollupService dashboardRollupService) {
         this.patientRepository = patientRepository;
         this.labRepository = labRepository;
         this.testRepository = testRepository;
@@ -52,6 +54,7 @@ public class VisitService {
         this.testDiscountRepository = testDiscountRepository;
         this.visitTestResultRepository = visitTestResultRepository;
         this.sequenceGeneratorService = sequenceGeneratorService;
+        this.dashboardRollupService = dashboardRollupService;
     }
 
     @Transactional
@@ -128,7 +131,8 @@ public class VisitService {
         visit.setBilling(billingEntity);
 
         // Save the visit
-        visitRepository.save(visit);
+        visit = visitRepository.save(visit);
+        dashboardRollupService.recomputeDay(labOptional.get().getId(), visit.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toLocalDate());
     }
 
     public List<PatientDTO> getVisits(Long labId, Optional<User> currentUser) {
@@ -284,8 +288,11 @@ public class VisitService {
         billingRepository.save(billingEntity);
         visit.setBilling(billingEntity);
         // Save the visit
-        visitRepository.save(visit);
+        visit = visitRepository.save(visit);
 
+        Long rollupLabId = labOptional.get().getId();
+        java.time.LocalDate newDay = visit.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toLocalDate();
+        dashboardRollupService.recomputeDay(rollupLabId, newDay);
     }
 
     @Transactional
@@ -308,11 +315,17 @@ public class VisitService {
         }
         
         VisitEntity visit = visitOptional.get();
-        
+
         // Verify visit belongs to the lab
         if (!visit.getPatient().getLabs().contains(labOptional.get())) {
             throw new IllegalArgumentException("Visit does not belong to the specified lab");
         }
+
+        // Capture before deletion — createdAt is unavailable once the entity is deleted,
+        // and this is the day whose daily_lab_stats row needs to lose this visit's counts.
+        java.time.LocalDate rollupDate = visit.getCreatedAt() != null
+                ? visit.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                : null;
         
         // Delete all related entities in the correct order
         
@@ -349,6 +362,10 @@ public class VisitService {
         
         // 4. Finally delete the visit entity
         visitRepository.delete(visit);
+
+        if (rollupDate != null) {
+            dashboardRollupService.recomputeDay(labId, rollupDate);
+        }
     }
 
     @Transactional
@@ -374,10 +391,14 @@ public class VisitService {
         }
         
         int deletedCount = 0;
-        
+        java.util.Set<java.time.LocalDate> affectedDates = new java.util.HashSet<>();
+
         // Delete each visit and all its related data
         for (VisitEntity visit : visits) {
             try {
+                if (visit.getCreatedAt() != null) {
+                    affectedDates.add(visit.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toLocalDate());
+                }
                 // 1. Delete VisitTestResults
                 if (visit.getTestResults() != null && !visit.getTestResults().isEmpty()) {
                     visitTestResultRepository.deleteAll(visit.getTestResults());
@@ -416,7 +437,11 @@ public class VisitService {
                 // You might want to use a proper logger instead of System.err
             }
         }
-        
+
+        for (java.time.LocalDate date : affectedDates) {
+            dashboardRollupService.recomputeDay(labId, date);
+        }
+
         return deletedCount;
     }
 

@@ -66,4 +66,8 @@ public interface VisitRepository extends JpaRepository<VisitEntity, Long> {
 
     @Query("SELECT COUNT(v) FROM VisitEntity v JOIN v.patient p JOIN p.labs l WHERE l.id = :labId AND v.visitStatus = :status AND v.createdAt BETWEEN :startDate AND :endDate")
     long countVisitsByLabIdAndStatusAndCreatedAtBetween(@Param("labId") Long labId, @Param("status") String status, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
+
+    // Distinct patients seen by a lab within a window — used by DashboardRollupService for daily_lab_stats.patient_count
+    @Query("SELECT COUNT(DISTINCT v.patient.patientId) FROM VisitEntity v JOIN v.labs l WHERE l.id = :labId AND v.createdAt BETWEEN :startDate AND :endDate")
+    long countDistinctPatientsByLabIdAndCreatedAtBetween(@Param("labId") Long labId, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
 }

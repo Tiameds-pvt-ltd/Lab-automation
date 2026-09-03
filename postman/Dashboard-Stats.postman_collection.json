@@ -1,0 +1,427 @@
+{
+  "info": {
+    "name": "Lab Super Admin Dashboard",
+    "description": "Login + all super-admin dashboard/KPI endpoints (SuperAdminStatsController, SuperAdminDashboardController, DashboardRollupAdminController). Run \"Login\" first — it auto-captures the JWT into {{token}}, which every dashboard request below sends as `Authorization: Bearer {{token}}`.\n\nBase URL: {{baseUrl}} (context path /api/v1 included in each request path below).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080", "type": "string" },
+    { "key": "username", "value": "", "type": "string" },
+    { "key": "password", "value": "", "type": "string" },
+    { "key": "token", "value": "", "type": "string" },
+    { "key": "labId", "value": "", "type": "string" },
+    { "key": "startDate", "value": "2026-04-01", "type": "string" },
+    { "key": "endDate", "value": "2026-09-03", "type": "string" },
+    { "key": "limit", "value": "10", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. Login",
+      "item": [
+        {
+          "name": "Login (get token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "if (body && body.token) {",
+                  "    pm.collectionVariables.set('token', body.token);",
+                  "    console.log('token captured:', body.token);",
+                  "} else {",
+                  "    console.warn('No token in login response body:', body);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "login"]
+            },
+            "description": "POST /public/login — returns { status, message, token, data }. The test script above stores `token` into the collection variable {{token}} automatically."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Super Admin Dashboard",
+      "item": [
+        {
+          "name": "All Stats (combined)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab-super-admin/stats/all?startDate={{startDate}}&endDate={{endDate}}&limit={{limit}}&labId={{labId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "lab-super-admin", "stats", "all"],
+              "query": [
+                { "key": "startDate", "value": "{{startDate}}" },
+                { "key": "endDate", "value": "{{endDate}}" },
+                { "key": "limit", "value": "{{limit}}" },
+                { "key": "labId", "value": "{{labId}}", "disabled": true }
+              ]
+            },
+            "description": "GET /lab-super-admin/stats/all — SuperAdminDashboardController.getAllStats. The slow one this collection exists to test/monitor."
+          },
+          "response": []
+        },
+        {
+          "name": "Dashboard Summary",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab-super-admin/stats/dashboard-summary?startDate={{startDate}}&endDate={{endDate}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "lab-super-admin", "stats", "dashboard-summary"],
+              "query": [
+                { "key": "startDate", "value": "{{startDate}}" },
+                { "key": "endDate", "value": "{{endDate}}" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "My Labs Count",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab-super-admin/stats/my-labs/count?startDate={{startDate}}&endDate={{endDate}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "lab-super-admin", "stats", "my-labs", "count"],
+              "query": [
+                { "key": "startDate", "value": "{{startDate}}" },
+                { "key": "endDate", "value": "{{endDate}}" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Total Admins",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab-super-admin/stats/total-admins?startDate={{startDate}}&endDate={{endDate}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "lab-super-admin", "stats", "total-admins"],
+              "query": [
+                { "key": "startDate", "value": "{{startDate}}" },
+                { "key": "endDate", "value": "{{endDate}}" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Total Technicians",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab-super-admin/stats/total-technicians?startDate={{startDate}}&endDate={{endDate}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "lab-super-admin", "stats", "total-technicians"],
+              "query": [
+                { "key": "startDate", "value": "{{startDate}}" },
+                { "key": "endDate", "value": "{{endDate}}" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Total Desk Roles",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab-super-admin/stats/total-deskroles?startDate={{startDate}}&endDate={{endDate}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "lab-super-admin", "stats", "total-deskroles"],
+              "query": [
+                { "key": "startDate", "value": "{{startDate}}" },
+                { "key": "endDate", "value": "{{endDate}}" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Total Tests",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab-super-admin/stats/total-tests?startDate={{startDate}}&endDate={{endDate}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "lab-super-admin", "stats", "total-tests"],
+              "query": [
+                { "key": "startDate", "value": "{{startDate}}" },
+                { "key": "endDate", "value": "{{endDate}}" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Total Revenue",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab-super-admin/stats/total-revenue?startDate={{startDate}}&endDate={{endDate}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "lab-super-admin", "stats", "total-revenue"],
+              "query": [
+                { "key": "startDate", "value": "{{startDate}}" },
+                { "key": "endDate", "value": "{{endDate}}" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reports Generated",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab-super-admin/stats/reports-generated?startDate={{startDate}}&endDate={{endDate}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "lab-super-admin", "stats", "reports-generated"],
+              "query": [
+                { "key": "startDate", "value": "{{startDate}}" },
+                { "key": "endDate", "value": "{{endDate}}" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pending Samples",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab-super-admin/stats/pending-samples?startDate={{startDate}}&endDate={{endDate}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "lab-super-admin", "stats", "pending-samples"],
+              "query": [
+                { "key": "startDate", "value": "{{startDate}}" },
+                { "key": "endDate", "value": "{{endDate}}" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Tests By Category",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab-super-admin/stats/tests-by-category?startDate={{startDate}}&endDate={{endDate}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "lab-super-admin", "stats", "tests-by-category"],
+              "query": [
+                { "key": "startDate", "value": "{{startDate}}" },
+                { "key": "endDate", "value": "{{endDate}}" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Revenue Trend",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab-super-admin/stats/revenue-trend?startDate={{startDate}}&endDate={{endDate}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "lab-super-admin", "stats", "revenue-trend"],
+              "query": [
+                { "key": "startDate", "value": "{{startDate}}" },
+                { "key": "endDate", "value": "{{endDate}}" }
+              ]
+            },
+            "description": "startDate/endDate are required for this endpoint (no all-time variant)."
+          },
+          "response": []
+        },
+        {
+          "name": "Revenue By Lab",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab-super-admin/stats/revenue-by-lab?startDate={{startDate}}&endDate={{endDate}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "lab-super-admin", "stats", "revenue-by-lab"],
+              "query": [
+                { "key": "startDate", "value": "{{startDate}}" },
+                { "key": "endDate", "value": "{{endDate}}" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Lab Performance",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab-super-admin/stats/lab-performance?startDate={{startDate}}&endDate={{endDate}}&limit={{limit}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "lab-super-admin", "stats", "lab-performance"],
+              "query": [
+                { "key": "startDate", "value": "{{startDate}}" },
+                { "key": "endDate", "value": "{{endDate}}" },
+                { "key": "limit", "value": "{{limit}}" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Top Referring Doctors",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab-super-admin/stats/top-referring-doctors?startDate={{startDate}}&endDate={{endDate}}&limit={{limit}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "lab-super-admin", "stats", "top-referring-doctors"],
+              "query": [
+                { "key": "startDate", "value": "{{startDate}}" },
+                { "key": "endDate", "value": "{{endDate}}" },
+                { "key": "limit", "value": "{{limit}}" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Detailed Billing",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab-super-admin/stats/detailed-billing?startDate={{startDate}}&endDate={{endDate}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "lab-super-admin", "stats", "detailed-billing"],
+              "query": [
+                { "key": "startDate", "value": "{{startDate}}" },
+                { "key": "endDate", "value": "{{endDate}}" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Packages Summary",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab-super-admin/stats/packages-summary?startDate={{startDate}}&endDate={{endDate}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "lab-super-admin", "stats", "packages-summary"],
+              "query": [
+                { "key": "startDate", "value": "{{startDate}}" },
+                { "key": "endDate", "value": "{{endDate}}" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Earnings By Category",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab-super-admin/stats/earnings-by-category?startDate={{startDate}}&endDate={{endDate}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "lab-super-admin", "stats", "earnings-by-category"],
+              "query": [
+                { "key": "startDate", "value": "{{startDate}}" },
+                { "key": "endDate", "value": "{{endDate}}" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Grid Report (paged)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab-super-admin/stats/grid?startDate={{startDate}}&endDate={{endDate}}&page=0&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "lab-super-admin", "stats", "grid"],
+              "query": [
+                { "key": "startDate", "value": "{{startDate}}" },
+                { "key": "endDate", "value": "{{endDate}}" },
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Dashboard Rollup Admin",
+      "item": [
+        {
+          "name": "Backfill daily_lab_stats",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab-super-admin/stats/rollup/backfill?startDate={{startDate}}&endDate={{endDate}}&labId={{labId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "lab-super-admin", "stats", "rollup", "backfill"],
+              "query": [
+                { "key": "startDate", "value": "{{startDate}}" },
+                { "key": "endDate", "value": "{{endDate}}" },
+                { "key": "labId", "value": "{{labId}}", "disabled": true }
+              ]
+            },
+            "description": "One-time/on-demand backfill for the daily_lab_stats rollup table (DashboardRollupAdminController). Omit labId to backfill every lab. Safe to re-run for any date range at any time."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

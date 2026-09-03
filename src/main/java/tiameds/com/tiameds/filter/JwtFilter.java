@@ -14,7 +14,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -22,6 +21,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import tiameds.com.tiameds.config.JwtProperties;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.repository.UserRepository;
+import tiameds.com.tiameds.services.auth.MyUserDetails;
 import tiameds.com.tiameds.utils.JwtUtil;
 
 import java.io.IOException;
@@ -44,7 +44,6 @@ public class JwtFilter extends OncePerRequestFilter {
             "/public/register"
     );
 
-    private final UserDetailsService userDetailsService;
     private final JwtUtil jwtUtil;
     private final UserRepository userRepository;
     private final JwtProperties jwtProperties;
@@ -93,7 +92,10 @@ public class JwtFilter extends OncePerRequestFilter {
             }
 
             if (SecurityContextHolder.getContext().getAuthentication() == null) {
-                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                // Reuse the User already fetched above (line: userRepository.findByUsername)
+                // instead of calling userDetailsService.loadUserByUsername, which would
+                // re-fetch the same row from the DB a second time for this one request.
+                UserDetails userDetails = new MyUserDetails(user);
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
