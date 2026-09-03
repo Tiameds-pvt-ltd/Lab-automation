@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.services.lab.DashboardRollupBackfillService;
+import tiameds.com.tiameds.services.lab.DashboardRollupVerificationService;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.UserAuthService;
 
@@ -27,12 +28,34 @@ import java.util.Optional;
 public class DashboardRollupAdminController {
 
     private final DashboardRollupBackfillService dashboardRollupBackfillService;
+    private final DashboardRollupVerificationService dashboardRollupVerificationService;
     private final UserAuthService userAuthService;
 
     public DashboardRollupAdminController(DashboardRollupBackfillService dashboardRollupBackfillService,
+                                          DashboardRollupVerificationService dashboardRollupVerificationService,
                                           UserAuthService userAuthService) {
         this.dashboardRollupBackfillService = dashboardRollupBackfillService;
+        this.dashboardRollupVerificationService = dashboardRollupVerificationService;
         this.userAuthService = userAuthService;
+    }
+
+    @GetMapping("/verify")
+    public ResponseEntity<?> verify(
+            @RequestHeader("Authorization") String token,
+            @RequestParam Long labId,
+            @RequestParam LocalDate startDate,
+            @RequestParam LocalDate endDate) {
+
+        Optional<User> userOptional = userAuthService.authenticateUser(token);
+        if (userOptional.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
+        }
+        if (endDate.isBefore(startDate)) {
+            return ApiResponseHelper.errorResponse("endDate must not be before startDate", HttpStatus.BAD_REQUEST);
+        }
+
+        return ApiResponseHelper.successResponse("Rollup verification completed",
+                dashboardRollupVerificationService.verify(labId, startDate, endDate));
     }
 
     @PostMapping("/backfill")

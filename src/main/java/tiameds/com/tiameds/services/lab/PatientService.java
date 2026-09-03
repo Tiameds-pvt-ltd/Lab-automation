@@ -4,6 +4,7 @@ import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import tiameds.com.tiameds.dto.lab.*;
@@ -36,7 +37,7 @@ public class PatientService {
     private final VisitRepository visitRepository;
     private final BillingManagementService billingManagementService;
     private final SequenceGeneratorService sequenceGeneratorService;
-    private final DashboardRollupService dashboardRollupService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public PatientService(LabRepository labRepository,
                           TestRepository testRepository,
@@ -50,7 +51,7 @@ public class PatientService {
                           VisitRepository visitRepository,
                           BillingManagementService billingManagementService,
                           SequenceGeneratorService sequenceGeneratorService,
-                          DashboardRollupService dashboardRollupService
+                          ApplicationEventPublisher eventPublisher
     ) {
         this.labRepository = labRepository;
         this.testRepository = testRepository;
@@ -64,7 +65,7 @@ public class PatientService {
         this.visitRepository = visitRepository;
         this.billingManagementService = billingManagementService;
         this.sequenceGeneratorService = sequenceGeneratorService;
-        this.dashboardRollupService = dashboardRollupService;
+        this.eventPublisher = eventPublisher;
     }
 
 
@@ -163,7 +164,7 @@ public class PatientService {
         }
         patientRepository.save(existingPatient);
         if (visit != null && visit.getCreatedAt() != null) {
-            dashboardRollupService.recomputeDay(lab.getId(), visit.getCreatedAt().atZone(ZoneId.systemDefault()).toLocalDate());
+            eventPublisher.publishEvent(new RollupRecomputeEvent(lab.getId(), visit.getCreatedAt().atZone(ZoneId.systemDefault()).toLocalDate()));
         }
         return new PatientDTO(existingPatient);
     }

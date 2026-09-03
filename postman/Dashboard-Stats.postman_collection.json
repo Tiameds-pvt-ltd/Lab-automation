@@ -87,6 +87,24 @@
           "response": []
         },
         {
+          "name": "Kpis",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab-super-admin/stats/kpis?startDate={{startDate}}&endDate={{endDate}}&labId={{labId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "lab-super-admin", "stats", "kpis"],
+              "query": [
+                { "key": "startDate", "value": "{{startDate}}" },
+                { "key": "endDate", "value": "{{endDate}}" },
+                { "key": "labId", "value": "{{labId}}", "disabled": true }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
           "name": "Dashboard Summary",
           "request": {
             "method": "GET",

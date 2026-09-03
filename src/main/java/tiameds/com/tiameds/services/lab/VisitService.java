@@ -1,5 +1,6 @@
 package tiameds.com.tiameds.services.lab;
 import org.jetbrains.annotations.NotNull;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,7 +30,7 @@ public class VisitService {
     private final TestDiscountRepository testDiscountRepository;
     private final VisitTestResultRepository visitTestResultRepository;
     private final SequenceGeneratorService sequenceGeneratorService;
-    private final DashboardRollupService dashboardRollupService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public VisitService(PatientRepository patientRepository,
                         LabRepository labRepository,
@@ -42,7 +43,7 @@ public class VisitService {
                         TestDiscountRepository testDiscountRepository,
                         VisitTestResultRepository visitTestResultRepository,
                         SequenceGeneratorService sequenceGeneratorService,
-                        DashboardRollupService dashboardRollupService) {
+                        ApplicationEventPublisher eventPublisher) {
         this.patientRepository = patientRepository;
         this.labRepository = labRepository;
         this.testRepository = testRepository;
@@ -54,7 +55,7 @@ public class VisitService {
         this.testDiscountRepository = testDiscountRepository;
         this.visitTestResultRepository = visitTestResultRepository;
         this.sequenceGeneratorService = sequenceGeneratorService;
-        this.dashboardRollupService = dashboardRollupService;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -132,7 +133,7 @@ public class VisitService {
 
         // Save the visit
         visit = visitRepository.save(visit);
-        dashboardRollupService.recomputeDay(labOptional.get().getId(), visit.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toLocalDate());
+        eventPublisher.publishEvent(new RollupRecomputeEvent(labOptional.get().getId(), visit.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toLocalDate()));
     }
 
     public List<PatientDTO> getVisits(Long labId, Optional<User> currentUser) {
@@ -292,7 +293,7 @@ public class VisitService {
 
         Long rollupLabId = labOptional.get().getId();
         java.time.LocalDate newDay = visit.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toLocalDate();
-        dashboardRollupService.recomputeDay(rollupLabId, newDay);
+        eventPublisher.publishEvent(new RollupRecomputeEvent(rollupLabId, newDay));
     }
 
     @Transactional
@@ -364,7 +365,7 @@ public class VisitService {
         visitRepository.delete(visit);
 
         if (rollupDate != null) {
-            dashboardRollupService.recomputeDay(labId, rollupDate);
+            eventPublisher.publishEvent(new RollupRecomputeEvent(labId, rollupDate));
         }
     }
 
@@ -439,7 +440,7 @@ public class VisitService {
         }
 
         for (java.time.LocalDate date : affectedDates) {
-            dashboardRollupService.recomputeDay(labId, date);
+            eventPublisher.publishEvent(new RollupRecomputeEvent(labId, date));
         }
 
         return deletedCount;

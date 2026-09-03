@@ -21,6 +21,9 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -28,6 +31,12 @@ import java.util.stream.Collectors;
 @RequestMapping("/lab-super-admin/stats")
 @Tag(name = "Super Admin Dashboard Controller", description = "Single combined stats endpoint for super admin")
 public class SuperAdminDashboardController {
+
+    // Bounded pool for fanning out the independent /all sections concurrently. Sized above
+    // the number of sections (currently 10) so none of them wait on a free thread behind
+    // another section's query; HikariCP's pool (40 connections, see application-dev.yml) has
+    // headroom for this many concurrent DB calls from a single request.
+    private static final ExecutorService DASHBOARD_EXECUTOR = Executors.newFixedThreadPool(16);
 
     private final LabRepository labRepository;
     private final UserRepository userRepository;
@@ -73,48 +82,87 @@ public class SuperAdminDashboardController {
         Long userId = currentUser.getId();
         boolean hasDates = startDate != null && endDate != null;
 
-        // ── Shared data: fetched ONCE, reused in multiple sections ────────────
+        // ── Shared data: fetched ONCE (in parallel), reused in multiple sections ──
         // Both testsByCategory and detailedBilling need testCategories.
         // Both packagesSummary and detailedBilling need packages.
         // Fetching here avoids 2 duplicate DB round-trips per request.
-        List<VisitTestResultRepository.TestsByCategoryDetailedProjection> sharedTestCategories =
-                fetchTestCategories(userId, currentUser, startDate, endDate, hasDates, labId);
-        List<HealthPackageRepository.PackageSummaryProjection> sharedPackages =
-                fetchPackages(userId, startDate, endDate, hasDates, labId);
+        CompletableFuture<List<VisitTestResultRepository.TestsByCategoryDetailedProjection>> testCategoriesFuture =
+                CompletableFuture.supplyAsync(
+                        () -> fetchTestCategories(userId, currentUser, startDate, endDate, hasDates, labId), DASHBOARD_EXECUTOR);
+        CompletableFuture<List<HealthPackageRepository.PackageSummaryProjection>> packagesFuture =
+                CompletableFuture.supplyAsync(
+                        () -> fetchPackages(userId, startDate, endDate, hasDates, labId), DASHBOARD_EXECUTOR);
 
-        Map<String, Object> response = new LinkedHashMap<>();
-
-        // ── KPIs ─────────────────────────────────────────────────────────────
-        response.put("kpis", buildKpis(currentUser, userId, startDate, endDate, hasDates, labId));
-
-        // ── Dashboard summary (lab-wise rollup) ───────────────────────────────
-        response.put("dashboardSummary", buildDashboardSummary(userId, startDate, endDate, hasDates, labId));
-
-        // ── Tests by category ─────────────────────────────────────────────────
-        response.put("testsByCategory", buildTestsByCategory(currentUser, userId, startDate, endDate, hasDates, labId, sharedTestCategories));
-
-        // ── Revenue trend (only when date range supplied) ─────────────────────
-        if (hasDates) {
-            response.put("revenueTrend", buildRevenueTrend(userId, startDate, endDate, labId));
+        // Lab-wise rollup (revenue/testCount/patientCount/pendingSamples/reportsGenerated/avgTatHours
+        // per lab), sourced from daily_lab_stats instead of live joins. Only fetched for the
+        // all-labs + date-range case (labId == null && hasDates), which is what buildKpis,
+        // buildDashboardSummary, and buildLabPerformance previously each recomputed independently
+        // via near-duplicate ~600ms live joins. Fetching once here and sharing it cuts that to a
+        // single ~280ms query reused by all three sections.
+        CompletableFuture<List<LabRepository.LabPerformanceSummaryProjection>> labRollupFuture;
+        if (labId == null && hasDates) {
+            long periodDays = ChronoUnit.DAYS.between(startDate, endDate) + 1;
+            LocalDate prevEnd   = startDate.minusDays(1);
+            LocalDate prevStart = prevEnd.minusDays(periodDays - 1);
+            labRollupFuture = CompletableFuture.supplyAsync(() -> labRepository.getLabWiseRollupWithDateRange(
+                    userId, startDate, endDate, prevStart, prevEnd,
+                    toInstantStart(startDate), toInstantEnd(endDate)), DASHBOARD_EXECUTOR);
+        } else {
+            labRollupFuture = CompletableFuture.completedFuture(null);
         }
 
-        // ── Revenue by lab ────────────────────────────────────────────────────
-        response.put("revenueByLab", buildRevenueByLab(userId, startDate, endDate, hasDates, labId));
+        List<VisitTestResultRepository.TestsByCategoryDetailedProjection> sharedTestCategories = testCategoriesFuture.join();
+        List<HealthPackageRepository.PackageSummaryProjection> sharedPackages = packagesFuture.join();
+        List<LabRepository.LabPerformanceSummaryProjection> sharedLabRollup = labRollupFuture.join();
 
-        // ── Lab performance ───────────────────────────────────────────────────
-        response.put("labPerformance", buildLabPerformance(userId, startDate, endDate, hasDates, limit, labId));
+        // ── Independent sections: dispatched together, run concurrently ──────────
+        // None of these read each other's output (only the shared data fetched above),
+        // so running them sequentially was pure wasted wall-clock: total time used to be
+        // the SUM of every section's query time. Now it's roughly the MAX of the slowest one.
+        CompletableFuture<Map<String, Object>> kpisFuture = CompletableFuture.supplyAsync(
+                () -> buildKpis(currentUser, userId, startDate, endDate, hasDates, labId, sharedLabRollup), DASHBOARD_EXECUTOR);
+        CompletableFuture<Map<String, Object>> dashboardSummaryFuture = CompletableFuture.supplyAsync(
+                () -> buildDashboardSummary(userId, startDate, endDate, hasDates, labId, sharedLabRollup), DASHBOARD_EXECUTOR);
+        CompletableFuture<Map<String, Object>> testsByCategoryFuture = CompletableFuture.supplyAsync(
+                () -> buildTestsByCategory(currentUser, userId, startDate, endDate, hasDates, labId, sharedTestCategories), DASHBOARD_EXECUTOR);
+        CompletableFuture<Map<String, Object>> revenueTrendFuture = hasDates
+                ? CompletableFuture.supplyAsync(() -> buildRevenueTrend(userId, startDate, endDate, labId), DASHBOARD_EXECUTOR)
+                : null;
+        CompletableFuture<List<?>> revenueByLabFuture = CompletableFuture.supplyAsync(
+                () -> buildRevenueByLab(userId, startDate, endDate, hasDates, labId), DASHBOARD_EXECUTOR);
+        CompletableFuture<List<Map<String, Object>>> labPerformanceFuture = CompletableFuture.supplyAsync(
+                () -> buildLabPerformance(userId, startDate, endDate, hasDates, limit, labId, sharedLabRollup), DASHBOARD_EXECUTOR);
+        CompletableFuture<List<DoctorRepository.TopReferringDoctorProjection>> topDoctorsFuture = CompletableFuture.supplyAsync(
+                () -> buildTopReferringDoctors(userId, startDate, endDate, hasDates, limit, labId), DASHBOARD_EXECUTOR);
+        CompletableFuture<Map<String, Object>> detailedBillingFuture = CompletableFuture.supplyAsync(
+                () -> buildDetailedBilling(userId, startDate, endDate, hasDates, labId, sharedTestCategories, sharedPackages), DASHBOARD_EXECUTOR);
+        CompletableFuture<Map<String, Object>> earningsByCategoryFuture = CompletableFuture.supplyAsync(
+                () -> buildEarningsByCategory(currentUser, startDate, endDate, hasDates, labId), DASHBOARD_EXECUTOR);
+        // packagesSummary is a pure in-memory reduction over sharedPackages (already fetched) —
+        // not worth a thread hop.
+        Map<String, Object> packagesSummary = buildPackagesSummary(sharedPackages);
 
-        // ── Top referring doctors ─────────────────────────────────────────────
-        response.put("topReferringDoctors", buildTopReferringDoctors(userId, startDate, endDate, hasDates, limit, labId));
+        List<CompletableFuture<?>> allFutures = new ArrayList<>(List.of(
+                kpisFuture, dashboardSummaryFuture, testsByCategoryFuture, revenueByLabFuture,
+                labPerformanceFuture, topDoctorsFuture, detailedBillingFuture, earningsByCategoryFuture));
+        if (revenueTrendFuture != null) {
+            allFutures.add(revenueTrendFuture);
+        }
+        CompletableFuture.allOf(allFutures.toArray(new CompletableFuture[0])).join();
 
-        // ── Detailed billing (reuses shared testCategories + packages) ────────
-        response.put("detailedBilling", buildDetailedBilling(userId, startDate, endDate, hasDates, labId, sharedTestCategories, sharedPackages));
-
-        // ── Packages summary (reuses shared packages) ─────────────────────────
-        response.put("packagesSummary", buildPackagesSummary(sharedPackages));
-
-        // ── Earnings by category ──────────────────────────────────────────────
-        response.put("earningsByCategory", buildEarningsByCategory(currentUser, startDate, endDate, hasDates, labId));
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("kpis", kpisFuture.join());
+        response.put("dashboardSummary", dashboardSummaryFuture.join());
+        response.put("testsByCategory", testsByCategoryFuture.join());
+        if (revenueTrendFuture != null) {
+            response.put("revenueTrend", revenueTrendFuture.join());
+        }
+        response.put("revenueByLab", revenueByLabFuture.join());
+        response.put("labPerformance", labPerformanceFuture.join());
+        response.put("topReferringDoctors", topDoctorsFuture.join());
+        response.put("detailedBilling", detailedBillingFuture.join());
+        response.put("packagesSummary", packagesSummary);
+        response.put("earningsByCategory", earningsByCategoryFuture.join());
 
         return ApiResponseHelper.successResponse("All stats retrieved successfully", response);
     }
@@ -162,6 +210,241 @@ public class SuperAdminDashboardController {
         return ApiResponseHelper.successResponse("Grid report retrieved successfully", response);
     }
 
+    // ─── split/standalone per-section endpoints (frontend fetches these independently) ──
+    // Each authenticates on its own and fetches whatever shared data its builder needs,
+    // since there is no cross-request sharing possible for independent HTTP calls.
+    // Do NOT touch /all or /grid above — they remain for backward compatibility.
+
+    @GetMapping("/kpis")
+    public ResponseEntity<?> getKpis(
+            @RequestHeader("Authorization") String token,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate,
+            @RequestParam(required = false) Long labId) {
+
+        Optional<User> userOptional = userAuthService.authenticateUser(token);
+        if (userOptional.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
+        }
+        User currentUser = userOptional.get();
+        Long userId = currentUser.getId();
+        boolean hasDates = startDate != null && endDate != null;
+
+        List<LabRepository.LabPerformanceSummaryProjection> sharedLabRollup = fetchLabRollupIfNeeded(userId, startDate, endDate, hasDates, labId);
+        Map<String, Object> result = buildKpis(currentUser, userId, startDate, endDate, hasDates, labId, sharedLabRollup);
+        return ApiResponseHelper.successResponse("KPIs retrieved successfully", result);
+    }
+
+    @GetMapping("/dashboard-summary")
+    public ResponseEntity<?> getDashboardSummary(
+            @RequestHeader("Authorization") String token,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate,
+            @RequestParam(required = false) Long labId) {
+
+        Optional<User> userOptional = userAuthService.authenticateUser(token);
+        if (userOptional.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
+        }
+        User currentUser = userOptional.get();
+        Long userId = currentUser.getId();
+        boolean hasDates = startDate != null && endDate != null;
+
+        List<LabRepository.LabPerformanceSummaryProjection> sharedLabRollup = fetchLabRollupIfNeeded(userId, startDate, endDate, hasDates, labId);
+        Map<String, Object> result = buildDashboardSummary(userId, startDate, endDate, hasDates, labId, sharedLabRollup);
+        return ApiResponseHelper.successResponse("Dashboard summary retrieved successfully", result);
+    }
+
+    @GetMapping("/tests-by-category")
+    public ResponseEntity<?> getTestsByCategory(
+            @RequestHeader("Authorization") String token,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate,
+            @RequestParam(required = false) Long labId) {
+
+        Optional<User> userOptional = userAuthService.authenticateUser(token);
+        if (userOptional.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
+        }
+        User currentUser = userOptional.get();
+        Long userId = currentUser.getId();
+        boolean hasDates = startDate != null && endDate != null;
+
+        List<VisitTestResultRepository.TestsByCategoryDetailedProjection> categories =
+                fetchTestCategories(userId, currentUser, startDate, endDate, hasDates, labId);
+        Map<String, Object> result = buildTestsByCategory(currentUser, userId, startDate, endDate, hasDates, labId, categories);
+        return ApiResponseHelper.successResponse("Tests by category retrieved successfully", result);
+    }
+
+    @GetMapping("/revenue-trend")
+    public ResponseEntity<?> getRevenueTrend(
+            @RequestHeader("Authorization") String token,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate,
+            @RequestParam(required = false) Long labId) {
+
+        Optional<User> userOptional = userAuthService.authenticateUser(token);
+        if (userOptional.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
+        }
+        User currentUser = userOptional.get();
+        Long userId = currentUser.getId();
+        boolean hasDates = startDate != null && endDate != null;
+
+        if (!hasDates) {
+            // Mirrors getAllStats: revenueTrend is only built when a date range is supplied.
+            return ApiResponseHelper.successResponse("Revenue trend retrieved successfully", Collections.emptyMap());
+        }
+        Map<String, Object> result = buildRevenueTrend(userId, startDate, endDate, labId);
+        return ApiResponseHelper.successResponse("Revenue trend retrieved successfully", result);
+    }
+
+    @GetMapping("/revenue-by-lab")
+    public ResponseEntity<?> getRevenueByLab(
+            @RequestHeader("Authorization") String token,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate,
+            @RequestParam(required = false) Long labId) {
+
+        Optional<User> userOptional = userAuthService.authenticateUser(token);
+        if (userOptional.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
+        }
+        User currentUser = userOptional.get();
+        Long userId = currentUser.getId();
+        boolean hasDates = startDate != null && endDate != null;
+
+        List<?> result = buildRevenueByLab(userId, startDate, endDate, hasDates, labId);
+        return ApiResponseHelper.successResponse("Revenue by lab retrieved successfully", result);
+    }
+
+    @GetMapping("/lab-performance")
+    public ResponseEntity<?> getLabPerformance(
+            @RequestHeader("Authorization") String token,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate,
+            @RequestParam(defaultValue = "10") int limit,
+            @RequestParam(required = false) Long labId) {
+
+        Optional<User> userOptional = userAuthService.authenticateUser(token);
+        if (userOptional.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
+        }
+        User currentUser = userOptional.get();
+        Long userId = currentUser.getId();
+        boolean hasDates = startDate != null && endDate != null;
+
+        List<LabRepository.LabPerformanceSummaryProjection> sharedLabRollup = fetchLabRollupIfNeeded(userId, startDate, endDate, hasDates, labId);
+        List<Map<String, Object>> result = buildLabPerformance(userId, startDate, endDate, hasDates, limit, labId, sharedLabRollup);
+        return ApiResponseHelper.successResponse("Lab performance retrieved successfully", result);
+    }
+
+    @GetMapping("/top-referring-doctors")
+    public ResponseEntity<?> getTopReferringDoctors(
+            @RequestHeader("Authorization") String token,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate,
+            @RequestParam(defaultValue = "10") int limit,
+            @RequestParam(required = false) Long labId) {
+
+        Optional<User> userOptional = userAuthService.authenticateUser(token);
+        if (userOptional.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
+        }
+        User currentUser = userOptional.get();
+        Long userId = currentUser.getId();
+        boolean hasDates = startDate != null && endDate != null;
+
+        List<DoctorRepository.TopReferringDoctorProjection> result =
+                buildTopReferringDoctors(userId, startDate, endDate, hasDates, limit, labId);
+        return ApiResponseHelper.successResponse("Top referring doctors retrieved successfully", result);
+    }
+
+    @GetMapping("/detailed-billing")
+    public ResponseEntity<?> getDetailedBilling(
+            @RequestHeader("Authorization") String token,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate,
+            @RequestParam(required = false) Long labId) {
+
+        Optional<User> userOptional = userAuthService.authenticateUser(token);
+        if (userOptional.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
+        }
+        User currentUser = userOptional.get();
+        Long userId = currentUser.getId();
+        boolean hasDates = startDate != null && endDate != null;
+
+        // buildDetailedBilling's "summary"/"byPaymentStatus" sections (the only parts the
+        // frontend's Billing Summary card reads) come purely from summaryList/byStatus below,
+        // NOT from testCategories/packages — those two params only feed the "testsSummary" and
+        // "packageSummary" sections, which now have their own dedicated, cheaper endpoints
+        // (/tests-by-category, /packages-summary). Refetching them here was pure wasted work:
+        // the same ~150-250ms queries running twice per page load for data nobody reads from
+        // this endpoint's response.
+        Map<String, Object> result = buildDetailedBilling(
+                userId, startDate, endDate, hasDates, labId,
+                Collections.emptyList(), Collections.emptyList());
+        return ApiResponseHelper.successResponse("Detailed billing retrieved successfully", result);
+    }
+
+    @GetMapping("/packages-summary")
+    public ResponseEntity<?> getPackagesSummary(
+            @RequestHeader("Authorization") String token,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate,
+            @RequestParam(required = false) Long labId) {
+
+        Optional<User> userOptional = userAuthService.authenticateUser(token);
+        if (userOptional.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
+        }
+        User currentUser = userOptional.get();
+        Long userId = currentUser.getId();
+        boolean hasDates = startDate != null && endDate != null;
+
+        List<HealthPackageRepository.PackageSummaryProjection> packages =
+                fetchPackages(userId, startDate, endDate, hasDates, labId);
+        Map<String, Object> result = buildPackagesSummary(packages);
+        return ApiResponseHelper.successResponse("Packages summary retrieved successfully", result);
+    }
+
+    @GetMapping("/earnings-by-category")
+    public ResponseEntity<?> getEarningsByCategory(
+            @RequestHeader("Authorization") String token,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate,
+            @RequestParam(required = false) Long labId) {
+
+        Optional<User> userOptional = userAuthService.authenticateUser(token);
+        if (userOptional.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
+        }
+        User currentUser = userOptional.get();
+        boolean hasDates = startDate != null && endDate != null;
+
+        Map<String, Object> result = buildEarningsByCategory(currentUser, startDate, endDate, hasDates, labId);
+        return ApiResponseHelper.successResponse("Earnings by category retrieved successfully", result);
+    }
+
+    /**
+     * Shared with getAllStats: the lab-wise rollup (from daily_lab_stats) is only fetched
+     * for the all-labs + date-range case, since that's the only case buildKpis,
+     * buildDashboardSummary, and buildLabPerformance actually use it for.
+     */
+    private List<LabRepository.LabPerformanceSummaryProjection> fetchLabRollupIfNeeded(
+            Long userId, LocalDate startDate, LocalDate endDate, boolean hasDates, Long labId) {
+        if (labId != null || !hasDates) {
+            return null;
+        }
+        long periodDays = ChronoUnit.DAYS.between(startDate, endDate) + 1;
+        LocalDate prevEnd   = startDate.minusDays(1);
+        LocalDate prevStart = prevEnd.minusDays(periodDays - 1);
+        return labRepository.getLabWiseRollupWithDateRange(
+                userId, startDate, endDate, prevStart, prevEnd,
+                toInstantStart(startDate), toInstantEnd(endDate));
+    }
+
     // ─── shared data fetchers (called once, results passed to multiple builders) ──
 
     private List<VisitTestResultRepository.TestsByCategoryDetailedProjection> fetchTestCategories(
@@ -193,7 +476,8 @@ public class SuperAdminDashboardController {
     // ─── section builders ────────────────────────────────────────────────────
 
     private Map<String, Object> buildKpis(User currentUser, Long userId,
-                                          LocalDate startDate, LocalDate endDate, boolean hasDates, Long labId) {
+                                          LocalDate startDate, LocalDate endDate, boolean hasDates, Long labId,
+                                          List<LabRepository.LabPerformanceSummaryProjection> sharedLabRollup) {
         long totalLabs, totalTests, reportsGenerated, pendingSamples;
         BigDecimal totalRevenue;
 
@@ -240,15 +524,13 @@ public class SuperAdminDashboardController {
 
         // All labs — include lab-wise breakdowns for role counts
         if (hasDates) {
-            LocalDateTime s = toStart(startDate);
-            LocalDateTime e = toEnd(endDate);
-            Instant is = toInstantStart(startDate);
-            Instant ie = toInstantEnd(endDate);
-            totalLabs        = labRepository.countByCreatedByAndCreatedAtBetween(currentUser, s, e);
-            totalTests       = visitTestResultRepository.countAllTestsByLabsCreatedByAndCreatedAtBetween(currentUser, s, e);
-            reportsGenerated = visitTestResultRepository.countCompletedReportsByLabsCreatedByAndCreatedAtBetween(currentUser, s, e);
-            pendingSamples   = visitRepository.countPendingVisitsByLabsCreatedByAndCreatedAtBetween(currentUser, is, ie);
-            totalRevenue     = billingRepository.sumPaidAmountByLabsCreatedByAndCreatedAtBetween(currentUser, is, ie);
+            // testTotals/reportsGenerated/pendingSamples/totalRevenue now come from the shared
+            // daily_lab_stats rollup fetched once in getAllStats, instead of 4 more live queries.
+            totalLabs        = labRepository.countByCreatedByAndCreatedAtBetween(currentUser, toStart(startDate), toEnd(endDate));
+            totalTests       = sumLongField(sharedLabRollup, LabRepository.LabPerformanceSummaryProjection::getTestCount);
+            reportsGenerated = sumLongField(sharedLabRollup, LabRepository.LabPerformanceSummaryProjection::getReportsGenerated);
+            pendingSamples   = sumLongField(sharedLabRollup, LabRepository.LabPerformanceSummaryProjection::getPendingSamples);
+            totalRevenue     = sumBigDecimalField(sharedLabRollup, LabRepository.LabPerformanceSummaryProjection::getRevenue);
         } else {
             totalLabs        = labRepository.countByCreatedBy(currentUser);
             totalTests       = visitTestResultRepository.countAllTestsByLabsCreatedBy(currentUser);
@@ -304,7 +586,8 @@ public class SuperAdminDashboardController {
      * so the DB only aggregates the relevant lab's data.
      */
     private Map<String, Object> buildDashboardSummary(Long userId,
-                                                       LocalDate startDate, LocalDate endDate, boolean hasDates, Long labId) {
+                                                       LocalDate startDate, LocalDate endDate, boolean hasDates, Long labId,
+                                                       List<LabRepository.LabPerformanceSummaryProjection> sharedLabRollup) {
         List<LabRepository.LabPerformanceSummaryProjection> labRows;
 
         if (labId != null) {
@@ -323,13 +606,9 @@ public class SuperAdminDashboardController {
                         .map(Collections::singletonList).orElse(Collections.emptyList());
             }
         } else if (hasDates) {
-            long periodDays = ChronoUnit.DAYS.between(startDate, endDate) + 1;
-            LocalDate prevEnd   = startDate.minusDays(1);
-            LocalDate prevStart = prevEnd.minusDays(periodDays - 1);
-            labRows = labRepository.getAllLabsSummaryWithDateRange(
-                    userId,
-                    toInstantStart(startDate), toInstantEnd(endDate),
-                    toInstantStart(prevStart), toInstantEnd(prevEnd));
+            // Sourced from the shared daily_lab_stats rollup (fetched once in getAllStats)
+            // instead of a second near-duplicate live join.
+            labRows = sharedLabRollup;
         } else {
             labRows = labRepository.getAllLabsSummaryAllTime(userId);
         }
@@ -477,7 +756,8 @@ public class SuperAdminDashboardController {
      * Now routes to the single-lab SQL queries when labId is specified.
      */
     private List<Map<String, Object>> buildLabPerformance(Long userId,
-                                                           LocalDate startDate, LocalDate endDate, boolean hasDates, int limit, Long labId) {
+                                                           LocalDate startDate, LocalDate endDate, boolean hasDates, int limit, Long labId,
+                                                           List<LabRepository.LabPerformanceSummaryProjection> sharedLabRollup) {
         List<LabRepository.LabPerformanceSummaryProjection> results;
 
         if (labId != null) {
@@ -496,12 +776,9 @@ public class SuperAdminDashboardController {
                         .map(Collections::singletonList).orElse(Collections.emptyList());
             }
         } else if (hasDates) {
-            long periodDays = ChronoUnit.DAYS.between(startDate, endDate) + 1;
-            LocalDate prevEnd   = startDate.minusDays(1);
-            LocalDate prevStart = prevEnd.minusDays(periodDays - 1);
-            results = labRepository.getLabPerformanceSummary(
-                    userId, toInstantStart(startDate), toInstantEnd(endDate),
-                    toInstantStart(prevStart), toInstantEnd(prevEnd), limit);
+            // Sourced from the shared daily_lab_stats rollup (already ORDER BY revenue DESC in
+            // SQL, fetched once in getAllStats) instead of a third near-duplicate live join.
+            results = sharedLabRollup.size() > limit ? sharedLabRollup.subList(0, limit) : sharedLabRollup;
         } else {
             results = labRepository.getLabPerformanceSummaryAllTime(userId, limit);
         }
@@ -769,6 +1046,16 @@ public class SuperAdminDashboardController {
                 .filter(v -> v != null)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
                 .setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private <T> long sumLongField(List<T> list, Function<T, Long> getter) {
+        if (list == null) return 0L;
+        return list.stream().map(getter).filter(Objects::nonNull).mapToLong(Long::longValue).sum();
+    }
+
+    private <T> BigDecimal sumBigDecimalField(List<T> list, Function<T, BigDecimal> getter) {
+        if (list == null) return BigDecimal.ZERO;
+        return list.stream().map(getter).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     private LocalDateTime toStart(LocalDate date) { return date.atStartOfDay(); }

@@ -1,5 +1,6 @@
 package tiameds.com.tiameds.services.lab;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -32,16 +33,16 @@ public class ReportService {
     private final LabRepository labRepository;
     private final VisitTestResultRepository visitTestResultRepository;
     private final SequenceGeneratorService sequenceGeneratorService;
-    private final DashboardRollupService dashboardRollupService;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public ReportService(ReportRepository reportRepository, VisitRepository visitRepository, TestRepository testRepository, LabRepository labRepository, VisitTestResultRepository visitTestResultRepository, SequenceGeneratorService sequenceGeneratorService, DashboardRollupService dashboardRollupService) {
+    public ReportService(ReportRepository reportRepository, VisitRepository visitRepository, TestRepository testRepository, LabRepository labRepository, VisitTestResultRepository visitTestResultRepository, SequenceGeneratorService sequenceGeneratorService, ApplicationEventPublisher eventPublisher) {
         this.reportRepository = reportRepository;
         this.visitRepository = visitRepository;
         this.testRepository = testRepository;
         this.labRepository = labRepository;
         this.visitTestResultRepository = visitTestResultRepository;
         this.sequenceGeneratorService = sequenceGeneratorService;
-        this.dashboardRollupService = dashboardRollupService;
+        this.eventPublisher = eventPublisher;
     }
 
     private static final ZoneId IST_ZONE = ZoneId.of("Asia/Kolkata");
@@ -350,7 +351,7 @@ public class ReportService {
         // created_at date (matches VisitTestResultRepository.countCompletedReportsByLabId*),
         // not "today" — recompute that day's rollup row for the lab this report belongs to.
         if (existingVisitTestResult.getCreatedAt() != null) {
-            dashboardRollupService.recomputeDay(labId, existingVisitTestResult.getCreatedAt().toLocalDate());
+            eventPublisher.publishEvent(new RollupRecomputeEvent(labId, existingVisitTestResult.getCreatedAt().toLocalDate()));
         }
 
         ReportEntity reportEntity = new ReportEntity();

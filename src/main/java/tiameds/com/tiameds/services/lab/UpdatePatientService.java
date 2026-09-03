@@ -928,6 +928,7 @@
 package tiameds.com.tiameds.services.lab;
 
 import jakarta.persistence.EntityNotFoundException;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tiameds.com.tiameds.dto.lab.BillingDTO;
@@ -961,10 +962,10 @@ public class UpdatePatientService {
     private final LabRepository labRepository;
     private final TransactionRepository transactionRepository;
     private final BillingManagementService billingManagementService;
-    private final DashboardRollupService dashboardRollupService;
+    private final ApplicationEventPublisher eventPublisher;
     private static final Logger logger = org.slf4j.LoggerFactory.getLogger(UpdatePatientService.class);
 
-    public UpdatePatientService(PatientRepository patientRepository, DoctorRepository doctorRepository, TestRepository testRepository, HealthPackageRepository healthPackageRepository, InsuranceRepository insuranceRepository, BillingRepository billingRepository, TestDiscountRepository testDiscountRepository, VisitRepository visitRepository, LabRepository labRepository, TransactionRepository transactionRepository, BillingManagementService billingManagementService, DashboardRollupService dashboardRollupService) {
+    public UpdatePatientService(PatientRepository patientRepository, DoctorRepository doctorRepository, TestRepository testRepository, HealthPackageRepository healthPackageRepository, InsuranceRepository insuranceRepository, BillingRepository billingRepository, TestDiscountRepository testDiscountRepository, VisitRepository visitRepository, LabRepository labRepository, TransactionRepository transactionRepository, BillingManagementService billingManagementService, ApplicationEventPublisher eventPublisher) {
         this.patientRepository = patientRepository;
         this.doctorRepository = doctorRepository;
         this.testRepository = testRepository;
@@ -976,15 +977,16 @@ public class UpdatePatientService {
         this.labRepository = labRepository;
         this.transactionRepository = transactionRepository;
         this.billingManagementService = billingManagementService;
-        this.dashboardRollupService = dashboardRollupService;
+        this.eventPublisher = eventPublisher;
     }
 
-    /** Recompute the rollup row for the billing's original created_at date (see DashboardRollupService). */
+    /** Publish a rollup recompute event for the billing's original created_at date — runs
+     * asynchronously after commit (see RollupRecomputeListener), off the request thread. */
     private void recomputeRollupForBilling(Lab lab, BillingEntity billing) {
         if (lab == null || billing == null || billing.getCreatedAt() == null) {
             return;
         }
-        dashboardRollupService.recomputeDay(lab.getId(), billing.getCreatedAt().atZone(ZoneId.systemDefault()).toLocalDate());
+        eventPublisher.publishEvent(new RollupRecomputeEvent(lab.getId(), billing.getCreatedAt().atZone(ZoneId.systemDefault()).toLocalDate()));
     }
 
     @Transactional

@@ -211,6 +211,63 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
             @Param("prevStartDate") Instant prevStartDate,
             @Param("prevEndDate") Instant prevEndDate);
 
+    /**
+     * Same shape as getAllLabsSummaryWithDateRange/getLabPerformanceSummary, but sources
+     * testCount/patientCount/pendingSamples/reportsGenerated/revenue from the daily_lab_stats
+     * rollup (pre-aggregated, kept in sync by DashboardRollupService) instead of live-joining
+     * billing/lab_billing/patient_visits/visit_test_result. Only avgTatHours still needs a
+     * live join (the rollup doesn't track it), and that join is now against lab_report alone
+     * via idx_lab_report_visit_id_lab_id instead of the old 4-table join.
+     * Measured: ~600ms per call (x2, once each for dashboardSummary and labPerformance) ->
+     * ~280ms for a single shared call, reused by buildKpis/buildDashboardSummary/buildLabPerformance.
+     */
+    @Query(value =
+        "SELECT l.lab_id AS labId, l.name AS labName, " +
+        "COALESCE(curr.revenue, 0) AS revenue, " +
+        "COALESCE(prev.revenue, 0) AS previousRevenue, " +
+        "COALESCE(curr.testCount, 0) AS testCount, " +
+        "COALESCE(curr.patientCount, 0) AS patientCount, " +
+        "COALESCE(curr.pendingSamples, 0) AS pendingSamples, " +
+        "COALESCE(curr.reportsGenerated, 0) AS reportsGenerated, " +
+        "ROUND(COALESCE(tat.avgTatHours, 0.0), 1) AS avgTatHours " +
+        "FROM labs l " +
+        "LEFT JOIN ( " +
+        "    SELECT lab_id, " +
+        "        SUM(paid_revenue) AS revenue, " +
+        "        SUM(test_count) AS testCount, " +
+        "        SUM(patient_count) AS patientCount, " +
+        "        SUM(pending_samples) AS pendingSamples, " +
+        "        SUM(reports_generated) AS reportsGenerated " +
+        "    FROM daily_lab_stats " +
+        "    WHERE stat_date BETWEEN :startDateLocal AND :endDateLocal " +
+        "    GROUP BY lab_id " +
+        ") curr ON curr.lab_id = l.lab_id " +
+        "LEFT JOIN ( " +
+        "    SELECT lab_id, SUM(paid_revenue) AS revenue " +
+        "    FROM daily_lab_stats " +
+        "    WHERE stat_date BETWEEN :prevStartDateLocal AND :prevEndDateLocal " +
+        "    GROUP BY lab_id " +
+        ") prev ON prev.lab_id = l.lab_id " +
+        "LEFT JOIN ( " +
+        "    SELECT lv.lab_id, " +
+        "        AVG(EXTRACT(EPOCH FROM (r.created_at::timestamptz - v.created_at::timestamptz)) / 3600.0) AS avgTatHours " +
+        "    FROM lab_visit lv " +
+        "    JOIN patient_visits v ON v.visit_id = lv.visit_id " +
+        "    JOIN lab_report r ON r.visit_id = v.visit_id AND r.lab_id = lv.lab_id " +
+        "    WHERE v.created_at BETWEEN :startDate AND :endDate AND LOWER(v.visit_status) != 'cancelled' " +
+        "    GROUP BY lv.lab_id " +
+        ") tat ON tat.lab_id = l.lab_id " +
+        "WHERE l.created_by = :createdById " +
+        "ORDER BY revenue DESC", nativeQuery = true)
+    List<LabPerformanceSummaryProjection> getLabWiseRollupWithDateRange(
+            @Param("createdById") Long createdById,
+            @Param("startDateLocal") java.time.LocalDate startDateLocal,
+            @Param("endDateLocal") java.time.LocalDate endDateLocal,
+            @Param("prevStartDateLocal") java.time.LocalDate prevStartDateLocal,
+            @Param("prevEndDateLocal") java.time.LocalDate prevEndDateLocal,
+            @Param("startDate") Instant startDate,
+            @Param("endDate") Instant endDate);
+
     @Query(value =
         "SELECT l.lab_id AS labId, l.name AS labName, " +
         "COALESCE(curr.revenue, 0) AS revenue, " +

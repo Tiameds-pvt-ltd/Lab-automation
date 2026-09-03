@@ -1402,6 +1402,7 @@ package tiameds.com.tiameds.services.lab;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tiameds.com.tiameds.entity.BillingEntity;
@@ -1429,20 +1430,22 @@ public class BillingManagementService {
 
     private final BillingRepository billingRepository;
     private final TransactionRepository transactionRepository;
-    private final DashboardRollupService dashboardRollupService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public BillingManagementService(BillingRepository billingRepository, TransactionRepository transactionRepository,
-                                     DashboardRollupService dashboardRollupService) {
+                                     ApplicationEventPublisher eventPublisher) {
         this.billingRepository = billingRepository;
         this.transactionRepository = transactionRepository;
-        this.dashboardRollupService = dashboardRollupService;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
-     * Recomputes the daily_lab_stats rollup row(s) affected by a billing amount change.
-     * Uses billing.getCreatedAt() (not "now") because dashboard queries bucket billing by
-     * its original created_at date — recomputing "today" for an old billing's payment
-     * update would update the wrong day's row.
+     * Publishes a rollup recompute event for the billing amount change — the actual
+     * recompute runs asynchronously after this method's transaction commits (see
+     * RollupRecomputeListener), so it doesn't add latency to the payment/billing
+     * write itself. Uses billing.getCreatedAt() (not "now") because dashboard queries
+     * bucket billing by its original created_at date — recomputing "today" for an old
+     * billing's payment update would update the wrong day's row.
      */
     private void recomputeRollupForBilling(BillingEntity billing) {
         if (billing.getCreatedAt() == null || billing.getLabs() == null) {
@@ -1450,7 +1453,7 @@ public class BillingManagementService {
         }
         LocalDate date = billing.getCreatedAt().atZone(ZoneId.systemDefault()).toLocalDate();
         for (Lab lab : billing.getLabs()) {
-            dashboardRollupService.recomputeDay(lab.getId(), date);
+            eventPublisher.publishEvent(new RollupRecomputeEvent(lab.getId(), date));
         }
     }
 

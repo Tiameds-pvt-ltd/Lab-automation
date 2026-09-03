@@ -41,4 +41,22 @@ public interface DailyLabStatsRepository extends JpaRepository<DailyLabStats, Da
 
     @Query("SELECT COALESCE(SUM(d.paidRevenue), 0) FROM DailyLabStats d WHERE d.labId = :labId AND d.statDate BETWEEN :start AND :end")
     BigDecimal sumPaidRevenueByLabIdAndDateRange(@Param("labId") Long labId, @Param("start") LocalDate start, @Param("end") LocalDate end);
+
+    interface RangeSummaryProjection {
+        Long getTestCount();
+        Long getReportsGenerated();
+        Long getPendingSamples();
+        Long getPatientCount();
+        BigDecimal getPaidRevenue();
+        BigDecimal getDueRevenue();
+    }
+
+    @Query("SELECT COALESCE(SUM(d.testCount), 0) AS testCount, " +
+            "COALESCE(SUM(d.reportsGenerated), 0) AS reportsGenerated, " +
+            "COALESCE(SUM(d.pendingSamples), 0) AS pendingSamples, " +
+            "COALESCE(SUM(d.patientCount), 0) AS patientCount, " +
+            "COALESCE(SUM(d.paidRevenue), 0) AS paidRevenue, " +
+            "COALESCE(SUM(d.dueRevenue), 0) AS dueRevenue " +
+            "FROM DailyLabStats d WHERE d.labId = :labId AND d.statDate BETWEEN :start AND :end")
+    RangeSummaryProjection sumRangeForLab(@Param("labId") Long labId, @Param("start") LocalDate start, @Param("end") LocalDate end);
 }

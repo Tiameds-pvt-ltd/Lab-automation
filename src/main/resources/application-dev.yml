@@ -7,6 +7,9 @@ server:
   error:
     whitelabel:
       enabled: false
+    include-message: always
+    include-stacktrace: on-param
+    include-binding-errors: always
 
 logging:
   level:
@@ -49,7 +52,14 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: none
+      # validate (not none/update): Hibernate checks every entity mapping against
+      # the actual DB schema at startup and fails loudly on any mismatch, instead
+      # of staying silent. Matches application-prod.yml. Read-only — does not
+      # alter the schema or touch any data. See V12-V22 migrations: all of them
+      # fixed drift (varchar columns instead of the real type, missing sequence
+      # defaults) that existed from before Flyway was adopted and had gone
+      # undetected until a query happened to hit it in production/dev use.
+      ddl-auto: validate
     open-in-view: false
     properties:
       hibernate:
