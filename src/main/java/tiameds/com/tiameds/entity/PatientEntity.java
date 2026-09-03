@@ -96,8 +96,16 @@ public class PatientEntity {
     @Column(name = "patient_code", unique = true)
     private String patientCode;
 
-    // One patient can have multiple labs and one lab can have multiple patients
-    @ManyToMany(fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    // One patient can have multiple labs and one lab can have multiple patients.
+    // No cascade: the Lab side is always an already-persisted entity fetched by id before
+    // this association is ever touched, so cascading PERSIST/MERGE to it is never useful -
+    // and combined with the mirrored cascade that used to be on Lab.patients (removed), it
+    // put the new, still-transient Patient into a cascade cycle (Patient -> labs -> Lab ->
+    // patients -> back to the same transient Patient) that corrupted the flush before the
+    // IDENTITY-generated id was set, causing "AssertionFailure: null identifier (PatientEntity)"
+    // on every new-patient save. Writing the lab_patients join-table row for this collection
+    // does not require cascade - that happens automatically for the owning side regardless.
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "lab_patients",
             joinColumns = @JoinColumn(name = "patient_id"),

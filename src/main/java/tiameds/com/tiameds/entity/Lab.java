@@ -196,7 +196,13 @@ public class Lab {
 
 
     //patient -> in one lab multiple patients can be registered
-    @ManyToMany(mappedBy = "labs", fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    // No cascade here deliberately: PatientEntity.labs (the owning side) already cascades
+    // PERSIST/MERGE. Cascading on both sides of a bidirectional @ManyToMany creates a cascade
+    // cycle (Patient -> labs -> this Lab -> patients -> back to the still-transient Patient)
+    // that Hibernate's cascade engine cannot resolve before the new Patient has an id, causing
+    // "AssertionFailure: null identifier (PatientEntity)" on every new-patient save that attaches
+    // an existing Lab. This is a well-known Hibernate anti-pattern; cascade belongs on one side only.
+    @ManyToMany(mappedBy = "labs", fetch = FetchType.LAZY)
     @JsonBackReference
     private Set<PatientEntity> patients = new HashSet<>();
 

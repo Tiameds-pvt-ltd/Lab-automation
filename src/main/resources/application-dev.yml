@@ -15,6 +15,8 @@ logging:
   level:
     org.springframework: INFO
     org.springframework.security: WARN
+    org.hibernate.SQL: DEBUG
+    tiameds: DEBUG
     com:
       fasterxml:
         jackson: WARN

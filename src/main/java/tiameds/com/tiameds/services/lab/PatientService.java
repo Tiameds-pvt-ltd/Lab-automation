@@ -139,12 +139,29 @@ public class PatientService {
             Optional<PatientEntity> guardian = patientRepository.findFirstByPhoneOrderByPatientIdAsc(patientDTO.getPhone());
             guardian.ifPresent(patient::setGuardian);
             patient.getLabs().add(lab);
+
+            // Save the patient on its own first, before touching patient.visits. Cascading a
+            // brand-new @OneToMany child (visit) in the SAME flush as the parent's own
+            // IDENTITY-generated insert causes Hibernate to lose the just-generated patient_id
+            // on the in-memory entity (patient.getId() comes back null even though the INSERT
+            // itself succeeds and returns a real id) - a known Hibernate IDENTITY + Set-cascade
+            // timing issue. Saving the patient first guarantees it has a real, already-flushed
+            // id before the visit is ever attached.
+            PatientEntity savedPatient = patientRepository.save(patient);
+
             if (patientDTO.getVisit() != null) {
                 VisitEntity visit = mapVisitDTOToEntity(patientDTO.getVisit(), lab, currentUser);
-                visit.setPatient(patient);
-                patient.getVisits().add(visit);
+                visit.setPatient(savedPatient);
+                savedPatient.getVisits().add(visit);
+                // Save the visit directly rather than re-saving savedPatient: since savedPatient
+                // already has a non-null id, patientRepository.save(savedPatient) would route
+                // through EntityManager.merge() (Spring Data picks persist() vs merge() based on
+                // whether the id is null), which returns a *different* copy of the entity graph -
+                // and that merged copy's id came back null here too, for the same underlying
+                // Hibernate IDENTITY/cascade timing reason. Saving the (still-transient) visit
+                // directly avoids merging the patient at all.
+                visitRepository.save(visit);
             }
-            PatientEntity savedPatient = patientRepository.save(patient);
             return new PatientDTO(savedPatient);
         } catch (Exception e) {
 //            log.error("Error saving patient with details", e);
