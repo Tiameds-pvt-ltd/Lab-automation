@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.*;
 import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.repository.BillingRepository;
+import tiameds.com.tiameds.repository.DailyLabCategoryStatsRepository;
+import tiameds.com.tiameds.repository.DailyLabStatsRepository;
 import tiameds.com.tiameds.repository.DoctorRepository;
 import tiameds.com.tiameds.repository.HealthPackageRepository;
 import tiameds.com.tiameds.repository.LabRepository;
@@ -53,6 +55,8 @@ public class AdminStatsController {
     private final VisitSampleRepository visitSampleRepository;
     private final DoctorRepository doctorRepository;
     private final HealthPackageRepository healthPackageRepository;
+    private final DailyLabStatsRepository dailyLabStatsRepository;
+    private final DailyLabCategoryStatsRepository dailyLabCategoryStatsRepository;
     private final UserAuthService userAuthService;
 
     public AdminStatsController(LabRepository labRepository,
@@ -65,6 +69,8 @@ public class AdminStatsController {
                                 VisitSampleRepository visitSampleRepository,
                                 DoctorRepository doctorRepository,
                                 HealthPackageRepository healthPackageRepository,
+                                DailyLabStatsRepository dailyLabStatsRepository,
+                                DailyLabCategoryStatsRepository dailyLabCategoryStatsRepository,
                                 UserAuthService userAuthService) {
         this.labRepository = labRepository;
         this.patientRepository = patientRepository;
@@ -76,6 +82,8 @@ public class AdminStatsController {
         this.visitSampleRepository = visitSampleRepository;
         this.doctorRepository = doctorRepository;
         this.healthPackageRepository = healthPackageRepository;
+        this.dailyLabStatsRepository = dailyLabStatsRepository;
+        this.dailyLabCategoryStatsRepository = dailyLabCategoryStatsRepository;
         this.userAuthService = userAuthService;
     }
 
@@ -170,7 +178,7 @@ public class AdminStatsController {
         if (err != null) return err;
 
         long count = (startDate != null && endDate != null)
-                ? visitTestResultRepository.countAllTestsByLabIdAndCreatedAtBetween(labId, toStart(startDate), toEnd(endDate))
+                ? dailyLabStatsRepository.sumRangeForLab(labId, startDate, endDate).getTestCount()
                 : visitTestResultRepository.countAllTestsByLabId(labId);
         return ApiResponseHelper.successResponse("Total tests retrieved successfully", Map.of("totalTests", count));
     }
@@ -186,7 +194,7 @@ public class AdminStatsController {
         if (err != null) return err;
 
         BigDecimal revenue = (startDate != null && endDate != null)
-                ? billingRepository.sumPaidAmountByLabId(labId, toInstantStart(startDate), toInstantEnd(endDate))
+                ? dailyLabStatsRepository.sumRangeForLab(labId, startDate, endDate).getPaidRevenue()
                 : billingRepository.sumPaidAmountByLabIdAllTime(labId);
         if (revenue == null) revenue = BigDecimal.ZERO;
         return ApiResponseHelper.successResponse("Total revenue retrieved successfully", Map.of("totalRevenue", revenue));
@@ -203,7 +211,7 @@ public class AdminStatsController {
         if (err != null) return err;
 
         long count = (startDate != null && endDate != null)
-                ? visitTestResultRepository.countCompletedReportsByLabIdAndCreatedAtBetween(labId, toStart(startDate), toEnd(endDate))
+                ? dailyLabStatsRepository.sumRangeForLab(labId, startDate, endDate).getReportsGenerated()
                 : visitTestResultRepository.countCompletedReportsByLabId(labId);
         return ApiResponseHelper.successResponse("Reports generated retrieved successfully", Map.of("reportsGenerated", count));
     }
@@ -219,7 +227,7 @@ public class AdminStatsController {
         if (err != null) return err;
 
         long count = (startDate != null && endDate != null)
-                ? visitRepository.countPendingVisitsByLabIdAndCreatedAtBetween(labId, toInstantStart(startDate), toInstantEnd(endDate))
+                ? dailyLabStatsRepository.sumRangeForLab(labId, startDate, endDate).getPendingSamples()
                 : visitRepository.countPendingVisitsByLabId(labId);
         return ApiResponseHelper.successResponse("Pending samples retrieved successfully", Map.of("pendingSamples", count));
     }
@@ -234,9 +242,25 @@ public class AdminStatsController {
         ResponseEntity<?> err = authenticate(token, labId, u, l);
         if (err != null) return err;
 
-        List<VisitTestResultRepository.TestsByCategoryProjection> raw = (startDate != null && endDate != null)
-                ? visitTestResultRepository.getPatientTestsByCategoryByLabIdWithDateRange(labId, toStart(startDate), toEnd(endDate))
-                : visitTestResultRepository.getPatientTestsByCategoryByLabId(labId);
+        List<VisitTestResultRepository.TestsByCategoryProjection> raw;
+        if (startDate != null && endDate != null) {
+            // Sourced from the daily_lab_category_stats rollup instead of a live
+            // GROUP BY join across visit_test_result/patient_visits/tests.
+            List<DailyLabCategoryStatsRepository.CategorySummaryProjection> rollup =
+                    dailyLabCategoryStatsRepository.sumRangeByCategoryForLab(labId, startDate, endDate);
+            raw = rollup.stream()
+                    .sorted((a, b) -> Long.compare(
+                            b.getTestCount() != null ? b.getTestCount() : 0L,
+                            a.getTestCount() != null ? a.getTestCount() : 0L))
+                    .map(r -> (VisitTestResultRepository.TestsByCategoryProjection) new VisitTestResultRepository.TestsByCategoryProjection() {
+                        @Override public String getCategory() { return r.getCategory(); }
+                        @Override public Long getTestCount() { return r.getTestCount(); }
+                        @Override public BigDecimal getRevenue() { return r.getGrossRevenue(); }
+                    })
+                    .collect(java.util.stream.Collectors.toList());
+        } else {
+            raw = visitTestResultRepository.getPatientTestsByCategoryByLabId(labId);
+        }
 
         long total = raw.stream().mapToLong(VisitTestResultRepository.TestsByCategoryProjection::getTestCount).sum();
         double base = total > 0 ? total : 1.0;
@@ -596,7 +620,7 @@ public class AdminStatsController {
         if (err != null) return err;
 
         long count = (startDate != null && endDate != null)
-                ? patientRepository.countByLabIdAndCreatedAtBetween(labId, toInstantStart(startDate), toInstantEnd(endDate))
+                ? dailyLabStatsRepository.sumRangeForLab(labId, startDate, endDate).getPatientCount()
                 : patientRepository.countByLabId(labId);
         return ApiResponseHelper.successResponse("Total patients retrieved successfully", Map.of("totalPatients", count));
     }
@@ -724,32 +748,29 @@ public class AdminStatsController {
         Instant iCurrEnd   = toInstantEnd(today);
         Instant iPrevStart = toInstantStart(prevStart);
         Instant iPrevEnd   = toInstantEnd(prevEnd);
-        LocalDateTime lCurrStart = toStart(currStart);
-        LocalDateTime lCurrEnd   = toEnd(today);
-        LocalDateTime lPrevStart = toStart(prevStart);
-        LocalDateTime lPrevEnd   = toEnd(prevEnd);
 
-        // ── Revenue ──
-        BigDecimal currRevenue = billingRepository.sumPaidAmountByLabId(labId, iCurrStart, iCurrEnd);
-        BigDecimal prevRevenue = billingRepository.sumPaidAmountByLabId(labId, iPrevStart, iPrevEnd);
+        // ── Revenue / Tests / Patients / Pending / Reports ──
+        // Sourced from the daily_lab_stats rollup (2 queries) instead of 10 separate
+        // live joins across billing/visit/visit_test_result/patient tables.
+        DailyLabStatsRepository.RangeSummaryProjection currRange = dailyLabStatsRepository.sumRangeForLab(labId, currStart, today);
+        DailyLabStatsRepository.RangeSummaryProjection prevRange = dailyLabStatsRepository.sumRangeForLab(labId, prevStart, prevEnd);
+
+        BigDecimal currRevenue = currRange.getPaidRevenue();
+        BigDecimal prevRevenue = prevRange.getPaidRevenue();
         if (currRevenue == null) currRevenue = BigDecimal.ZERO;
         if (prevRevenue == null) prevRevenue = BigDecimal.ZERO;
 
-        // ── Tests ──
-        long currTests = visitTestResultRepository.countAllTestsByLabIdAndCreatedAtBetween(labId, lCurrStart, lCurrEnd);
-        long prevTests = visitTestResultRepository.countAllTestsByLabIdAndCreatedAtBetween(labId, lPrevStart, lPrevEnd);
+        long currTests = currRange.getTestCount();
+        long prevTests = prevRange.getTestCount();
 
-        // ── Patients ──
-        long currPatients = patientRepository.countByLabIdAndCreatedAtBetween(labId, iCurrStart, iCurrEnd);
-        long prevPatients = patientRepository.countByLabIdAndCreatedAtBetween(labId, iPrevStart, iPrevEnd);
+        long currPatients = currRange.getPatientCount();
+        long prevPatients = prevRange.getPatientCount();
 
-        // ── Pending Samples ──
-        long currPending = visitRepository.countPendingVisitsByLabIdAndCreatedAtBetween(labId, iCurrStart, iCurrEnd);
-        long prevPending = visitRepository.countPendingVisitsByLabIdAndCreatedAtBetween(labId, iPrevStart, iPrevEnd);
+        long currPending = currRange.getPendingSamples();
+        long prevPending = prevRange.getPendingSamples();
 
-        // ── Reports Generated ──
-        long currReports = visitTestResultRepository.countCompletedReportsByLabIdAndCreatedAtBetween(labId, lCurrStart, lCurrEnd);
-        long prevReports = visitTestResultRepository.countCompletedReportsByLabIdAndCreatedAtBetween(labId, lPrevStart, lPrevEnd);
+        long currReports = currRange.getReportsGenerated();
+        long prevReports = prevRange.getReportsGenerated();
 
         // ── Avg TAT ──
         Double currTatRaw = visitTestResultRepository.getAvgTatHoursByLabIdAndDateRange(labId, iCurrStart, iCurrEnd);
