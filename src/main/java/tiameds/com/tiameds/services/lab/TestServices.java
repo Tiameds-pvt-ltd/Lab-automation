@@ -8,6 +8,11 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -166,8 +171,42 @@ public class TestServices {
     }
 
     public Map<String, Object> getAllTests(Lab lab, int page, int size) {
-        List<TestDTO> allTests = lab.getTests().stream()
-                .sorted(Comparator.comparingLong(Test::getId))
+        return getAllTests(lab, page, size, null, null, null);
+    }
+
+    public Map<String, Object> getAllTests(Lab lab, int page, int size, String search, String category, String sortOrder) {
+        Sort sort = switch (sortOrder == null ? "" : sortOrder) {
+            case "low" -> Sort.by("price").ascending();
+            case "high" -> Sort.by("price").descending();
+            default -> Sort.by("id").ascending();
+        };
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        String normalizedSearch = (search == null || search.isBlank()) ? null : search.trim().toLowerCase();
+        String normalizedCategory = (category == null || category.isBlank()) ? null : category.trim();
+
+        Specification<Test> spec = (root, query, cb) -> {
+            var labJoin = root.join("labs");
+            var predicate = cb.equal(labJoin.get("id"), lab.getId());
+
+            if (normalizedSearch != null) {
+                String likePattern = "%" + normalizedSearch + "%";
+                predicate = cb.and(predicate, cb.or(
+                        cb.like(cb.lower(root.get("name")), likePattern),
+                        cb.like(cb.lower(root.get("category")), likePattern)
+                ));
+            }
+
+            if (normalizedCategory != null) {
+                predicate = cb.and(predicate, cb.equal(root.get("category"), normalizedCategory));
+            }
+
+            return predicate;
+        };
+
+        Page<Test> testPage = testRepository.findAll(spec, pageable);
+
+        List<TestDTO> paginatedTests = testPage.getContent().stream()
                 .map(test -> new TestDTO(
                         test.getId(),
                         test.getTestCode(),
@@ -178,28 +217,17 @@ public class TestServices {
                         test.getUpdatedAt()
                 ))
                 .toList();
-        
-        // Calculate pagination
-        int totalElements = allTests.size();
-        int totalPages = (int) Math.ceil((double) totalElements / size);
-        int start = page * size;
-        int end = Math.min(start + size, totalElements);
-        
-        // Get paginated subset
-        List<TestDTO> paginatedTests = start < totalElements 
-                ? allTests.subList(start, end)
-                : new ArrayList<>();
-        
-        // Build response with pagination metadata
+
         Map<String, Object> response = new HashMap<>();
         response.put("content", paginatedTests);
         response.put("page", page);
         response.put("size", size);
-        response.put("totalElements", totalElements);
-        response.put("totalPages", totalPages);
-        response.put("hasNext", page < totalPages - 1);
-        response.put("hasPrevious", page > 0);
-        
+        response.put("totalElements", testPage.getTotalElements());
+        response.put("totalPages", testPage.getTotalPages());
+        response.put("hasNext", testPage.hasNext());
+        response.put("hasPrevious", testPage.hasPrevious());
+        response.put("categories", testRepository.findDistinctCategoriesByLabId(lab.getId()));
+
         return response;
     }
 

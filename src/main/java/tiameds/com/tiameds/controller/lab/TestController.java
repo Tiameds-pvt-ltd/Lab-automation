@@ -72,7 +72,10 @@ public class TestController {
     public ResponseEntity<?> getAllTests(
             @RequestParam Long labId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String sortOrder) {
         try {
             Optional<User> userOptional = getAuthenticatedUser();
             if (userOptional.isEmpty()) {
@@ -98,7 +101,7 @@ public class TestController {
                 return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
             }
 
-            Map<String, Object> paginatedResponse = testServices.getAllTests(lab, page, size);
+            Map<String, Object> paginatedResponse = testServices.getAllTests(lab, page, size, search, category, sortOrder);
             return ApiResponseHelper.successResponseWithDataAndMessage("Tests retrieved successfully", HttpStatus.OK, paginatedResponse);
 
         } catch (Exception e) {
