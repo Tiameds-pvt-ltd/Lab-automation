@@ -63,6 +63,9 @@ public class CategoryStatsRollupService {
                         safe(row.getUpiRevenue()),
                         safe(row.getCardRevenue()));
             }
+        } catch (IllegalStateException e) {
+            // EMF closed means the JVM is shutting down — propagate so the caller can abort cleanly.
+            throw e;
         } catch (Exception e) {
             logger.error("daily_lab_category_stats rollup failed for labId={}, date={} — category dashboard may show stale data for this day until re-run", labId, date, e);
         }

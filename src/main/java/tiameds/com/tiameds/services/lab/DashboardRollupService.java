@@ -77,6 +77,9 @@ public class DashboardRollupService {
                     patientCount,
                     paidRevenue != null ? paidRevenue : BigDecimal.ZERO,
                     dueRevenue != null ? dueRevenue : BigDecimal.ZERO);
+        } catch (IllegalStateException e) {
+            // EMF closed means the JVM is shutting down — propagate so the caller can abort cleanly.
+            throw e;
         } catch (Exception e) {
             logger.error("daily_lab_stats rollup failed for labId={}, date={} — dashboard may show stale data for this day until re-run", labId, date, e);
         }
