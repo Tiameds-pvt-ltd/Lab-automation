@@ -323,10 +323,14 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
         "LEFT JOIN billing b ON pv.billing_id = b.billing_id " +
         "LEFT JOIN (SELECT vtr2.visit_id, SUM(t2.price::numeric) AS total_price " +
         "  FROM visit_test_result vtr2 JOIN tests t2 ON vtr2.test_id = t2.test_id " +
-        "  WHERE LOWER(vtr2.test_status) = 'active' GROUP BY vtr2.visit_id) vps ON vps.visit_id = pv.visit_id " +
+        "  WHERE LOWER(vtr2.test_status) = 'active' AND vtr2.created_at BETWEEN :startDate AND :endDate GROUP BY vtr2.visit_id) vps ON vps.visit_id = pv.visit_id " +
         "WHERE l.created_by = :createdById AND vtr.created_at BETWEEN :startDate AND :endDate AND LOWER(vtr.test_status) = 'active' AND LOWER(pv.visit_status) != 'cancelled' " +
         "GROUP BY t.category, t.test_id, t.name, t.test_code, t.price " +
         "ORDER BY t.category, paidAmount DESC", nativeQuery = true)
+    // NOTE: vps subquery intentionally filters by the same :startDate/:endDate as the outer
+    // query. Tests in a single lab visit are always created on the same day, so the per-visit
+    // price total computed by vps equals what it would be if we scanned all time — but this
+    // avoids a full-table scan of visit_test_result that caused 504s on large deployments.
     List<TestEarningsByTestProjection> getEarningsByTestBySuperAdminWithDateRange(
             @Param("createdById") Long createdById,
             @Param("startDate") LocalDateTime startDate,
