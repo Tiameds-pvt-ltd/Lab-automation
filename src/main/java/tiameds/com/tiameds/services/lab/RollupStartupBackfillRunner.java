@@ -59,7 +59,6 @@ public class RollupStartupBackfillRunner implements ApplicationRunner {
                 logger.error("Startup rollup backfill failed for labId={} — dashboard may show stale data until a manual backfill is run", lab.getId(), e);
             }
         }
-
         logger.info("Startup rollup backfill: completed for {} lab(s)", labs.size());
     }
 }
