@@ -46,6 +46,7 @@ public class SuperAdminDashboardController {
     private final DoctorRepository doctorRepository;
     private final HealthPackageRepository healthPackageRepository;
     private final UserAuthService userAuthService;
+    private final DailyLabCategoryStatsRepository dailyLabCategoryStatsRepository;
 
     public SuperAdminDashboardController(LabRepository labRepository,
                                          UserRepository userRepository,
@@ -54,7 +55,8 @@ public class SuperAdminDashboardController {
                                          VisitRepository visitRepository,
                                          DoctorRepository doctorRepository,
                                          HealthPackageRepository healthPackageRepository,
-                                         UserAuthService userAuthService) {
+                                         UserAuthService userAuthService,
+                                         DailyLabCategoryStatsRepository dailyLabCategoryStatsRepository) {
         this.labRepository = labRepository;
         this.userRepository = userRepository;
         this.visitTestResultRepository = visitTestResultRepository;
@@ -63,6 +65,7 @@ public class SuperAdminDashboardController {
         this.doctorRepository = doctorRepository;
         this.healthPackageRepository = healthPackageRepository;
         this.userAuthService = userAuthService;
+        this.dailyLabCategoryStatsRepository = dailyLabCategoryStatsRepository;
     }
 
     @GetMapping("/all")
@@ -450,14 +453,17 @@ public class SuperAdminDashboardController {
     private List<VisitTestResultRepository.TestsByCategoryDetailedProjection> fetchTestCategories(
             Long userId, User currentUser,
             LocalDate startDate, LocalDate endDate, boolean hasDates, Long labId) {
+        // Use the daily_lab_category_stats rollup table for all cases — pre-aggregated data
+        // makes these queries milliseconds instead of the multi-join live scans that would
+        // exceed the 60-second ALB timeout for large date ranges or many labs.
         if (labId != null) {
             return hasDates
-                    ? visitTestResultRepository.getPatientTestsByCategoryDetailedByLabIdWithDateRange(labId, toStart(startDate), toEnd(endDate))
-                    : visitTestResultRepository.getPatientTestsByCategoryDetailedByLabId(labId);
+                    ? dailyLabCategoryStatsRepository.rollupByCategoryForLabWithDateRange(labId, startDate, endDate)
+                    : dailyLabCategoryStatsRepository.rollupByCategoryForLab(labId);
         }
         return hasDates
-                ? visitTestResultRepository.getPatientTestsByCategoryDetailedBySuperAdminWithDateRange(userId, toStart(startDate), toEnd(endDate))
-                : visitTestResultRepository.getPatientTestsByCategoryDetailedBySuperAdmin(userId);
+                ? dailyLabCategoryStatsRepository.rollupByCategoryForUserWithDateRange(userId, startDate, endDate)
+                : dailyLabCategoryStatsRepository.rollupByCategoryForUser(userId);
     }
 
     private List<HealthPackageRepository.PackageSummaryProjection> fetchPackages(

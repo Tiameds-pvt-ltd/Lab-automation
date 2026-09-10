@@ -49,6 +49,54 @@ public interface DailyLabCategoryStatsRepository extends JpaRepository<DailyLabC
     @Query("SELECT MAX(d.statDate) FROM DailyLabCategoryStats d WHERE d.labId = :labId")
     LocalDate findMaxStatDateByLabId(@Param("labId") Long labId);
 
+    // ── Rollup reads — used by the dashboard instead of the slow live join queries ──
+
+    @Query(value =
+        "SELECT category, SUM(test_count) AS testCount, " +
+        "ROUND(SUM(gross_revenue), 2) AS revenue, ROUND(SUM(discount), 2) AS discount, " +
+        "ROUND(SUM(paid_revenue), 2) AS paidRevenue, ROUND(SUM(due_revenue), 2) AS dueRevenue, " +
+        "ROUND(SUM(cash_revenue), 2) AS cashRevenue, ROUND(SUM(upi_revenue), 2) AS upiRevenue, " +
+        "ROUND(SUM(card_revenue), 2) AS cardRevenue " +
+        "FROM daily_lab_category_stats WHERE lab_id = :labId AND stat_date BETWEEN :start AND :end " +
+        "GROUP BY category ORDER BY testCount DESC", nativeQuery = true)
+    List<VisitTestResultRepository.TestsByCategoryDetailedProjection> rollupByCategoryForLabWithDateRange(
+            @Param("labId") Long labId, @Param("start") LocalDate start, @Param("end") LocalDate end);
+
+    @Query(value =
+        "SELECT category, SUM(test_count) AS testCount, " +
+        "ROUND(SUM(gross_revenue), 2) AS revenue, ROUND(SUM(discount), 2) AS discount, " +
+        "ROUND(SUM(paid_revenue), 2) AS paidRevenue, ROUND(SUM(due_revenue), 2) AS dueRevenue, " +
+        "ROUND(SUM(cash_revenue), 2) AS cashRevenue, ROUND(SUM(upi_revenue), 2) AS upiRevenue, " +
+        "ROUND(SUM(card_revenue), 2) AS cardRevenue " +
+        "FROM daily_lab_category_stats WHERE lab_id = :labId " +
+        "GROUP BY category ORDER BY testCount DESC", nativeQuery = true)
+    List<VisitTestResultRepository.TestsByCategoryDetailedProjection> rollupByCategoryForLab(
+            @Param("labId") Long labId);
+
+    @Query(value =
+        "SELECT d.category, SUM(d.test_count) AS testCount, " +
+        "ROUND(SUM(d.gross_revenue), 2) AS revenue, ROUND(SUM(d.discount), 2) AS discount, " +
+        "ROUND(SUM(d.paid_revenue), 2) AS paidRevenue, ROUND(SUM(d.due_revenue), 2) AS dueRevenue, " +
+        "ROUND(SUM(d.cash_revenue), 2) AS cashRevenue, ROUND(SUM(d.upi_revenue), 2) AS upiRevenue, " +
+        "ROUND(SUM(d.card_revenue), 2) AS cardRevenue " +
+        "FROM daily_lab_category_stats d JOIN labs l ON d.lab_id = l.lab_id " +
+        "WHERE l.created_by = :userId AND d.stat_date BETWEEN :start AND :end " +
+        "GROUP BY d.category ORDER BY testCount DESC", nativeQuery = true)
+    List<VisitTestResultRepository.TestsByCategoryDetailedProjection> rollupByCategoryForUserWithDateRange(
+            @Param("userId") Long userId, @Param("start") LocalDate start, @Param("end") LocalDate end);
+
+    @Query(value =
+        "SELECT d.category, SUM(d.test_count) AS testCount, " +
+        "ROUND(SUM(d.gross_revenue), 2) AS revenue, ROUND(SUM(d.discount), 2) AS discount, " +
+        "ROUND(SUM(d.paid_revenue), 2) AS paidRevenue, ROUND(SUM(d.due_revenue), 2) AS dueRevenue, " +
+        "ROUND(SUM(d.cash_revenue), 2) AS cashRevenue, ROUND(SUM(d.upi_revenue), 2) AS upiRevenue, " +
+        "ROUND(SUM(d.card_revenue), 2) AS cardRevenue " +
+        "FROM daily_lab_category_stats d JOIN labs l ON d.lab_id = l.lab_id " +
+        "WHERE l.created_by = :userId " +
+        "GROUP BY d.category ORDER BY testCount DESC", nativeQuery = true)
+    List<VisitTestResultRepository.TestsByCategoryDetailedProjection> rollupByCategoryForUser(
+            @Param("userId") Long userId);
+
     interface CategorySummaryProjection {
         String getCategory();
         Long getTestCount();
