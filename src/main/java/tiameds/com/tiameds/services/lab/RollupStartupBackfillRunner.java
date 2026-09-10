@@ -6,6 +6,8 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 import tiameds.com.tiameds.entity.Lab;
+import tiameds.com.tiameds.repository.DailyLabCategoryStatsRepository;
+import tiameds.com.tiameds.repository.DailyLabStatsRepository;
 import tiameds.com.tiameds.repository.LabRepository;
 
 import java.time.LocalDate;
@@ -35,13 +37,19 @@ public class RollupStartupBackfillRunner implements ApplicationRunner {
     private final LabRepository labRepository;
     private final DashboardRollupBackfillService dashboardRollupBackfillService;
     private final CategoryStatsBackfillService categoryStatsBackfillService;
+    private final DailyLabStatsRepository dailyLabStatsRepository;
+    private final DailyLabCategoryStatsRepository dailyLabCategoryStatsRepository;
 
     public RollupStartupBackfillRunner(LabRepository labRepository,
                                         DashboardRollupBackfillService dashboardRollupBackfillService,
-                                        CategoryStatsBackfillService categoryStatsBackfillService) {
+                                        CategoryStatsBackfillService categoryStatsBackfillService,
+                                        DailyLabStatsRepository dailyLabStatsRepository,
+                                        DailyLabCategoryStatsRepository dailyLabCategoryStatsRepository) {
         this.labRepository = labRepository;
         this.dashboardRollupBackfillService = dashboardRollupBackfillService;
         this.categoryStatsBackfillService = categoryStatsBackfillService;
+        this.dailyLabStatsRepository = dailyLabStatsRepository;
+        this.dailyLabCategoryStatsRepository = dailyLabCategoryStatsRepository;
     }
 
     @Override
@@ -63,9 +71,21 @@ public class RollupStartupBackfillRunner implements ApplicationRunner {
             logger.info("Startup rollup backfill: starting for {} lab(s)", labs.size());
             for (Lab lab : labs) {
                 try {
-                    LocalDate startDate = lab.getCreatedAt() != null ? lab.getCreatedAt().toLocalDate() : today;
-                    dashboardRollupBackfillService.backfillLab(lab.getId(), startDate, today);
-                    categoryStatsBackfillService.backfillLab(lab.getId(), startDate, today);
+                    LocalDate labCreated = lab.getCreatedAt() != null ? lab.getCreatedAt().toLocalDate() : today;
+
+                    // Only recompute days that are missing from the rollup tables. After the first
+                    // full backfill this reduces from O(labs × days) down to O(labs) — each restart
+                    // only touches "today" per lab instead of hundreds of historical days. Using the
+                    // last stored date (not lastDate+1) so that date is recomputed too, catching any
+                    // partial data that may have been written mid-day on the previous run.
+                    LocalDate dashboardMaxDate = dailyLabStatsRepository.findMaxStatDateByLabId(lab.getId());
+                    LocalDate dashboardFrom = dashboardMaxDate != null ? dashboardMaxDate : labCreated;
+
+                    LocalDate categoryMaxDate = dailyLabCategoryStatsRepository.findMaxStatDateByLabId(lab.getId());
+                    LocalDate categoryFrom = categoryMaxDate != null ? categoryMaxDate : labCreated;
+
+                    dashboardRollupBackfillService.backfillLab(lab.getId(), dashboardFrom, today);
+                    categoryStatsBackfillService.backfillLab(lab.getId(), categoryFrom, today);
                 } catch (IllegalStateException e) {
                     // EntityManagerFactory closed = JVM shutting down; stop immediately.
                     logger.warn("Startup rollup backfill: stopping early — application is shutting down (reached labId={})", lab.getId());

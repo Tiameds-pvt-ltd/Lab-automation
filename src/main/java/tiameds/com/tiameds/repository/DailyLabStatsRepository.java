@@ -39,6 +39,9 @@ public interface DailyLabStatsRepository extends JpaRepository<DailyLabStats, Da
 
     List<DailyLabStats> findByLabIdAndStatDateBetween(Long labId, LocalDate start, LocalDate end);
 
+    @Query("SELECT MAX(d.statDate) FROM DailyLabStats d WHERE d.labId = :labId")
+    LocalDate findMaxStatDateByLabId(@Param("labId") Long labId);
+
     @Query("SELECT COALESCE(SUM(d.paidRevenue), 0) FROM DailyLabStats d WHERE d.labId = :labId AND d.statDate BETWEEN :start AND :end")
     BigDecimal sumPaidRevenueByLabIdAndDateRange(@Param("labId") Long labId, @Param("start") LocalDate start, @Param("end") LocalDate end);
 

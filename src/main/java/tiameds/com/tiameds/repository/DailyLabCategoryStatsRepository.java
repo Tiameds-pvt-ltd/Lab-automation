@@ -46,6 +46,9 @@ public interface DailyLabCategoryStatsRepository extends JpaRepository<DailyLabC
     @Transactional
     void deleteByLabIdAndStatDate(Long labId, LocalDate statDate);
 
+    @Query("SELECT MAX(d.statDate) FROM DailyLabCategoryStats d WHERE d.labId = :labId")
+    LocalDate findMaxStatDateByLabId(@Param("labId") Long labId);
+
     interface CategorySummaryProjection {
         String getCategory();
         Long getTestCount();
