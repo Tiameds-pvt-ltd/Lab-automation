@@ -48,17 +48,35 @@ public class RollupStartupBackfillRunner implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         List<Lab> labs = labRepository.findAll();
         LocalDate today = LocalDate.now();
-        logger.info("Startup rollup backfill: starting for {} lab(s)", labs.size());
+        logger.info("Startup rollup backfill: scheduling {} lab(s) in background thread", labs.size());
 
-        for (Lab lab : labs) {
-            try {
-                LocalDate startDate = lab.getCreatedAt() != null ? lab.getCreatedAt().toLocalDate() : today;
-                dashboardRollupBackfillService.backfillLab(lab.getId(), startDate, today);
-                categoryStatsBackfillService.backfillLab(lab.getId(), startDate, today);
-            } catch (Exception e) {
-                logger.error("Startup rollup backfill failed for labId={} — dashboard may show stale data until a manual backfill is run", lab.getId(), e);
+        // Run in a background daemon thread so the main thread (and therefore Tomcat's request
+        // handling) is never blocked while the backfill runs. Without this, the backfill runs
+        // on the main thread for 20+ minutes on startup, causing the RDS instance to be under
+        // heavy write load at the exact moment the first API requests arrive. Because the
+        // /tests-by-category endpoint uses the same underlying query that recomputeDay() fires
+        // for every lab-day, those API reads compete with hundreds of in-flight backfill queries
+        // and breach the AWS ALB's 60-second idle timeout → 504 Gateway Time-out.
+        //
+        // Daemon=true: the JVM can still exit cleanly if the app is stopped mid-backfill.
+        Thread backfillThread = new Thread(() -> {
+            logger.info("Startup rollup backfill: starting for {} lab(s)", labs.size());
+            for (Lab lab : labs) {
+                try {
+                    LocalDate startDate = lab.getCreatedAt() != null ? lab.getCreatedAt().toLocalDate() : today;
+                    dashboardRollupBackfillService.backfillLab(lab.getId(), startDate, today);
+                    categoryStatsBackfillService.backfillLab(lab.getId(), startDate, today);
+                } catch (IllegalStateException e) {
+                    // EntityManagerFactory closed = JVM shutting down; stop immediately.
+                    logger.warn("Startup rollup backfill: stopping early — application is shutting down (reached labId={})", lab.getId());
+                    return;
+                } catch (Exception e) {
+                    logger.error("Startup rollup backfill failed for labId={} — dashboard may show stale data until a manual backfill is run", lab.getId(), e);
+                }
             }
-        }
-        logger.info("Startup rollup backfill: completed for {} lab(s)", labs.size());
+            logger.info("Startup rollup backfill: completed for {} lab(s)", labs.size());
+        }, "startup-rollup-backfill");
+        backfillThread.setDaemon(true);
+        backfillThread.start();
     }
 }
