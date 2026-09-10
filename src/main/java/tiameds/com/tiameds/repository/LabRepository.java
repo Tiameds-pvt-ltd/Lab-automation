@@ -24,6 +24,9 @@ public interface LabRepository extends JpaRepository<Lab, Long> {
     @Query("SELECT l FROM Lab l WHERE l.createdBy = :currentUser AND l.isActive = true")
     List<Lab> findByCreatedBy(@Param("currentUser") User currentUser);
 
+    @Query(value = "SELECT lab_id FROM labs WHERE created_by = :userId", nativeQuery = true)
+    List<Long> findLabIdsByCreatedBy(@Param("userId") Long userId);
+
     @Query("SELECT l FROM Lab l JOIN FETCH l.members WHERE l.id = :id")
     Optional<Lab> findLabWithMembers(@Param("id") long id);
 

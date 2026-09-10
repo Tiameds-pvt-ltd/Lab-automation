@@ -970,11 +970,20 @@ public class SuperAdminDashboardController {
             } else {
                 rows = visitTestResultRepository.getEarningsByTestByLabId(labId);
             }
-        } else if (hasDates) {
-            rows = visitTestResultRepository.getEarningsByTestBySuperAdminWithDateRange(
-                    currentUser.getId(), toStart(startDate), toEnd(endDate));
         } else {
-            rows = visitTestResultRepository.getEarningsByTestBySuperAdmin(currentUser.getId());
+            // Superadmin (all labs): use IN (:labIds) with idx_lab_visit_lab_id instead of
+            // joining through the labs table. The single cross-all-labs query required a
+            // multi-table join for tenant filtering plus an unbounded vps full-table scan,
+            // both of which caused 504s on large datasets.
+            List<Long> labIds = labRepository.findLabIdsByCreatedBy(currentUser.getId());
+            if (labIds.isEmpty()) {
+                rows = Collections.emptyList();
+            } else if (hasDates) {
+                rows = visitTestResultRepository.getEarningsByTestByLabIdsWithDateRange(
+                        labIds, toStart(startDate), toEnd(endDate));
+            } else {
+                rows = visitTestResultRepository.getEarningsByTestByLabIds(labIds);
+            }
         }
 
         Map<String, List<VisitTestResultRepository.TestEarningsByTestProjection>> byCategory = new LinkedHashMap<>();

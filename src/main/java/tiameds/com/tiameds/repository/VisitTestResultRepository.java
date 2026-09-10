@@ -336,6 +336,54 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
 
+    // Replaces the superadmin cross-lab queries for the earnings-by-category dashboard.
+    // Uses lv.lab_id IN (:labIds) with idx_lab_visit_lab_id instead of joining through labs
+    // for tenant isolation — avoids the full-table join chain and the expensive vps subquery.
+    // Uses billing amounts for proportional attribution (same as the per-lab queries above).
+
+    @Query(value =
+        "SELECT t.category AS category, t.test_id AS testId, t.name AS testName, " +
+        "t.test_code AS testCode, t.price AS testPrice, COUNT(*) AS orderedCount, " +
+        "ROUND(t.price::numeric * COUNT(*), 2) AS totalEarnings, " +
+        "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount::numeric, 0) IS NULL THEN 0 " +
+        "  ELSE t.price::numeric * COALESCE(b.actual_received_amount::numeric, 0) / b.total_amount::numeric END), 0), 2) AS paidAmount, " +
+        "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL THEN t.price::numeric " +
+        "  WHEN NULLIF(b.total_amount::numeric, 0) IS NULL THEN t.price::numeric " +
+        "  ELSE t.price::numeric * COALESCE(b.due_amount::numeric, 0) / b.total_amount::numeric END), 0), 2) AS dueAmount " +
+        "FROM visit_test_result vtr " +
+        "JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
+        "JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
+        "JOIN tests t ON vtr.test_id = t.test_id " +
+        "LEFT JOIN billing b ON pv.billing_id = b.billing_id " +
+        "WHERE lv.lab_id IN (:labIds) AND vtr.created_at BETWEEN :startDate AND :endDate " +
+        "AND LOWER(vtr.test_status) = 'active' AND LOWER(pv.visit_status) != 'cancelled' " +
+        "GROUP BY t.category, t.test_id, t.name, t.test_code, t.price " +
+        "ORDER BY t.category, paidAmount DESC", nativeQuery = true)
+    List<TestEarningsByTestProjection> getEarningsByTestByLabIdsWithDateRange(
+            @Param("labIds") List<Long> labIds,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
+
+    @Query(value =
+        "SELECT t.category AS category, t.test_id AS testId, t.name AS testName, " +
+        "t.test_code AS testCode, t.price AS testPrice, COUNT(*) AS orderedCount, " +
+        "ROUND(t.price::numeric * COUNT(*), 2) AS totalEarnings, " +
+        "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount::numeric, 0) IS NULL THEN 0 " +
+        "  ELSE t.price::numeric * COALESCE(b.actual_received_amount::numeric, 0) / b.total_amount::numeric END), 0), 2) AS paidAmount, " +
+        "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL THEN t.price::numeric " +
+        "  WHEN NULLIF(b.total_amount::numeric, 0) IS NULL THEN t.price::numeric " +
+        "  ELSE t.price::numeric * COALESCE(b.due_amount::numeric, 0) / b.total_amount::numeric END), 0), 2) AS dueAmount " +
+        "FROM visit_test_result vtr " +
+        "JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
+        "JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
+        "JOIN tests t ON vtr.test_id = t.test_id " +
+        "LEFT JOIN billing b ON pv.billing_id = b.billing_id " +
+        "WHERE lv.lab_id IN (:labIds) " +
+        "AND LOWER(vtr.test_status) = 'active' AND LOWER(pv.visit_status) != 'cancelled' " +
+        "GROUP BY t.category, t.test_id, t.name, t.test_code, t.price " +
+        "ORDER BY t.category, totalEarnings DESC", nativeQuery = true)
+    List<TestEarningsByTestProjection> getEarningsByTestByLabIds(@Param("labIds") List<Long> labIds);
+
     interface TestEarningsByTestProjection {
         String getCategory();
         Long getTestId();
