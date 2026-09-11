@@ -15,7 +15,6 @@ logging:
     com:
       fasterxml:
         jackson: WARN  # Changed to WARN for production
-
 spring:
   profiles:
     active: default
