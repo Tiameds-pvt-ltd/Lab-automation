@@ -233,8 +233,10 @@ public class SuperAdminDashboardController {
         Long userId = currentUser.getId();
         boolean hasDates = startDate != null && endDate != null;
 
-        List<LabRepository.LabPerformanceSummaryProjection> sharedLabRollup = fetchLabRollupIfNeeded(userId, startDate, endDate, hasDates, labId);
-        Map<String, Object> result = buildKpis(currentUser, userId, startDate, endDate, hasDates, labId, sharedLabRollup);
+        // Standalone /kpis always uses live queries (not the daily_lab_stats rollup) so it is
+        // never affected by a silent rollup failure. The rollup is still used inside /all where
+        // its pre-aggregation is needed to avoid 504s under concurrent section fetches.
+        Map<String, Object> result = buildKpis(currentUser, userId, startDate, endDate, hasDates, labId, null);
         return ApiResponseHelper.successResponse("KPIs retrieved successfully", result);
     }
 
@@ -530,13 +532,22 @@ public class SuperAdminDashboardController {
 
         // All labs — include lab-wise breakdowns for role counts
         if (hasDates) {
-            // testTotals/reportsGenerated/pendingSamples/totalRevenue now come from the shared
-            // daily_lab_stats rollup fetched once in getAllStats, instead of 4 more live queries.
-            totalLabs        = labRepository.countByCreatedByAndCreatedAtBetween(currentUser, toStart(startDate), toEnd(endDate));
-            totalTests       = sumLongField(sharedLabRollup, LabRepository.LabPerformanceSummaryProjection::getTestCount);
-            reportsGenerated = sumLongField(sharedLabRollup, LabRepository.LabPerformanceSummaryProjection::getReportsGenerated);
-            pendingSamples   = sumLongField(sharedLabRollup, LabRepository.LabPerformanceSummaryProjection::getPendingSamples);
-            totalRevenue     = sumBigDecimalField(sharedLabRollup, LabRepository.LabPerformanceSummaryProjection::getRevenue);
+            totalLabs = labRepository.countByCreatedByAndCreatedAtBetween(currentUser, toStart(startDate), toEnd(endDate));
+            if (sharedLabRollup != null) {
+                // /all endpoint: use the daily_lab_stats rollup (pre-aggregated, avoids 504s under
+                // concurrent section fetches across many labs / wide date ranges).
+                totalTests       = sumLongField(sharedLabRollup, LabRepository.LabPerformanceSummaryProjection::getTestCount);
+                reportsGenerated = sumLongField(sharedLabRollup, LabRepository.LabPerformanceSummaryProjection::getReportsGenerated);
+                pendingSamples   = sumLongField(sharedLabRollup, LabRepository.LabPerformanceSummaryProjection::getPendingSamples);
+                totalRevenue     = sumBigDecimalField(sharedLabRollup, LabRepository.LabPerformanceSummaryProjection::getRevenue);
+            } else {
+                // /kpis standalone endpoint: live queries — never stale, same source as the
+                // individual /total-tests and /total-revenue endpoints.
+                totalTests       = visitTestResultRepository.countAllTestsByLabsCreatedByAndCreatedAtBetween(currentUser, toStart(startDate), toEnd(endDate));
+                reportsGenerated = visitTestResultRepository.countCompletedReportsByLabsCreatedByAndCreatedAtBetween(currentUser, toStart(startDate), toEnd(endDate));
+                pendingSamples   = visitRepository.countPendingVisitsByLabsCreatedByAndCreatedAtBetween(currentUser, toInstantStart(startDate), toInstantEnd(endDate));
+                totalRevenue     = billingRepository.sumPaidAmountByLabsCreatedByAndCreatedAtBetween(currentUser, toInstantStart(startDate), toInstantEnd(endDate));
+            }
         } else {
             totalLabs        = labRepository.countByCreatedBy(currentUser);
             totalTests       = visitTestResultRepository.countAllTestsByLabsCreatedBy(currentUser);
