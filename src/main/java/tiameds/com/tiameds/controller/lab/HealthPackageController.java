@@ -92,13 +92,15 @@ public class HealthPackageController {
         }
 
         // Check if the lab is active
-        boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+
+
+        boolean isAccessible = labAccessableFilter.isLabAccessible(lab.get());
         if (isAccessible == false) {
             return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
         }
 
         // Verify if the current user member of the lab or not
-        if (!currentUser.getLabs().contains(lab.get())) {
+        if (!userService.isUserMemberOfLab(currentUser.getId(), labId)) {
             return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
         }
 
@@ -128,12 +130,12 @@ public class HealthPackageController {
             return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
         }
 
-        boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+        boolean isAccessible = labAccessableFilter.isLabAccessible(lab.get());
         if (!isAccessible) {
             return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
         }
 
-        if (!currentUser.getLabs().contains(lab.get())) {
+        if (!userService.isUserMemberOfLab(currentUser.getId(), labId)) {
             return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
         }
 
@@ -165,12 +167,12 @@ public class HealthPackageController {
 
         Lab lab = labOptional.get();
 
-        boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+        boolean isAccessible = labAccessableFilter.isLabAccessible(lab);
         if (!isAccessible) {
             return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
         }
 
-        if (!currentUser.getLabs().contains(lab)) {
+        if (!userService.isUserMemberOfLab(currentUser.getId(), labId)) {
             return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
         }
 
@@ -233,13 +235,13 @@ public class HealthPackageController {
         Lab lab = labOptional.get();
 
         // Check if the lab is active
-        boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+        boolean isAccessible = labAccessableFilter.isLabAccessible(lab);
         if (!isAccessible) {
             return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
         }
 
         // Verify if the current user is associated with the lab
-        if (!currentUser.getLabs().contains(lab)) {
+        if (!userService.isUserMemberOfLab(currentUser.getId(), labId)) {
             return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
         }
 
@@ -308,13 +310,13 @@ public class HealthPackageController {
 
 
         // Check if the lab is active
-        boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+        boolean isAccessible = labAccessableFilter.isLabAccessible(lab);
         if (isAccessible == false) {
             return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
         }
 
         // Verify if the current user is associated with the lab
-        if (!currentUser.getLabs().contains(lab)) {
+        if (!userService.isUserMemberOfLab(currentUser.getId(), labId)) {
             return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
         }
 
@@ -362,13 +364,13 @@ public class HealthPackageController {
 
 
         // Check if the lab is active
-        boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+        boolean isAccessible = labAccessableFilter.isLabAccessible(lab);
         if (isAccessible == false) {
             return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
         }
 
         // Verify if the current user is associated with the lab
-        if (!currentUser.getLabs().contains(lab)) {
+        if (!userService.isUserMemberOfLab(currentUser.getId(), labId)) {
             return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
         }
 
@@ -456,13 +458,13 @@ public class HealthPackageController {
                 .orElseThrow(() -> new RuntimeException("Lab not found"));
 
         // Check if the lab is active
-        boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+        boolean isAccessible = labAccessableFilter.isLabAccessible(lab);
         if (isAccessible == false) {
             return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
         }
 
         // Verify if the current user is associated with the lab
-        if (!currentUser.getLabs().contains(lab)) {
+        if (!userService.isUserMemberOfLab(currentUser.getId(), labId)) {
             return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
         }
 
@@ -528,7 +530,7 @@ public class HealthPackageController {
         }
         Object principal = authentication.getPrincipal();
         if (principal instanceof MyUserDetails myUserDetails) {
-            return userService.findByUsername(myUserDetails.getUsername());
+            return Optional.of(myUserDetails.getUser());
         }
         if (principal instanceof UserDetails userDetails) {
             return userService.findByUsername(userDetails.getUsername());

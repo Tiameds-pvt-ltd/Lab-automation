@@ -24,4 +24,9 @@ public class LabAccessableFilter {
                 .filter(Lab::getIsActive)
                 .isPresent();
     }
+
+    // Use this when the Lab is already fetched — avoids a second DB query
+    public boolean isLabAccessible(Lab lab) {
+        return lab != null && Boolean.TRUE.equals(lab.getIsActive());
+    }
 }

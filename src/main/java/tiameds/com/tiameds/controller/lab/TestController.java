@@ -93,7 +93,7 @@ public class TestController {
             }
             Lab lab = labOptional.get();
             
-            if (!currentUser.getLabs().contains(lab)) {
+            if (!userService.isUserMemberOfLab(currentUser.getId(), labId)) {
                 return ApiResponseHelper.errorResponse("User is not authorized for this lab", HttpStatus.UNAUTHORIZED);
             }
 
@@ -131,7 +131,7 @@ public class TestController {
             }
             Lab lab = labOptional.get();
             
-            if (!currentUser.getLabs().contains(lab)) {
+            if (!userService.isUserMemberOfLab(currentUser.getId(), labId)) {
                 return ApiResponseHelper.errorResponse("User is not authorized for this lab", HttpStatus.UNAUTHORIZED);
             }
 
@@ -170,7 +170,7 @@ public class TestController {
 
 
             // Verify if the current user is associated with the lab
-            if (!currentUser.getLabs().contains(lab)) {
+            if (!userService.isUserMemberOfLab(currentUser.getId(), labId)) {
                 return ApiResponseHelper.successResponseWithDataAndMessage("User is not a member of this lab", HttpStatus.UNAUTHORIZED, null);
             }
 
@@ -237,7 +237,7 @@ public class TestController {
                     .orElseThrow(() -> new RuntimeException("Lab not found"));
 
             // Verify if the current user is associated with the lab
-            if (!currentUser.getLabs().contains(lab)) {
+            if (!userService.isUserMemberOfLab(currentUser.getId(), labId)) {
                 return ApiResponseHelper.successResponseWithDataAndMessage("User is not a member of this lab", HttpStatus.UNAUTHORIZED, null);
             }
 
@@ -309,7 +309,7 @@ public class TestController {
             }
 
             // Verify if the current user is associated with the lab
-            if (!currentUser.getLabs().contains(lab)) {
+            if (!userService.isUserMemberOfLab(currentUser.getId(), labId)) {
                 return ApiResponseHelper.successResponseWithDataAndMessage("User is not a member of this lab", HttpStatus.UNAUTHORIZED, null);
             }
 
@@ -359,7 +359,7 @@ public class TestController {
                     .orElseThrow(() -> new RuntimeException("Lab not found"));
 
             // Verify if the current user is associated with the lab
-            if (!currentUser.getLabs().contains(lab)) {
+            if (!userService.isUserMemberOfLab(currentUser.getId(), labId)) {
                 return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
             }
 
@@ -420,7 +420,7 @@ public class TestController {
             Lab lab = labRepository.findById(labId)
                     .orElseThrow(() -> new RuntimeException("Lab not found"));
 
-            if (!currentUser.getLabs().contains(lab)) {
+            if (!userService.isUserMemberOfLab(currentUser.getId(), labId)) {
                 return ApiResponseHelper.successResponseWithDataAndMessage("User is not authorized for this lab", HttpStatus.UNAUTHORIZED, null);
             }
 
@@ -472,7 +472,7 @@ public class TestController {
             Lab lab = labRepository.findById(labId)
                     .orElseThrow(() -> new RuntimeException("Lab not found"));
 
-            if (!currentUser.getLabs().contains(lab)) {
+            if (!userService.isUserMemberOfLab(currentUser.getId(), labId)) {
                 return ApiResponseHelper.successResponseWithDataAndMessage("User is not authorized for this lab", HttpStatus.UNAUTHORIZED, null);
             }
             // Verify lab accessibility
@@ -496,7 +496,7 @@ public class TestController {
         }
         Object principal = authentication.getPrincipal();
         if (principal instanceof MyUserDetails myUserDetails) {
-            return userService.findByUsername(myUserDetails.getUsername());
+            return Optional.of(myUserDetails.getUser());
         }
         if (principal instanceof UserDetails userDetails) {
             return userService.findByUsername(userDetails.getUsername());

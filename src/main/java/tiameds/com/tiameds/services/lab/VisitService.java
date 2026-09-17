@@ -10,6 +10,7 @@ import tiameds.com.tiameds.dto.visits.PatientVisitDTO;
 import tiameds.com.tiameds.dto.visits.VisitDetailsDTO;
 import tiameds.com.tiameds.entity.*;
 import tiameds.com.tiameds.repository.*;
+import tiameds.com.tiameds.services.auth.UserService;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -31,6 +32,7 @@ public class VisitService {
     private final VisitTestResultRepository visitTestResultRepository;
     private final SequenceGeneratorService sequenceGeneratorService;
     private final ApplicationEventPublisher eventPublisher;
+    private final UserService userService;
 
     public VisitService(PatientRepository patientRepository,
                         LabRepository labRepository,
@@ -43,7 +45,8 @@ public class VisitService {
                         TestDiscountRepository testDiscountRepository,
                         VisitTestResultRepository visitTestResultRepository,
                         SequenceGeneratorService sequenceGeneratorService,
-                        ApplicationEventPublisher eventPublisher) {
+                        ApplicationEventPublisher eventPublisher,
+                        UserService userService) {
         this.patientRepository = patientRepository;
         this.labRepository = labRepository;
         this.testRepository = testRepository;
@@ -56,6 +59,7 @@ public class VisitService {
         this.visitTestResultRepository = visitTestResultRepository;
         this.sequenceGeneratorService = sequenceGeneratorService;
         this.eventPublisher = eventPublisher;
+        this.userService = userService;
     }
 
     @Transactional
@@ -64,7 +68,7 @@ public class VisitService {
         if (labOptional.isEmpty()) {
             ApiResponseHelper.successResponseWithDataAndMessage("Lab not found", HttpStatus.NOT_FOUND, null);
         }
-        if (!currentUser.get().getLabs().contains(labOptional.get())) {
+        if (!userService.isUserMemberOfLab(currentUser.get().getId(), labId)) {
             ApiResponseHelper.successResponseWithDataAndMessage("User is not a member of this lab", HttpStatus.UNAUTHORIZED, null);
         }
         // Check if the patient belongs to the lab
@@ -136,12 +140,13 @@ public class VisitService {
         eventPublisher.publishEvent(new RollupRecomputeEvent(labOptional.get().getId(), visit.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toLocalDate()));
     }
 
+    @Transactional(readOnly = true)
     public List<PatientDTO> getVisits(Long labId, Optional<User> currentUser) {
         Optional<Lab> labOptional = labRepository.findById(labId);
         if (labOptional.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Lab not found");
         }
-        if (currentUser.isEmpty() || !currentUser.get().getLabs().contains(labOptional.get())) {
+        if (currentUser.isEmpty() || !userService.isUserMemberOfLab(currentUser.get().getId(), labId)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User is not a member of this lab");
         }
         List<VisitEntity> visits = visitRepository.findAllByPatient_Labs(labOptional.get());
@@ -217,7 +222,7 @@ public class VisitService {
         }
         // Map test discounts
         if(visitEntity.getBilling() != null) {
-            List<TestDiscountEntity> testDiscounts = testDiscountRepository.findAllByBilling(visitEntity.getBilling());
+            List<TestDiscountEntity> testDiscounts = new ArrayList<>(visitEntity.getBilling().getTestDiscounts());
             List<TestDiscountDTO> testDiscountDTOs = testDiscounts.stream()
                     .map(testDiscount -> new TestDiscountDTO(
                             testDiscount.getTestId(),
@@ -241,7 +246,7 @@ public class VisitService {
         if (labOptional.isEmpty()) {
             ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
         }
-        if (currentUser.isEmpty() || !currentUser.get().getLabs().contains(labOptional.get())) {
+        if (currentUser.isEmpty() || !userService.isUserMemberOfLab(currentUser.get().getId(), labId)) {
             ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
         }
         VisitEntity visit = visitRepository.findById(visitId)
@@ -305,7 +310,7 @@ public class VisitService {
         }
         
         // Validate user access to lab
-        if (currentUser.isEmpty() || !currentUser.get().getLabs().contains(labOptional.get())) {
+        if (currentUser.isEmpty() || !userService.isUserMemberOfLab(currentUser.get().getId(), labId)) {
             throw new IllegalArgumentException("User is not a member of this lab");
         }
         
@@ -378,7 +383,7 @@ public class VisitService {
         }
         
         // Validate user access to lab
-        if (currentUser.isEmpty() || !currentUser.get().getLabs().contains(labOptional.get())) {
+        if (currentUser.isEmpty() || !userService.isUserMemberOfLab(currentUser.get().getId(), labId)) {
             throw new IllegalArgumentException("User is not a member of this lab");
         }
         
@@ -451,7 +456,7 @@ public class VisitService {
         if (labOptional.isEmpty()) {
             return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
         }
-        if (currentUser.isEmpty() || !currentUser.get().getLabs().contains(labOptional.get())) {
+        if (currentUser.isEmpty() || !userService.isUserMemberOfLab(currentUser.get().getId(), labId)) {
             return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
         }
         Optional<VisitEntity> visitOptional = visitRepository.findById(visitId);
@@ -472,7 +477,7 @@ public class VisitService {
         if (labOptional.isEmpty()) {
             return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
         }
-        if (currentUser.isEmpty() || !currentUser.get().getLabs().contains(labOptional.get())) {
+        if (currentUser.isEmpty() || !userService.isUserMemberOfLab(currentUser.get().getId(), labId)) {
             return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
         }
         Optional<PatientEntity> patientEntity = patientRepository.findById(patientId)
@@ -493,7 +498,7 @@ public class VisitService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Lab not found");
         }
 
-        if (currentUser.isEmpty() || !currentUser.get().getLabs().contains(labOptional.get())) {
+        if (currentUser.isEmpty() || !userService.isUserMemberOfLab(currentUser.get().getId(), labId)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User is not a member of this lab");
         }
 
@@ -553,7 +558,7 @@ public class VisitService {
                     }
 
                     // Map test discounts
-                    List<TestDiscountEntity> testDiscounts = testDiscountRepository.findAllByBilling(billing);
+                    List<TestDiscountEntity> testDiscounts = billing != null ? new ArrayList<>(billing.getTestDiscounts()) : new ArrayList<>();
                     List<TestDiscountDTO> testDiscountDTOs = testDiscounts.stream()
                             .map(testDiscount -> new TestDiscountDTO(
                                     testDiscount.getTestId(),
@@ -576,12 +581,13 @@ public class VisitService {
     }
 
 
+    @Transactional(readOnly = true)
     public Object getVisitDateWise(Long labId, LocalDate startDate, LocalDate endDate, Optional<User> currentUser) {
         Optional<Lab> labOptional = labRepository.findById(labId);
         if (labOptional.isEmpty()) {
             return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
         }
-        if (currentUser.isEmpty() || !currentUser.get().getLabs().contains(labOptional.get())) {
+        if (currentUser.isEmpty() || !userService.isUserMemberOfLab(currentUser.get().getId(), labId)) {
             return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
         }
         if (startDate == null || endDate == null) {
@@ -599,12 +605,13 @@ public class VisitService {
     }
 
 
+    @Transactional(readOnly = true)
     public List<PatientVisitDTO> getPatientVisits(Long labId, LocalDate startDate, LocalDate endDate, Optional<User> currentUser) {
         Optional<Lab> labOptional = labRepository.findById(labId);
         if (labOptional.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Lab not found");
         }
-        if (currentUser.isEmpty() || !currentUser.get().getLabs().contains(labOptional.get())) {
+        if (currentUser.isEmpty() || !userService.isUserMemberOfLab(currentUser.get().getId(), labId)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User is not a member of this lab");
         }
         if (startDate == null || endDate == null) {
@@ -633,9 +640,7 @@ public class VisitService {
                             patient.getDateOfBirth(),
                             patient.getAge(),
                             patient.getGender(),
-                            patient.getVisits().isEmpty()
-                                    ? null
-                                    : visitDetailsDTO,
+                            visitDetailsDTO,
                             visit.getCreatedBy(),
                             visit.getUpdatedBy()
                     );

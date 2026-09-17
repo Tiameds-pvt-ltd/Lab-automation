@@ -367,7 +367,7 @@ public class PatientVisitSample {
         }
         Object principal = authentication.getPrincipal();
         if (principal instanceof MyUserDetails myUserDetails) {
-            return userService.findByUsername(myUserDetails.getUsername());
+            return Optional.of(myUserDetails.getUser());
         }
         if (principal instanceof UserDetails userDetails) {
             return userService.findByUsername(userDetails.getUsername());

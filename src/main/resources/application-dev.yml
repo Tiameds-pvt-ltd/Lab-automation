@@ -40,7 +40,7 @@ spring:
       maximum-pool-size: 40
       transaction-isolation: TRANSACTION_READ_COMMITTED
 
-    url: jdbc:postgresql://localhost:5432/localdb?charSet=UTF8
+    url: jdbc:postgresql://localhost:5432/localdb1?charSet=UTF8
     username: postgres
     password: root
     driver-class-name: org.postgresql.Driver

@@ -7,6 +7,7 @@ import tiameds.com.tiameds.repository.BillingRepository;
 import tiameds.com.tiameds.repository.LabRepository;
 import tiameds.com.tiameds.repository.PatientRepository;
 import tiameds.com.tiameds.repository.VisitRepository;
+import tiameds.com.tiameds.services.auth.UserService;
 
 import java.util.List;
 import java.util.Objects;
@@ -20,12 +21,14 @@ public class BillingService {
     private final LabRepository labRepository;
     private final PatientRepository patientRepository;
     private final VisitRepository visitRepository;
+    private final UserService userService;
 
-    public BillingService(BillingRepository billingRepository, LabRepository labRepository, PatientRepository patientRepository, VisitRepository visitRepository) {
+    public BillingService(BillingRepository billingRepository, LabRepository labRepository, PatientRepository patientRepository, VisitRepository visitRepository, UserService userService) {
         this.billingRepository = billingRepository;
         this.labRepository = labRepository;
         this.patientRepository = patientRepository;
         this.visitRepository = visitRepository;
+        this.userService = userService;
     }
 
     public List<BillingDTO> getBillingList(Long labId, Optional<User> currentUser, BillingDTO filterCriteria) {
@@ -39,7 +42,7 @@ public class BillingService {
         Lab lab = labOptional.get();
 
         // Check if the user is authorized for the lab
-        if (currentUser.isEmpty() || !currentUser.get().getLabs().contains(lab)) {
+        if (currentUser.isEmpty() || !userService.isUserMemberOfLab(currentUser.get().getId(), labId)) {
             throw new SecurityException("User is not a member of this lab");
         }
 

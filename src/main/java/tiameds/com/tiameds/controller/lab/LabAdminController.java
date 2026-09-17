@@ -85,7 +85,7 @@ public class LabAdminController {
         }
         Object principal = authentication.getPrincipal();
         if (principal instanceof MyUserDetails myUserDetails) {
-            return userService.findByUsername(myUserDetails.getUsername());
+            return Optional.of(myUserDetails.getUser());
         }
         if (principal instanceof UserDetails userDetails) {
             return userService.findByUsername(userDetails.getUsername());
@@ -108,7 +108,7 @@ public class LabAdminController {
         if (lab == null) {
             return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
         }
-        boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+        boolean isAccessible = labAccessableFilter.isLabAccessible(lab);
         if (isAccessible == false) {
             return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
         }
@@ -241,7 +241,7 @@ public class LabAdminController {
             return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
         }
 
-        boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+        boolean isAccessible = labAccessableFilter.isLabAccessible(lab);
         if (!isAccessible) {
             return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
         }
@@ -300,7 +300,7 @@ public class LabAdminController {
             return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
         }
 
-        boolean isAccessible = labAccessableFilter.isLabAccessible(labId);
+        boolean isAccessible = labAccessableFilter.isLabAccessible(lab);
         if (!isAccessible) {
             return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
         }

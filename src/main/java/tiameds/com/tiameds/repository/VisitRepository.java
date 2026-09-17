@@ -19,11 +19,13 @@ import tiameds.com.tiameds.entity.User;
 @Repository
 public interface VisitRepository extends JpaRepository<VisitEntity, Long> {
 
-    List<VisitEntity> findAllByPatient_Labs(Lab lab);
+    @Query("SELECT DISTINCT v FROM VisitEntity v JOIN FETCH v.patient p JOIN p.labs l WHERE l = :lab")
+    List<VisitEntity> findAllByPatient_Labs(@Param("lab") Lab lab);
 
-    List<VisitEntity> findAllByPatient(PatientEntity patientEntity);
+    @Query("SELECT DISTINCT v FROM VisitEntity v JOIN FETCH v.patient WHERE v.patient = :patientEntity")
+    List<VisitEntity> findAllByPatient(@Param("patientEntity") PatientEntity patientEntity);
 
-    @Query("SELECT v FROM VisitEntity v WHERE v.patient.patientId = :patientId")
+    @Query("SELECT v FROM VisitEntity v JOIN FETCH v.patient WHERE v.patient.patientId = :patientId")
     List<VisitEntity> findByPatientId(@Param("patientId") Long patientId);
 
 
@@ -33,9 +35,11 @@ public interface VisitRepository extends JpaRepository<VisitEntity, Long> {
     @Query("SELECT COUNT(v) FROM VisitEntity v JOIN v.patient p JOIN p.labs l WHERE l.id = :labId AND v.visitStatus = :status AND v.createdAt BETWEEN :startDate AND :endDate")
     long countByLabIdAndStatus(@Param("labId") Long labId, @Param("status") String status, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
 
-    List<VisitEntity> findAllByPatient_LabsAndVisitDateBetween(Lab lab, LocalDate startDate, LocalDate endDate);
+    @Query("SELECT DISTINCT v FROM VisitEntity v JOIN FETCH v.patient p JOIN p.labs l WHERE l = :lab AND v.visitDate BETWEEN :startDate AND :endDate")
+    List<VisitEntity> findAllByPatient_LabsAndVisitDateBetween(@Param("lab") Lab lab, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
-    List<VisitEntity> findAllByPatient_LabsAndVisitDateBetweenAndVisitStatus(Lab lab, LocalDate startDate, LocalDate endDate, String visitStatus);
+    @Query("SELECT DISTINCT v FROM VisitEntity v JOIN FETCH v.patient p JOIN p.labs l WHERE l = :lab AND v.visitDate BETWEEN :startDate AND :endDate AND v.visitStatus = :visitStatus")
+    List<VisitEntity> findAllByPatient_LabsAndVisitDateBetweenAndVisitStatus(@Param("lab") Lab lab, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("visitStatus") String visitStatus);
 
 
     @Modifying

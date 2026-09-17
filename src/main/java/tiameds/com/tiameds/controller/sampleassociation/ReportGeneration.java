@@ -83,7 +83,7 @@ public class ReportGeneration {
         }
 
         // Check if the user is a member of the lab
-//        if (!currentUser.get().getLabs().contains(lab.get())) {
+//        if (!userService.isUserMemberOfLab(currentUser.get().getId(), labId)) {
 //            return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
 //        }
 
@@ -197,7 +197,7 @@ public class ReportGeneration {
             return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
         }
 
-        if (!currentUser.get().getLabs().contains(lab.get())) {
+        if (!userService.isUserMemberOfLab(currentUser.get().getId(), labId)) {
             return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
         }
 
@@ -229,7 +229,7 @@ public class ReportGeneration {
             return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
         }
 
-        if (!currentUser.get().getLabs().contains(lab.get())) {
+        if (!userService.isUserMemberOfLab(currentUser.get().getId(), labId)) {
             return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
         }
 
@@ -306,7 +306,7 @@ public class ReportGeneration {
             return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
         }
 
-        if (!currentUser.get().getLabs().contains(lab.get())) {
+        if (!userService.isUserMemberOfLab(currentUser.get().getId(), labId)) {
             return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
         }
 
@@ -504,7 +504,7 @@ public class ReportGeneration {
         }
         Object principal = authentication.getPrincipal();
         if (principal instanceof MyUserDetails myUserDetails) {
-            return userService.findByUsername(myUserDetails.getUsername());
+            return Optional.of(myUserDetails.getUser());
         }
         if (principal instanceof UserDetails userDetails) {
             return userService.findByUsername(userDetails.getUsername());
@@ -538,7 +538,7 @@ public class ReportGeneration {
             return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
         }
 
-        if (!currentUser.get().getLabs().contains(lab.get())) {
+        if (!userService.isUserMemberOfLab(currentUser.get().getId(), labId)) {
             return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
         }
 
@@ -572,7 +572,7 @@ public class ReportGeneration {
             return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
         }
 
-        if (!currentUser.get().getLabs().contains(lab.get())) {
+        if (!userService.isUserMemberOfLab(currentUser.get().getId(), labId)) {
             return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
         }
 

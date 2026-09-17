@@ -183,4 +183,9 @@ public class UserService {
     public Optional<User> findByEmail(String email) {
         return userRepository.findByEmail(email);
     }
+
+    @Transactional(readOnly = true)
+    public boolean isUserMemberOfLab(Long userId, Long labId) {
+        return userRepository.existsByIdAndLabsId(userId, labId);
+    }
 }

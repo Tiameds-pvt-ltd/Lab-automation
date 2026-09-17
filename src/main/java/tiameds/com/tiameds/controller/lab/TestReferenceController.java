@@ -61,7 +61,7 @@ public class TestReferenceController {
                 return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
             }
             Lab lab = labOptional.get();
-            if (!currentUser.getLabs().contains(lab)) {
+            if (!userService.isUserMemberOfLab(currentUser.getId(), labId)) {
                 return ApiResponseHelper.errorResponse("User is not authorized for this lab", HttpStatus.UNAUTHORIZED);
             }
             if (!labAccessableFilter.isLabAccessible(labId)) {
@@ -95,7 +95,7 @@ public class TestReferenceController {
             }
 
             Lab lab = labOptional.get();
-            if (!currentUser.getLabs().contains(lab)) {
+            if (!userService.isUserMemberOfLab(currentUser.getId(), labId)) {
                 return ApiResponseHelper.errorResponse("User is not authorized for this lab", HttpStatus.UNAUTHORIZED);
             }
 
@@ -134,7 +134,7 @@ public class TestReferenceController {
                 return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
             }
             Lab lab = labOptional.get();
-            if (!currentUser.getLabs().contains(lab)) {
+            if (!userService.isUserMemberOfLab(currentUser.getId(), labId)) {
                 return ApiResponseHelper.errorResponse("User is not authorized for this lab", HttpStatus.UNAUTHORIZED);
             }
 
@@ -178,7 +178,7 @@ public class TestReferenceController {
             }
 
             Lab lab = labOptional.get();
-            if (!currentUser.getLabs().contains(lab)) {
+            if (!userService.isUserMemberOfLab(currentUser.getId(), labId)) {
                 return ApiResponseHelper.errorResponse("User is not authorized for this lab", HttpStatus.UNAUTHORIZED);
             }
 
@@ -240,7 +240,7 @@ public class TestReferenceController {
             }
 
             Lab lab = labOptional.get();
-            if (!currentUser.getLabs().contains(lab)) {
+            if (!userService.isUserMemberOfLab(currentUser.getId(), labId)) {
                 return ApiResponseHelper.errorResponse("User is not authorized for this lab", HttpStatus.UNAUTHORIZED);
             }
 
@@ -294,7 +294,7 @@ public class TestReferenceController {
             }
 
             Lab lab = labOptional.get();
-            if (!currentUser.getLabs().contains(lab)) {
+            if (!userService.isUserMemberOfLab(currentUser.getId(), labId)) {
                 return ApiResponseHelper.errorResponse("User is not authorized for this lab", HttpStatus.UNAUTHORIZED);
             }
 
@@ -336,7 +336,7 @@ public class TestReferenceController {
     //         }
 
     //         Lab lab = labOptional.get();
-    //         if (!currentUser.getLabs().contains(lab)) {
+    //         if (!userService.isUserMemberOfLab(currentUser.getId(), labId)) {
     //             return ApiResponseHelper.errorResponse("User is not authorized for this lab", HttpStatus.UNAUTHORIZED);
     //         }
 
@@ -376,7 +376,7 @@ public class TestReferenceController {
             }
 
             Lab lab = labOptional.get();
-            if (!currentUser.getLabs().contains(lab)) {
+            if (!userService.isUserMemberOfLab(currentUser.getId(), labId)) {
                 return ApiResponseHelper.errorResponse("User is not authorized for this lab", HttpStatus.UNAUTHORIZED);
             }
 
@@ -413,7 +413,7 @@ public class TestReferenceController {
             }
 
             Lab lab = labOptional.get();
-            if (!currentUser.getLabs().contains(lab)) {
+            if (!userService.isUserMemberOfLab(currentUser.getId(), labId)) {
                 return ApiResponseHelper.errorResponse("User is not authorized for this lab", HttpStatus.UNAUTHORIZED);
             }
 
@@ -451,7 +451,7 @@ public class TestReferenceController {
            }
 
            Lab lab = labOptional.get();
-           if (!currentUser.getLabs().contains(lab)) {
+           if (!userService.isUserMemberOfLab(currentUser.getId(), labId)) {
                return ApiResponseHelper.errorResponse("User is not authorized for this lab", HttpStatus.UNAUTHORIZED);
            }
 
@@ -489,7 +489,7 @@ public class TestReferenceController {
             }
 
             Lab lab = labOptional.get();
-            if (!currentUser.getLabs().contains(lab)) {
+            if (!userService.isUserMemberOfLab(currentUser.getId(), labId)) {
                 return ApiResponseHelper.errorResponse("User is not authorized for this lab", HttpStatus.UNAUTHORIZED);
             }
 
@@ -514,7 +514,7 @@ public class TestReferenceController {
         }
         Object principal = authentication.getPrincipal();
         if (principal instanceof MyUserDetails myUserDetails) {
-            return userService.findByUsername(myUserDetails.getUsername());
+            return Optional.of(myUserDetails.getUser());
         }
         if (principal instanceof UserDetails userDetails) {
             return userService.findByUsername(userDetails.getUsername());
