@@ -44,9 +44,31 @@ public interface VisitRepository extends JpaRepository<VisitEntity, Long> {
     @Query("SELECT DISTINCT v FROM VisitEntity v JOIN FETCH v.patient p JOIN p.labs l WHERE l = :lab AND v.visitDate BETWEEN :startDate AND :endDate AND v.visitStatus = :visitStatus")
     List<VisitEntity> findAllByPatient_LabsAndVisitDateBetweenAndVisitStatus(@Param("lab") Lab lab, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("visitStatus") String visitStatus);
 
+    // no filters
     @Query(value = "SELECT DISTINCT v FROM VisitEntity v JOIN FETCH v.patient p JOIN p.labs l WHERE l = :lab AND v.visitDate BETWEEN :startDate AND :endDate",
            countQuery = "SELECT COUNT(DISTINCT v.visitId) FROM VisitEntity v JOIN v.patient p JOIN p.labs l WHERE l = :lab AND v.visitDate BETWEEN :startDate AND :endDate")
-    Page<VisitEntity> findPagedByLabAndVisitDateBetween(@Param("lab") Lab lab, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, Pageable pageable);
+    Page<VisitEntity> findPaged(@Param("lab") Lab lab, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, Pageable pageable);
+
+    // status only
+    @Query(value = "SELECT DISTINCT v FROM VisitEntity v JOIN FETCH v.patient p JOIN p.labs l WHERE l = :lab AND v.visitDate BETWEEN :startDate AND :endDate AND v.visitStatus = :visitStatus",
+           countQuery = "SELECT COUNT(DISTINCT v.visitId) FROM VisitEntity v JOIN v.patient p JOIN p.labs l WHERE l = :lab AND v.visitDate BETWEEN :startDate AND :endDate AND v.visitStatus = :visitStatus")
+    Page<VisitEntity> findPagedByStatus(@Param("lab") Lab lab, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("visitStatus") String visitStatus, Pageable pageable);
+
+    // search only
+    @Query(value = "SELECT DISTINCT v FROM VisitEntity v JOIN FETCH v.patient p JOIN p.labs l WHERE l = :lab AND v.visitDate BETWEEN :startDate AND :endDate " +
+                   "AND (LOWER(p.firstName) LIKE :searchPattern OR LOWER(p.lastName) LIKE :searchPattern OR LOWER(p.phone) LIKE :searchPattern OR LOWER(p.patientCode) LIKE :searchPattern)",
+           countQuery = "SELECT COUNT(DISTINCT v.visitId) FROM VisitEntity v JOIN v.patient p JOIN p.labs l WHERE l = :lab AND v.visitDate BETWEEN :startDate AND :endDate " +
+                        "AND (LOWER(p.firstName) LIKE :searchPattern OR LOWER(p.lastName) LIKE :searchPattern OR LOWER(p.phone) LIKE :searchPattern OR LOWER(p.patientCode) LIKE :searchPattern)")
+    Page<VisitEntity> findPagedBySearch(@Param("lab") Lab lab, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("searchPattern") String searchPattern, Pageable pageable);
+
+    // search + status
+    @Query(value = "SELECT DISTINCT v FROM VisitEntity v JOIN FETCH v.patient p JOIN p.labs l WHERE l = :lab AND v.visitDate BETWEEN :startDate AND :endDate " +
+                   "AND (LOWER(p.firstName) LIKE :searchPattern OR LOWER(p.lastName) LIKE :searchPattern OR LOWER(p.phone) LIKE :searchPattern OR LOWER(p.patientCode) LIKE :searchPattern) " +
+                   "AND v.visitStatus = :visitStatus",
+           countQuery = "SELECT COUNT(DISTINCT v.visitId) FROM VisitEntity v JOIN v.patient p JOIN p.labs l WHERE l = :lab AND v.visitDate BETWEEN :startDate AND :endDate " +
+                        "AND (LOWER(p.firstName) LIKE :searchPattern OR LOWER(p.lastName) LIKE :searchPattern OR LOWER(p.phone) LIKE :searchPattern OR LOWER(p.patientCode) LIKE :searchPattern) " +
+                        "AND v.visitStatus = :visitStatus")
+    Page<VisitEntity> findPagedBySearchAndStatus(@Param("lab") Lab lab, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("searchPattern") String searchPattern, @Param("visitStatus") String visitStatus, Pageable pageable);
 
 
     @Modifying

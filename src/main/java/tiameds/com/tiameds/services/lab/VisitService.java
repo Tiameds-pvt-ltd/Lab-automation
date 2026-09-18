@@ -608,7 +608,7 @@ public class VisitService {
 
 
     @Transactional(readOnly = true)
-    public Page<PatientVisitDTO> getPatientVisits(Long labId, LocalDate startDate, LocalDate endDate, Optional<User> currentUser, Pageable pageable) {
+    public Page<PatientVisitDTO> getPatientVisits(Long labId, LocalDate startDate, LocalDate endDate, String search, String visitStatus, Optional<User> currentUser, Pageable pageable) {
         Optional<Lab> labOptional = labRepository.findById(labId);
         if (labOptional.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Lab not found");
@@ -620,9 +620,22 @@ public class VisitService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Start date and end date are required");
         }
 
-        Page<VisitEntity> visitPage = visitRepository.findPagedByLabAndVisitDateBetween(
-                labOptional.get(), startDate, endDate, pageable
-        );
+        String searchPattern = (search != null && !search.trim().isEmpty())
+                ? "%" + search.trim().toLowerCase() + "%"
+                : null;
+        String statusFilter = (visitStatus != null && !visitStatus.trim().isEmpty()) ? visitStatus.trim() : null;
+
+        Lab lab = labOptional.get();
+        Page<VisitEntity> visitPage;
+        if (searchPattern == null && statusFilter == null) {
+            visitPage = visitRepository.findPaged(lab, startDate, endDate, pageable);
+        } else if (searchPattern == null) {
+            visitPage = visitRepository.findPagedByStatus(lab, startDate, endDate, statusFilter, pageable);
+        } else if (statusFilter == null) {
+            visitPage = visitRepository.findPagedBySearch(lab, startDate, endDate, searchPattern, pageable);
+        } else {
+            visitPage = visitRepository.findPagedBySearchAndStatus(lab, startDate, endDate, searchPattern, statusFilter, pageable);
+        }
 
         return visitPage.map(visit -> {
             PatientEntity patient = visit.getPatient();

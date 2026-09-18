@@ -241,6 +241,8 @@ public class VisitController {
             @PathVariable Long labId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String visitStatus,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
@@ -254,7 +256,7 @@ public class VisitController {
                 return ApiResponseHelper.successResponseWithDataAndMessage("Lab is not accessible", HttpStatus.UNAUTHORIZED, null);
             }
             PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "visitDate"));
-            Page<PatientVisitDTO> patientVisits = visitService.getPatientVisits(labId, startDate, endDate, currentUser, pageable);
+            Page<PatientVisitDTO> patientVisits = visitService.getPatientVisits(labId, startDate, endDate, search, visitStatus, currentUser, pageable);
             Map<String, Object> response = new java.util.LinkedHashMap<>();
             response.put("status", "success");
             response.put("message", "Patient visits fetched successfully");
