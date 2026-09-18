@@ -87,7 +87,6 @@ public class AdminStatsController {
         this.userAuthService = userAuthService;
     }
 
-
     // ─── Auth & access helpers ────────────────────────────────────────────────
 
     private ResponseEntity<?> authenticate(String token, Long labId, Object[] outUser, Object[] outLab) {
