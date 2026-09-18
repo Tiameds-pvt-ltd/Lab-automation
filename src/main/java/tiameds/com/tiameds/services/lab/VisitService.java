@@ -1,6 +1,8 @@
 package tiameds.com.tiameds.services.lab;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -606,7 +608,7 @@ public class VisitService {
 
 
     @Transactional(readOnly = true)
-    public List<PatientVisitDTO> getPatientVisits(Long labId, LocalDate startDate, LocalDate endDate, Optional<User> currentUser) {
+    public Page<PatientVisitDTO> getPatientVisits(Long labId, LocalDate startDate, LocalDate endDate, Optional<User> currentUser, Pageable pageable) {
         Optional<Lab> labOptional = labRepository.findById(labId);
         if (labOptional.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Lab not found");
@@ -617,41 +619,29 @@ public class VisitService {
         if (startDate == null || endDate == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Start date and end date are required");
         }
-        List<VisitEntity> visits = visitRepository.findAllByPatient_LabsAndVisitDateBetween(
-                labOptional.get(), startDate, endDate
+
+        Page<VisitEntity> visitPage = visitRepository.findPagedByLabAndVisitDateBetween(
+                labOptional.get(), startDate, endDate, pageable
         );
 
-//        ).stream()
-//                .filter(v -> !"Cancelled".equalsIgnoreCase(v.getVisitStatus()))
-//                .collect(Collectors.toList());
-
-        // make a response object
-        List<PatientVisitDTO> patientVisitDTOs = visits.stream()
-                .map(visit -> {
-                    PatientEntity patient = visit.getPatient();
-                    VisitDetailsDTO visitDetailsDTO = new VisitDetailsDTO(visit);
-                    return new PatientVisitDTO(
-                            patient.getPatientId(),
-                            patient.getFirstName(),
-                            patient.getLastName(),
-                            patient.getPatientCode(),
-                            patient.getPhone(),
-                            patient.getCity(),
-                            patient.getDateOfBirth(),
-                            patient.getAge(),
-                            patient.getGender(),
-                            visitDetailsDTO,
-                            visit.getCreatedBy(),
-                            visit.getUpdatedBy()
-                    );
-                })
-                .collect(Collectors.toList());
-
-        if (patientVisitDTOs.isEmpty()) {
-            //send Message no visit found
-            ApiResponseHelper.successResponseWithDataAndMessage("No visits found for the given date range", HttpStatus.OK, Collections.emptyList());
-        }
-        return patientVisitDTOs;
+        return visitPage.map(visit -> {
+            PatientEntity patient = visit.getPatient();
+            VisitDetailsDTO visitDetailsDTO = new VisitDetailsDTO(visit);
+            return new PatientVisitDTO(
+                    patient.getPatientId(),
+                    patient.getFirstName(),
+                    patient.getLastName(),
+                    patient.getPatientCode(),
+                    patient.getPhone(),
+                    patient.getCity(),
+                    patient.getDateOfBirth(),
+                    patient.getAge(),
+                    patient.getGender(),
+                    visitDetailsDTO,
+                    visit.getCreatedBy(),
+                    visit.getUpdatedBy()
+            );
+        });
     }
 }
 

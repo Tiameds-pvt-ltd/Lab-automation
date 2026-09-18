@@ -10,6 +10,9 @@ import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.entity.PatientEntity;
 import tiameds.com.tiameds.entity.VisitEntity;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -40,6 +43,10 @@ public interface VisitRepository extends JpaRepository<VisitEntity, Long> {
 
     @Query("SELECT DISTINCT v FROM VisitEntity v JOIN FETCH v.patient p JOIN p.labs l WHERE l = :lab AND v.visitDate BETWEEN :startDate AND :endDate AND v.visitStatus = :visitStatus")
     List<VisitEntity> findAllByPatient_LabsAndVisitDateBetweenAndVisitStatus(@Param("lab") Lab lab, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("visitStatus") String visitStatus);
+
+    @Query(value = "SELECT DISTINCT v FROM VisitEntity v JOIN FETCH v.patient p JOIN p.labs l WHERE l = :lab AND v.visitDate BETWEEN :startDate AND :endDate",
+           countQuery = "SELECT COUNT(DISTINCT v.visitId) FROM VisitEntity v JOIN v.patient p JOIN p.labs l WHERE l = :lab AND v.visitDate BETWEEN :startDate AND :endDate")
+    Page<VisitEntity> findPagedByLabAndVisitDateBetween(@Param("lab") Lab lab, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, Pageable pageable);
 
 
     @Modifying

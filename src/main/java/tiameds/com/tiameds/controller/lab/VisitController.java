@@ -1,5 +1,8 @@
 package tiameds.com.tiameds.controller.lab;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +25,7 @@ import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 
@@ -236,7 +240,9 @@ public class VisitController {
     public ResponseEntity<?> getPatientVisits(
             @PathVariable Long labId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
     ) {
         try {
             Optional<User> currentUser = getAuthenticatedUser();
@@ -247,11 +253,19 @@ public class VisitController {
             if (!isAccessible) {
                 return ApiResponseHelper.successResponseWithDataAndMessage("Lab is not accessible", HttpStatus.UNAUTHORIZED, null);
             }
-            List<PatientVisitDTO> patientVisits = visitService.getPatientVisits(labId, startDate, endDate, currentUser);
-            return ApiResponseHelper.successResponseWithDataAndMessage("Patient visits fetched successfully", HttpStatus.OK, patientVisits);
+            PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "visitDate"));
+            Page<PatientVisitDTO> patientVisits = visitService.getPatientVisits(labId, startDate, endDate, currentUser, pageable);
+            Map<String, Object> response = new java.util.LinkedHashMap<>();
+            response.put("status", "success");
+            response.put("message", "Patient visits fetched successfully");
+            response.put("data", patientVisits.getContent());
+            response.put("totalElements", patientVisits.getTotalElements());
+            response.put("totalPages", patientVisits.getTotalPages());
+            response.put("currentPage", patientVisits.getNumber());
+            response.put("pageSize", patientVisits.getSize());
+            return new ResponseEntity<>(response, HttpStatus.OK);
         } catch (Exception e) {
             return ApiResponseHelper.errorResponse("No Visits Found", HttpStatus.INTERNAL_SERVER_ERROR);
-
         }
     }
 
