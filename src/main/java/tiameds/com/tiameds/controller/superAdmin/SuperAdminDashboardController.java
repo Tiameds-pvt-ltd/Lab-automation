@@ -508,15 +508,10 @@ public class SuperAdminDashboardController {
             }
             totalLabs = 1;
 
-            long admins      = hasDates
-                    ? userRepository.countByRolesNameAndLabsIdAndCreatedAtBetween("ADMIN",     labId, toStart(startDate), toEnd(endDate))
-                    : userRepository.countByRolesNameAndLabsId("ADMIN",     labId);
-            long technicians = hasDates
-                    ? userRepository.countByRolesNameAndLabsIdAndCreatedAtBetween("TECHNICIAN", labId, toStart(startDate), toEnd(endDate))
-                    : userRepository.countByRolesNameAndLabsId("TECHNICIAN", labId);
-            long deskRoles   = hasDates
-                    ? userRepository.countByRolesNameAndLabsIdAndCreatedAtBetween("DESKROLE",   labId, toStart(startDate), toEnd(endDate))
-                    : userRepository.countByRolesNameAndLabsId("DESKROLE",   labId);
+            // These four KPIs always reflect overall static totals — never date-filtered.
+            long admins      = userRepository.countByRolesNameAndLabsId("ADMIN",      labId);
+            long technicians = userRepository.countByRolesNameAndLabsId("TECHNICIAN", labId);
+            long deskRoles   = userRepository.countByRolesNameAndLabsId("DESKROLE",   labId);
 
             Map<String, Object> kpis = new LinkedHashMap<>();
             kpis.put("totalLabs",        totalLabs);
@@ -530,9 +525,10 @@ public class SuperAdminDashboardController {
             return kpis;
         }
 
-        // All labs — include lab-wise breakdowns for role counts
+        // All labs — include lab-wise breakdowns for role counts.
+        // totalLabs and role counts are always overall static totals, never date-filtered.
+        totalLabs = labRepository.countByCreatedBy(currentUser);
         if (hasDates) {
-            totalLabs = labRepository.countByCreatedByAndCreatedAtBetween(currentUser, toStart(startDate), toEnd(endDate));
             if (sharedLabRollup != null) {
                 // /all endpoint: use the daily_lab_stats rollup (pre-aggregated, avoids 504s under
                 // concurrent section fetches across many labs / wide date ranges).
@@ -549,7 +545,6 @@ public class SuperAdminDashboardController {
                 totalRevenue     = billingRepository.sumPaidAmountByLabsCreatedByAndCreatedAtBetween(currentUser, toInstantStart(startDate), toInstantEnd(endDate));
             }
         } else {
-            totalLabs        = labRepository.countByCreatedBy(currentUser);
             totalTests       = visitTestResultRepository.countAllTestsByLabsCreatedBy(currentUser);
             reportsGenerated = visitTestResultRepository.countCompletedReportsByLabsCreatedBy(currentUser);
             pendingSamples   = visitRepository.countPendingVisitsByLabsCreatedBy(currentUser);
@@ -558,9 +553,9 @@ public class SuperAdminDashboardController {
 
         Map<String, Object> kpis = new LinkedHashMap<>();
         kpis.put("totalLabs",        totalLabs);
-        kpis.put("totalAdmins",      buildRoleLabWise("ADMIN",      currentUser, startDate, endDate, hasDates));
-        kpis.put("totalTechnicians", buildRoleLabWise("TECHNICIAN", currentUser, startDate, endDate, hasDates));
-        kpis.put("totalDeskRoles",   buildRoleLabWise("DESKROLE",   currentUser, startDate, endDate, hasDates));
+        kpis.put("totalAdmins",      buildRoleLabWise("ADMIN",      currentUser, startDate, endDate, false));
+        kpis.put("totalTechnicians", buildRoleLabWise("TECHNICIAN", currentUser, startDate, endDate, false));
+        kpis.put("totalDeskRoles",   buildRoleLabWise("DESKROLE",   currentUser, startDate, endDate, false));
         kpis.put("totalTests",       totalTests);
         kpis.put("totalRevenue",     safe(totalRevenue));
         kpis.put("reportsGenerated", reportsGenerated);
