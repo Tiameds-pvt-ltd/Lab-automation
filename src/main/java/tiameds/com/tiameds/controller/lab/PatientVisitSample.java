@@ -271,7 +271,8 @@ public class PatientVisitSample {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String search) {
 
         User currentUser = getAuthenticatedUser().orElse(null);
         if (currentUser == null) {
@@ -293,7 +294,13 @@ public class PatientVisitSample {
 
         List<String> visitStatuses = Arrays.asList("Collected", "Completed");
         PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "visitDate"));
-        Page<VisitEntity> visitPage = visitRepository.findPagedByStatusIn(lab, startDate, endDate, visitStatuses, pageable);
+        Page<VisitEntity> visitPage;
+        if (search != null && !search.trim().isEmpty()) {
+            String searchPattern = "%" + search.trim().toLowerCase() + "%";
+            visitPage = visitRepository.findPagedByStatusInAndSearch(lab, startDate, endDate, visitStatuses, searchPattern, pageable);
+        } else {
+            visitPage = visitRepository.findPagedByStatusIn(lab, startDate, endDate, visitStatuses, pageable);
+        }
 
         List<VisitSampleDto> visitSamples = visitPage.getContent().stream()
                 .map(visit -> {

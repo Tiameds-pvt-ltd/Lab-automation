@@ -83,6 +83,18 @@ public interface VisitRepository extends JpaRepository<VisitEntity, Long> {
            countQuery = "SELECT COUNT(DISTINCT v.visitId) FROM VisitEntity v JOIN v.patient p JOIN p.labs l WHERE l = :lab AND v.visitDate BETWEEN :startDate AND :endDate AND v.visitStatus IN :visitStatuses")
     Page<VisitEntity> findPagedByStatusIn(@Param("lab") Lab lab, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("visitStatuses") List<String> visitStatuses, Pageable pageable);
 
+    @Query(value = "SELECT v FROM VisitEntity v JOIN FETCH v.patient p " +
+                   "WHERE v.patient IN (SELECT p2 FROM PatientEntity p2 JOIN p2.labs l WHERE l = :lab) " +
+                   "AND v.visitDate BETWEEN :startDate AND :endDate AND v.visitStatus IN :visitStatuses " +
+                   "AND (LOWER(p.firstName) LIKE :searchPattern OR LOWER(p.lastName) LIKE :searchPattern " +
+                   "OR LOWER(p.phone) LIKE :searchPattern OR LOWER(p.patientCode) LIKE :searchPattern OR LOWER(v.visitCode) LIKE :searchPattern)",
+           countQuery = "SELECT COUNT(v) FROM VisitEntity v " +
+                        "WHERE v.patient IN (SELECT p2 FROM PatientEntity p2 JOIN p2.labs l WHERE l = :lab) " +
+                        "AND v.visitDate BETWEEN :startDate AND :endDate AND v.visitStatus IN :visitStatuses " +
+                        "AND (LOWER(v.patient.firstName) LIKE :searchPattern OR LOWER(v.patient.lastName) LIKE :searchPattern " +
+                        "OR LOWER(v.patient.phone) LIKE :searchPattern OR LOWER(v.patient.patientCode) LIKE :searchPattern OR LOWER(v.visitCode) LIKE :searchPattern)")
+    Page<VisitEntity> findPagedByStatusInAndSearch(@Param("lab") Lab lab, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("visitStatuses") List<String> visitStatuses, @Param("searchPattern") String searchPattern, Pageable pageable);
+
     @Query("SELECT COUNT(v) FROM VisitEntity v JOIN v.labs l WHERE l.createdBy = :createdBy AND v.visitStatus = 'Pending'")
     long countPendingVisitsByLabsCreatedBy(@Param("createdBy") User createdBy);
 
