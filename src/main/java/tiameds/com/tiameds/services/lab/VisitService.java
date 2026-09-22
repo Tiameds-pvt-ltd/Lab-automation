@@ -494,7 +494,8 @@ public class VisitService {
         return patientDTOList;
     }
 
-    public @NotNull List<PatientDetailsDto> getVisitsByDateRange(Long labId, Optional<User> currentUser, LocalDate startDate, LocalDate endDate) {
+    @Transactional(readOnly = true)
+    public Page<PatientDetailsDto> getVisitsByDateRange(Long labId, Optional<User> currentUser, LocalDate startDate, LocalDate endDate, Pageable pageable) {
         Optional<Lab> labOptional = labRepository.findById(labId);
         if (labOptional.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Lab not found");
@@ -508,14 +509,11 @@ public class VisitService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Start date and end date are required");
         }
 
-        List<VisitEntity> visits = visitRepository.findAllByPatient_LabsAndVisitDateBetween(
-                labOptional.get(), startDate, endDate
-        ).stream()
-                .filter(visit -> "Pending".equalsIgnoreCase(visit.getVisitStatus()))
-                .collect(Collectors.toList());
+        Page<VisitEntity> visitPage = visitRepository.findPagedByStatus(
+                labOptional.get(), startDate, endDate, "Pending", pageable
+        );
 
-        List<PatientDetailsDto> result = visits.stream()
-                .map(visit -> {
+        return visitPage.map(visit -> {
                     PatientDetailsDto dto = new PatientDetailsDto();
                     // Map patient details
                     PatientEntity patient = visit.getPatient();
@@ -573,13 +571,7 @@ public class VisitService {
 
                     dto.setVisitDetailDto(visitDetailDto);
                     return dto;
-                })
-                .collect(Collectors.toList());
-
-        if (result.isEmpty()) {
-            ApiResponseHelper.successResponseWithDataAndMessage("No visits found for the given date range", HttpStatus.OK, Collections.emptyList());
-        }
-        return result;
+                });
     }
 
 

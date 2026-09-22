@@ -181,7 +181,9 @@ public class VisitController {
     public ResponseEntity<?> getVisitsByDateRange(
             @PathVariable Long labId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
     ) {
         try {
             Optional<User> currentUser = getAuthenticatedUser();
@@ -194,13 +196,30 @@ public class VisitController {
                 return ApiResponseHelper.successResponseWithDataAndMessage("Lab is not accessible", HttpStatus.UNAUTHORIZED, null);
             }
 
-            List<PatientDetailsDto> visits = List.of(); // Empty by default
-
-            if (startDate != null && endDate != null) {
-                visits = (List<PatientDetailsDto>) visitService.getVisitsByDateRange(labId, currentUser, startDate, endDate);
+            if (startDate == null || endDate == null) {
+                Map<String, Object> emptyResponse = new java.util.LinkedHashMap<>();
+                emptyResponse.put("status", "success");
+                emptyResponse.put("message", "Visits fetched successfully");
+                emptyResponse.put("data", List.of());
+                emptyResponse.put("totalElements", 0);
+                emptyResponse.put("totalPages", 0);
+                emptyResponse.put("currentPage", page);
+                emptyResponse.put("pageSize", size);
+                return new ResponseEntity<>(emptyResponse, HttpStatus.OK);
             }
 
-            return ApiResponseHelper.successResponseWithDataAndMessage("Visits fetched successfully", HttpStatus.OK, visits);
+            PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "visitDate"));
+            Page<PatientDetailsDto> visits = visitService.getVisitsByDateRange(labId, currentUser, startDate, endDate, pageable);
+
+            Map<String, Object> response = new java.util.LinkedHashMap<>();
+            response.put("status", "success");
+            response.put("message", "Visits fetched successfully");
+            response.put("data", visits.getContent());
+            response.put("totalElements", visits.getTotalElements());
+            response.put("totalPages", visits.getTotalPages());
+            response.put("currentPage", visits.getNumber());
+            response.put("pageSize", visits.getSize());
+            return new ResponseEntity<>(response, HttpStatus.OK);
 
         } catch (ResponseStatusException ex) {
             return ApiResponseHelper.errorResponseWithMessage(ex.getReason(), (HttpStatus) ex.getStatusCode());
