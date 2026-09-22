@@ -3,6 +3,9 @@ package tiameds.com.tiameds.controller.lab;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -266,7 +269,9 @@ public class PatientVisitSample {
     public ResponseEntity<?> getCollectedAndCompletedPatientData(
             @PathVariable("labId") Long labId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
 
         User currentUser = getAuthenticatedUser().orElse(null);
         if (currentUser == null) {
@@ -286,11 +291,11 @@ public class PatientVisitSample {
             return ApiResponseHelper.errorResponse("Start date and end date are required", HttpStatus.BAD_REQUEST);
         }
 
-        List<String> visitStatus = Arrays.asList("Collected", "Completed");
-        List<VisitEntity> visits = visitRepository.findAllByPatient_LabsAndVisitDateBetweenAndVisitStatusIn(
-                lab, startDate, endDate, visitStatus);
+        List<String> visitStatuses = Arrays.asList("Collected", "Completed");
+        PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "visitDate"));
+        Page<VisitEntity> visitPage = visitRepository.findPagedByStatusIn(lab, startDate, endDate, visitStatuses, pageable);
 
-        List<VisitSampleDto> visitSamples = visits.stream()
+        List<VisitSampleDto> visitSamples = visitPage.getContent().stream()
                 .map(visit -> {
                     Map<String, List<Long>> reportIdsByTestName = reportRepository
                             .findByVisitIdAndLabId(visit.getVisitId(), labId)
@@ -330,7 +335,7 @@ public class PatientVisitSample {
                             visit.getVisitDate(),
                             visit.getVisitStatus(),
                             visit.getVisitType(),
-                            visit.getDoctor() != null ? visit.getDoctor().getName() : null, // Handle potential null doctor
+                            visit.getDoctor() != null ? visit.getDoctor().getName() : null,
                             visit.getVisitCode(),
                             visit.getSamples().stream()
                                     .map(SampleEntity::getName)
@@ -357,7 +362,15 @@ public class PatientVisitSample {
                 })
                 .collect(Collectors.toList());
 
-        return ApiResponseHelper.successResponse("Visits filtered by date and status", visitSamples);
+        Map<String, Object> response = new java.util.LinkedHashMap<>();
+        response.put("status", "success");
+        response.put("message", "Visits filtered by date and status");
+        response.put("data", visitSamples);
+        response.put("totalElements", visitPage.getTotalElements());
+        response.put("totalPages", visitPage.getTotalPages());
+        response.put("currentPage", visitPage.getNumber());
+        response.put("pageSize", visitPage.getSize());
+        return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     private Optional<User> getAuthenticatedUser() {

@@ -79,6 +79,10 @@ public interface VisitRepository extends JpaRepository<VisitEntity, Long> {
 
     List<VisitEntity> findAllByPatient_LabsAndVisitDateBetweenAndVisitStatusIn(Lab lab, LocalDate startDate, LocalDate endDate, List<String> visitStatus);
 
+    @Query(value = "SELECT DISTINCT v FROM VisitEntity v JOIN FETCH v.patient p JOIN p.labs l WHERE l = :lab AND v.visitDate BETWEEN :startDate AND :endDate AND v.visitStatus IN :visitStatuses",
+           countQuery = "SELECT COUNT(DISTINCT v.visitId) FROM VisitEntity v JOIN v.patient p JOIN p.labs l WHERE l = :lab AND v.visitDate BETWEEN :startDate AND :endDate AND v.visitStatus IN :visitStatuses")
+    Page<VisitEntity> findPagedByStatusIn(@Param("lab") Lab lab, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("visitStatuses") List<String> visitStatuses, Pageable pageable);
+
     @Query("SELECT COUNT(v) FROM VisitEntity v JOIN v.labs l WHERE l.createdBy = :createdBy AND v.visitStatus = 'Pending'")
     long countPendingVisitsByLabsCreatedBy(@Param("createdBy") User createdBy);
 
