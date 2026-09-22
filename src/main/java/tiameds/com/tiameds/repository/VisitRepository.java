@@ -50,7 +50,7 @@ public interface VisitRepository extends JpaRepository<VisitEntity, Long> {
     Page<VisitEntity> findPaged(@Param("lab") Lab lab, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, Pageable pageable);
 
     // status only
-    @Query(value = "SELECT DISTINCT v FROM VisitEntity v JOIN FETCH v.patient p JOIN p.labs l WHERE l = :lab AND v.visitDate BETWEEN :startDate AND :endDate AND v.visitStatus = :visitStatus",
+    @Query(value = "SELECT DISTINCT v FROM VisitEntity v JOIN FETCH v.patient p JOIN p.labs l LEFT JOIN FETCH v.billing LEFT JOIN FETCH v.doctor WHERE l = :lab AND v.visitDate BETWEEN :startDate AND :endDate AND v.visitStatus = :visitStatus",
            countQuery = "SELECT COUNT(DISTINCT v.visitId) FROM VisitEntity v JOIN v.patient p JOIN p.labs l WHERE l = :lab AND v.visitDate BETWEEN :startDate AND :endDate AND v.visitStatus = :visitStatus")
     Page<VisitEntity> findPagedByStatus(@Param("lab") Lab lab, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("visitStatus") String visitStatus, Pageable pageable);
 
@@ -62,7 +62,7 @@ public interface VisitRepository extends JpaRepository<VisitEntity, Long> {
     Page<VisitEntity> findPagedBySearch(@Param("lab") Lab lab, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("searchPattern") String searchPattern, Pageable pageable);
 
     // search + status
-    @Query(value = "SELECT DISTINCT v FROM VisitEntity v JOIN FETCH v.patient p JOIN p.labs l WHERE l = :lab AND v.visitDate BETWEEN :startDate AND :endDate " +
+    @Query(value = "SELECT DISTINCT v FROM VisitEntity v JOIN FETCH v.patient p JOIN p.labs l LEFT JOIN FETCH v.billing LEFT JOIN FETCH v.doctor WHERE l = :lab AND v.visitDate BETWEEN :startDate AND :endDate " +
                    "AND (LOWER(p.firstName) LIKE :searchPattern OR LOWER(p.lastName) LIKE :searchPattern OR LOWER(p.phone) LIKE :searchPattern OR LOWER(p.patientCode) LIKE :searchPattern OR LOWER(v.visitCode) LIKE :searchPattern) " +
                    "AND v.visitStatus = :visitStatus",
            countQuery = "SELECT COUNT(DISTINCT v.visitId) FROM VisitEntity v JOIN v.patient p JOIN p.labs l WHERE l = :lab AND v.visitDate BETWEEN :startDate AND :endDate " +

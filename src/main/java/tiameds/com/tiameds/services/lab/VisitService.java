@@ -561,18 +561,6 @@ public class VisitService {
                         visitDetailDto.setBellingDetailsDto(billingDto);
                     }
 
-                    // Map test discounts
-                    List<TestDiscountEntity> testDiscounts = billing != null ? new ArrayList<>(billing.getTestDiscounts()) : new ArrayList<>();
-                    List<TestDiscountDTO> testDiscountDTOs = testDiscounts.stream()
-                            .map(testDiscount -> new TestDiscountDTO(
-                                    testDiscount.getTestId(),
-                                    testDiscount.getDiscountAmount(),
-                                    testDiscount.getDiscountPercent(),
-                                    testDiscount.getFinalPrice(),
-                                    testDiscount.getCreatedBy(),
-                                    testDiscount.getUpdatedBy()
-                            )).collect(Collectors.toList());
-
                     dto.setVisitDetailDto(visitDetailDto);
                     return dto;
                 });

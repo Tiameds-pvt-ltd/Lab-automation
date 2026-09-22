@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -51,6 +52,7 @@ public class VisitEntity {
             inverseJoinColumns = @JoinColumn(name = "test_id")
     )
     @JsonBackReference
+    @BatchSize(size = 25)
     private Set<Test> tests = new HashSet<>();
 
     @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
@@ -64,6 +66,7 @@ public class VisitEntity {
             inverseJoinColumns = @JoinColumn(name = "package_id")
     )
     @JsonBackReference
+    @BatchSize(size = 25)
     private Set<HealthPackage> packages = new HashSet<>();
 
 
