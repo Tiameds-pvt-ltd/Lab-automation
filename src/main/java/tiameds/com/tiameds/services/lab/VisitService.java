@@ -495,7 +495,7 @@ public class VisitService {
     }
 
     @Transactional(readOnly = true)
-    public Page<PatientDetailsDto> getVisitsByDateRange(Long labId, Optional<User> currentUser, LocalDate startDate, LocalDate endDate, Pageable pageable) {
+    public Page<PatientDetailsDto> getVisitsByDateRange(Long labId, Optional<User> currentUser, LocalDate startDate, LocalDate endDate, String search, Pageable pageable) {
         Optional<Lab> labOptional = labRepository.findById(labId);
         if (labOptional.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Lab not found");
@@ -509,9 +509,13 @@ public class VisitService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Start date and end date are required");
         }
 
-        Page<VisitEntity> visitPage = visitRepository.findPagedByStatus(
-                labOptional.get(), startDate, endDate, "Pending", pageable
-        );
+        String searchPattern = (search != null && !search.trim().isEmpty())
+                ? "%" + search.trim().toLowerCase() + "%"
+                : null;
+
+        Page<VisitEntity> visitPage = (searchPattern != null)
+                ? visitRepository.findPagedBySearchAndStatus(labOptional.get(), startDate, endDate, searchPattern, "Pending", pageable)
+                : visitRepository.findPagedByStatus(labOptional.get(), startDate, endDate, "Pending", pageable);
 
         return visitPage.map(visit -> {
                     PatientDetailsDto dto = new PatientDetailsDto();

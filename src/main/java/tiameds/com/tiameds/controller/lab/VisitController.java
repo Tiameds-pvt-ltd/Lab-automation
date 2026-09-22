@@ -182,6 +182,7 @@ public class VisitController {
             @PathVariable Long labId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
@@ -209,7 +210,7 @@ public class VisitController {
             }
 
             PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "visitDate"));
-            Page<PatientDetailsDto> visits = visitService.getVisitsByDateRange(labId, currentUser, startDate, endDate, pageable);
+            Page<PatientDetailsDto> visits = visitService.getVisitsByDateRange(labId, currentUser, startDate, endDate, search, pageable);
 
             Map<String, Object> response = new java.util.LinkedHashMap<>();
             response.put("status", "success");
