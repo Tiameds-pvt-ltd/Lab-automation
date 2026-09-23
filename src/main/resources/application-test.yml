@@ -7,11 +7,16 @@ server:
   error:
     whitelabel:
       enabled: false
+    include-message: always
+    include-stacktrace: on-param
+    include-binding-errors: always
 
 logging:
   level:
     org.springframework: INFO
     org.springframework.security: WARN
+    org.hibernate.SQL: DEBUG
+    tiameds: DEBUG
     com:
       fasterxml:
         jackson: WARN
@@ -39,9 +44,16 @@ spring:
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: 10
+    validate-on-migrate: true
+
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     open-in-view: false
     properties:
       hibernate:
@@ -91,7 +103,16 @@ security-scanning:
     report-path: ${OWASP_DC_REPORT_PATH:./reports/dependency-check-report.html}
 
 
-security: 
+
+
+# Rate limiting configuration (user-based only)
+rate:
+  limit:
+    login:
+      attempts: 100  # Max login attempts per user
+      window: 10     # Time window in minutes (user is blocked for this duration if limit exceeded)
+
+security:
   jwt:
     issuer: ${JWT_ISSUER:tiameds-lab-automation}
     audience: ${JWT_AUDIENCE:tiameds-clients}
@@ -105,7 +126,7 @@ security:
     cookie-path: ${JWT_COOKIE_PATH:/}
     cookie-secure: ${JWT_COOKIE_SECURE:true}
     same-site: ${JWT_COOKIE_SAMESITE:None}
-
+ 
 # S3 upload configuration
 aws:
   s3:
