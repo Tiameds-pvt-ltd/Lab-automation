@@ -77,13 +77,30 @@ BEGIN
             );
         END IF;
 
-        EXECUTE format(
-            'ALTER TABLE %I ADD CONSTRAINT %I PRIMARY KEY (%I)',
-            rec.table_name, rec.table_name || '_pkey', rec.id_column
-        );
+        IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint
+            WHERE conrelid = rec.table_name::regclass
+              AND contype   = 'p'
+        ) THEN
+            EXECUTE format(
+                'ALTER TABLE %I ADD CONSTRAINT %I PRIMARY KEY (%I)',
+                rec.table_name, rec.table_name || '_pkey', rec.id_column
+            );
+        END IF;
     END LOOP;
 END $$;
 
 -- UUID-keyed tables: restore PRIMARY KEY only, no identity needed.
-ALTER TABLE refresh_tokens ADD CONSTRAINT refresh_tokens_pkey PRIMARY KEY (id);
-ALTER TABLE lab_audit_logs ADD CONSTRAINT lab_audit_logs_pkey PRIMARY KEY (id);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conrelid = 'refresh_tokens'::regclass AND contype = 'p'
+    ) THEN
+        ALTER TABLE refresh_tokens ADD CONSTRAINT refresh_tokens_pkey PRIMARY KEY (id);
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conrelid = 'lab_audit_logs'::regclass AND contype = 'p'
+    ) THEN
+        ALTER TABLE lab_audit_logs ADD CONSTRAINT lab_audit_logs_pkey PRIMARY KEY (id);
+    END IF;
+END $$;

@@ -9,24 +9,36 @@
 DO $$
 BEGIN
     IF to_regclass('public.password_reset_rate_limits') IS NOT NULL THEN
-        CREATE SEQUENCE IF NOT EXISTS pwd_reset_rate_limit_id_seq
-            START WITH 1 INCREMENT BY 50 NO MINVALUE NO MAXVALUE CACHE 1;
-
-        ALTER TABLE password_reset_rate_limits
-            ALTER COLUMN id SET DEFAULT nextval('pwd_reset_rate_limit_id_seq');
-
-        PERFORM setval('pwd_reset_rate_limit_id_seq',
-            (SELECT COALESCE(MAX(id), 0) FROM password_reset_rate_limits) + 1, false);
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name   = 'password_reset_rate_limits'
+              AND column_name  = 'id'
+              AND identity_generation IS NOT NULL
+        ) THEN
+            CREATE SEQUENCE IF NOT EXISTS pwd_reset_rate_limit_id_seq
+                START WITH 1 INCREMENT BY 50 NO MINVALUE NO MAXVALUE CACHE 1;
+            ALTER TABLE password_reset_rate_limits
+                ALTER COLUMN id SET DEFAULT nextval('pwd_reset_rate_limit_id_seq');
+            PERFORM setval('pwd_reset_rate_limit_id_seq',
+                (SELECT COALESCE(MAX(id), 0) FROM password_reset_rate_limits) + 1, false);
+        END IF;
     END IF;
 
     IF to_regclass('public.password_reset_tokens') IS NOT NULL THEN
-        CREATE SEQUENCE IF NOT EXISTS pwd_reset_token_id_seq
-            START WITH 1 INCREMENT BY 50 NO MINVALUE NO MAXVALUE CACHE 1;
-
-        ALTER TABLE password_reset_tokens
-            ALTER COLUMN id SET DEFAULT nextval('pwd_reset_token_id_seq');
-
-        PERFORM setval('pwd_reset_token_id_seq',
-            (SELECT COALESCE(MAX(id), 0) FROM password_reset_tokens) + 1, false);
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name   = 'password_reset_tokens'
+              AND column_name  = 'id'
+              AND identity_generation IS NOT NULL
+        ) THEN
+            CREATE SEQUENCE IF NOT EXISTS pwd_reset_token_id_seq
+                START WITH 1 INCREMENT BY 50 NO MINVALUE NO MAXVALUE CACHE 1;
+            ALTER TABLE password_reset_tokens
+                ALTER COLUMN id SET DEFAULT nextval('pwd_reset_token_id_seq');
+            PERFORM setval('pwd_reset_token_id_seq',
+                (SELECT COALESCE(MAX(id), 0) FROM password_reset_tokens) + 1, false);
+        END IF;
     END IF;
 END $$;

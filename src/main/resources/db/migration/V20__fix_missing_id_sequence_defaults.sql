@@ -17,6 +17,7 @@ BEGIN
         WHERE c.table_schema = 'public'
           AND c.column_name = 'id'
           AND c.column_default IS NULL
+          AND c.identity_generation IS NULL
           AND c.data_type IN ('bigint', 'integer')
           AND EXISTS (
               SELECT 1 FROM information_schema.tables
