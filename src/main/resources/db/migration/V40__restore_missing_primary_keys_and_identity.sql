@@ -54,6 +54,9 @@ BEGIN
             ('verification_tokens', 'id')
         ) AS t(table_name, id_column)
     LOOP
+        -- Skip tables that do not exist in this environment rather than crashing.
+        CONTINUE WHEN to_regclass('public.' || rec.table_name) IS NULL;
+
         EXECUTE format('SELECT COALESCE(MAX(%I), 0) + 1 FROM %I', rec.id_column, rec.table_name)
             INTO start_val;
 
@@ -91,14 +94,15 @@ BEGIN
 END $$;
 
 -- UUID-keyed tables: restore PRIMARY KEY only, no identity needed.
+-- Guards with to_regclass so this is a no-op when the table doesn't exist.
 DO $$
 BEGIN
-    IF NOT EXISTS (
+    IF to_regclass('public.refresh_tokens') IS NOT NULL AND NOT EXISTS (
         SELECT 1 FROM pg_constraint WHERE conrelid = 'refresh_tokens'::regclass AND contype = 'p'
     ) THEN
         ALTER TABLE refresh_tokens ADD CONSTRAINT refresh_tokens_pkey PRIMARY KEY (id);
     END IF;
-    IF NOT EXISTS (
+    IF to_regclass('public.lab_audit_logs') IS NOT NULL AND NOT EXISTS (
         SELECT 1 FROM pg_constraint WHERE conrelid = 'lab_audit_logs'::regclass AND contype = 'p'
     ) THEN
         ALTER TABLE lab_audit_logs ADD CONSTRAINT lab_audit_logs_pkey PRIMARY KEY (id);

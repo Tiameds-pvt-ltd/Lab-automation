@@ -1,4 +1,4 @@
-CREATE TABLE daily_lab_category_stats (
+CREATE TABLE IF NOT EXISTS daily_lab_category_stats (
     lab_id           BIGINT NOT NULL,
     stat_date        DATE NOT NULL,
     category         VARCHAR(255) NOT NULL,
@@ -14,4 +14,4 @@ CREATE TABLE daily_lab_category_stats (
     PRIMARY KEY (lab_id, stat_date, category)
 );
 
-CREATE INDEX idx_daily_lab_category_stats_lab_date ON daily_lab_category_stats (lab_id, stat_date);
+CREATE INDEX IF NOT EXISTS idx_daily_lab_category_stats_lab_date ON daily_lab_category_stats (lab_id, stat_date);

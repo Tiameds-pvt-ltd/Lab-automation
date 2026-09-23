@@ -69,8 +69,8 @@ spring:
   mail:
     host: ${SPRING_MAIL_HOST:smtp.gmail.com}
     port: ${SPRING_MAIL_PORT:587}
-    username: ${SPRING_MAIL_USERNAME:itadmin@tiameds.ai}
-    password: ${SPRING_MAIL_PASSWORD:fpkpxeiacxuqncjm}
+    username: ${SPRING_MAIL_USERNAME}
+    password: ${SPRING_MAIL_PASSWORD}
     from: ${SPRING_MAIL_FROM:itadmin@tiameds.ai}
     properties:
       mail:
@@ -87,9 +87,9 @@ springdoc:
 
 security-scanning:
   sonarqube:
-    host-url: ${SONAR_HOST_URL}
-    project-key: ${SONAR_PROJECT_KEY}
-    token: ${SONAR_TOKEN}
+    host-url: ${SONAR_HOST_URL:}
+    project-key: ${SONAR_PROJECT_KEY:}
+    token: ${SONAR_TOKEN:}
   spotbugs:
     enabled: ${SPOTBUGS_ENABLED:false}
     report-path: ${SPOTBUGS_REPORT_PATH:build/reports/spotbugs/spotbugs.xml}
@@ -133,7 +133,7 @@ security:
     cookie-path: ${JWT_COOKIE_PATH:/}
     cookie-secure: ${JWT_COOKIE_SECURE:true}
     same-site: ${JWT_COOKIE_SAMESITE:None}
-    subject-encryption-key: ${JWT_SUBJECT_ENCRYPTION_KEY:MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=}
+    subject-encryption-key: ${JWT_SUBJECT_ENCRYPTION_KEY}
   ip:
     whitelist:
       enabled: false  # Set to true to enable IP whitelisting
@@ -158,3 +158,5 @@ password:
           max: ${PASSWORD_RESET_RATE_LIMIT_IP_MAX:3}  # Max requests per IP per window
           window:
             minutes: ${PASSWORD_RESET_RATE_LIMIT_IP_WINDOW:1}  # Time window in minutes
+
+# S3 upload configuration
