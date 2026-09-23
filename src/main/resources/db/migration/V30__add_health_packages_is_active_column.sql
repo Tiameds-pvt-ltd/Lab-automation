@@ -3,4 +3,4 @@
 -- schema validation to fail on startup with "missing column [is_active]".
 
 ALTER TABLE health_packages
-    ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT TRUE;
+    ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
