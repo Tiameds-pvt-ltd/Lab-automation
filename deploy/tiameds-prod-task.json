@@ -96,6 +96,13 @@
           "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:lab-prod-secret-dE248F:JWT_REFRESH_TOKEN_TTL::"
         }
       ],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/api/v1/ | grep -qE '^[2-5][0-9][0-9]$' || exit 1"],
+        "interval": 30,
+        "timeout": 10,
+        "retries": 3,
+        "startPeriod": 120
+      },
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
