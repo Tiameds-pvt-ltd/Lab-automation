@@ -14,7 +14,7 @@ server:
 logging:
   level:
     org.springframework: INFO
-    org.springframework.security: WARN
+    org.springframework.security: DEBUG
     org.hibernate.SQL: DEBUG
     tiameds: DEBUG
     com:
@@ -35,12 +35,14 @@ spring:
         prepStmtCacheSize: 500
         prepStmtCacheSqlLimit: 1024
         useServerPrepStmts: false
-      minimum-idle: 0
+      minimum-idle: 2
       max-lifetime: 900000
-      maximum-pool-size: 40
+      maximum-pool-size: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
       transaction-isolation: TRANSACTION_READ_COMMITTED
 
-    url: jdbc:postgresql://localhost:5432/localdb?charSet=UTF8
+    url: jdbc:postgresql://localhost:5432/local_prod_db
     username: postgres
     password: root
     driver-class-name: org.postgresql.Driver
@@ -54,13 +56,6 @@ spring:
 
   jpa:
     hibernate:
-      # validate (not none/update): Hibernate checks every entity mapping against
-      # the actual DB schema at startup and fails loudly on any mismatch, instead
-      # of staying silent. Matches application-prod.yml. Read-only — does not
-      # alter the schema or touch any data. See V12-V22 migrations: all of them
-      # fixed drift (varchar columns instead of the real type, missing sequence
-      # defaults) that existed from before Flyway was adopted and had gone
-      # undetected until a query happened to hit it in production/dev use.
       ddl-auto: validate
     open-in-view: false
     properties:
@@ -84,6 +79,7 @@ spring:
     port: ${SPRING_MAIL_PORT:587}
     username: ${SPRING_MAIL_USERNAME:itadmin@tiameds.ai}
     password: ${SPRING_MAIL_PASSWORD:ugejmrtofdxpgarn}
+    from: ${SPRING_MAIL_FROM:itadmin@tiameds.ai}
     properties:
       mail:
         smtp:
@@ -99,9 +95,9 @@ springdoc:
 
 security-scanning:
   sonarqube:
-    host-url: ${SONAR_HOST_URL}
-    project-key: ${SONAR_PROJECT_KEY}
-    token: ${SONAR_TOKEN}
+    host-url: ${SONAR_HOST_URL:}
+    project-key: ${SONAR_PROJECT_KEY:}
+    token: ${SONAR_TOKEN:}
   spotbugs:
     enabled: ${SPOTBUGS_ENABLED:false}
     report-path: ${SPOTBUGS_REPORT_PATH:build/reports/spotbugs/spotbugs.xml}
@@ -110,19 +106,24 @@ security-scanning:
     suppression-file: ${OWASP_DC_SUPPRESSION_FILE:./config/dependency-check-suppressions.xml}
     report-path: ${OWASP_DC_REPORT_PATH:./reports/dependency-check-report.html}
 
-
 # Onboarding Configuration
 onboarding:
+  token:
+    expiry-minutes: ${ONBOARDING_TOKEN_EXPIRY_MINUTES:15}
+  rate-limit:
+    max-emails-per-hour: ${ONBOARDING_RATE_MAX_EMAILS_PER_HOUR:3}
+    window-minutes: ${ONBOARDING_RATE_WINDOW_MINUTES:60}
   frontend:
-    base-url: http://localhost:3000
-    verification-url: http://localhost:3000/verify-email
-    onboarding-url: http://localhost:3000/onboarding
-# Rate limiting configuration (user-based only)
+    base-url: ${ONBOARDING_FRONTEND_BASE_URL:http://localhost:3000}
+    verification-url: ${ONBOARDING_VERIFICATION_URL:http://localhost:3000/verify-email}
+    onboarding-url: ${ONBOARDING_ONBOARDING_URL:http://localhost:3000/onboarding}
+
+# Rate limiting configuration — relaxed for local testing
 rate:
   limit:
     login:
-      attempts: 100  # Max login attempts per user
-      window: 10   # Time window in minutes (user is blocked for this duration if limit exceeded)
+      attempts: 100
+      window: 10
 
 # Security configuration
 security:
@@ -142,25 +143,32 @@ security:
     subject-encryption-key: ${JWT_SUBJECT_ENCRYPTION_KEY:MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=}
   ip:
     whitelist:
-      enabled: false  # Set to true to enable IP whitelisting
-      ips: ""  # Comma-separated list of allowed IPs (e.g., "192.168.1.1,10.0.0.1")
+      enabled: false
+      ips: ""
+
+# S3 upload configuration — use empty defaults locally; set env vars if testing S3
+aws:
+  s3:
+    bucket: ${AWS_S3_BUCKET:}
+    region: ${AWS_REGION:ap-south-1}
+    cdn-base-url: ${AWS_S3_CDN_BASE_URL:}
+    presign-expiry-minutes: ${AWS_S3_PRESIGN_EXPIRY_MINUTES:10}
 
 # Password reset configuration
-# Database-backed rate limiting (shared across all instances)
 password:
   reset:
     token:
       expiry:
-        minutes: ${PASSWORD_RESET_TOKEN_EXPIRY_MINUTES:15}  # Default 15 minutes, optional 30
-      length: ${PASSWORD_RESET_TOKEN_LENGTH:32}  # Token length in bytes (32+ recommended)
-    url: http://localhost:3000/reset-password  # Frontend reset password URL
+        minutes: ${PASSWORD_RESET_TOKEN_EXPIRY_MINUTES:15}
+      length: ${PASSWORD_RESET_TOKEN_LENGTH:32}
+    url: ${PASSWORD_RESET_URL:http://localhost:3000/reset-password}
     rate:
       limit:
         email:
-          max: ${PASSWORD_RESET_RATE_LIMIT_EMAIL_MAX:3}  # Max requests per email per window
+          max: ${PASSWORD_RESET_RATE_LIMIT_EMAIL_MAX:3}
           window:
-            minutes: ${PASSWORD_RESET_RATE_LIMIT_EMAIL_WINDOW:1}  # Time window in minutes
+            minutes: ${PASSWORD_RESET_RATE_LIMIT_EMAIL_WINDOW:1}
         ip:
-          max: ${PASSWORD_RESET_RATE_LIMIT_IP_MAX:3}  # Max requests per IP per window
+          max: ${PASSWORD_RESET_RATE_LIMIT_IP_MAX:3}
           window:
-            minutes: ${PASSWORD_RESET_RATE_LIMIT_IP_WINDOW:1}  # Time window in minutes
+            minutes: ${PASSWORD_RESET_RATE_LIMIT_IP_WINDOW:1}

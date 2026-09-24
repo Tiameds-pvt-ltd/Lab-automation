@@ -24,6 +24,14 @@
         {
           "name": "SPRING_PROFILES_ACTIVE",
           "value": "prod"
+        },
+        {
+          "name": "JWT_PRIVATE_KEY_LOCATION",
+          "value": "classpath:keys/private_key.pem"
+        },
+        {
+          "name": "JWT_PUBLIC_KEY_LOCATION",
+          "value": "classpath:keys/public_key.pem"
         }
       ],
       "secrets": [
@@ -72,14 +80,6 @@
           "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:lab-prod-secret-dE248F:SPRING_MAIL_PORT::"
         },
         {
-          "name": "JWT_PRIVATE_KEY_LOCATION",
-          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:lab-prod-secret-dE248F:JWT_PRIVATE_KEY_LOCATION::"
-        },
-        {
-          "name": "JWT_PUBLIC_KEY_LOCATION",
-          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:lab-prod-secret-dE248F:JWT_PUBLIC_KEY_LOCATION::"
-        },
-        {
           "name": "JWT_ISSUER",
           "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:lab-prod-secret-dE248F:JWT_ISSUER::"
         },
@@ -94,6 +94,10 @@
         {
           "name": "JWT_REFRESH_TOKEN_TTL",
           "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:lab-prod-secret-dE248F:JWT_REFRESH_TOKEN_TTL::"
+        },
+        {
+          "name": "JWT_SUBJECT_ENCRYPTION_KEY",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:977098986605:secret:lab-prod-secret-dE248F:JWT_SUBJECT_ENCRYPTION_KEY::"
         }
       ],
       "healthCheck": {
