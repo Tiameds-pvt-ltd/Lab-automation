@@ -88,7 +88,6 @@ public class AdminStatsController {
     }
 
     // ─── Auth & access helpers ────────────────────────────────────────────────
-
     private ResponseEntity<?> authenticate(String token, Long labId, Object[] outUser, Object[] outLab) {
         Optional<User> userOpt = userAuthService.authenticateUser(token);
         if (userOpt.isEmpty())
