@@ -44,7 +44,6 @@ import java.util.function.Function;
 @RequestMapping("/lab-admin/stats")
 @Tag(name = "Admin Stats Controller", description = "Statistics endpoints for lab admin scoped to a specific lab")
 public class AdminStatsController {
-
     private final LabRepository labRepository;
     private final PatientRepository patientRepository;
     private final VisitTestResultRepository visitTestResultRepository;
