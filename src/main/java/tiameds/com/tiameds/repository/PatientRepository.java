@@ -32,6 +32,9 @@ public interface PatientRepository extends JpaRepository<PatientEntity, Long> {
     @Query("SELECT p FROM PatientEntity p JOIN p.labs l WHERE p.phone = :phone AND p.firstName = :firstName AND l.id = :id")
     Optional<PatientEntity> findByPhoneAndFirstNameAndLabsId(String phone, String firstName, long id);
 
+    @Query("SELECT p FROM PatientEntity p JOIN p.labs l WHERE p.phone = :phone AND p.firstName = :firstName AND p.lastName = :lastName AND l.id = :id")
+    Optional<PatientEntity> findByPhoneAndFirstNameAndLastNameAndLabsId(String phone, String firstName, String lastName, long id);
+
 
     @Query("SELECT p FROM PatientEntity p JOIN p.labs l WHERE p.phone = :phone AND l.id = :labId")
     List<PatientEntity> findByPhoneAndLabId(@Param("phone") String phone, @Param("labId") Long labId);

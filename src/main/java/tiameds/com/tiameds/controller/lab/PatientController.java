@@ -292,10 +292,11 @@ public class PatientController {
             if (!userService.isUserMemberOfLab(currentUser.getId(), labId)) {
                 return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
             }
-            // check if patient exists by phone and first name on the particular lab
-            Optional<PatientEntity> existingPatient = patientService.findByPhoneAndFirstNameAndLabsId(
+            // check if patient exists by phone, first name, and last name on the particular lab
+            Optional<PatientEntity> existingPatient = patientService.findByPhoneAndFullNameAndLabsId(
                     patientDTO.getPhone(),
                     patientDTO.getFirstName(),
+                    patientDTO.getLastName(),
                     labOptional.get().getId()
             );
             if (existingPatient.isPresent()) {

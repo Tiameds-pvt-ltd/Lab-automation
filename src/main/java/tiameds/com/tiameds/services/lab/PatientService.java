@@ -117,13 +117,18 @@ public class PatientService {
         return patientRepository.findByPhoneAndFirstNameAndLabsId(phone, firstName, id);
     }
 
+    public Optional<PatientEntity> findByPhoneAndFullNameAndLabsId(String phone, String firstName, String lastName, long id) {
+        return patientRepository.findByPhoneAndFirstNameAndLastNameAndLabsId(phone, firstName, lastName, id);
+    }
+
     @Transactional(rollbackOn = Exception.class)
     public PatientDTO savePatientWithDetails(Lab lab, PatientDTO patientDTO, String currentUser) {
         try {
-            Optional<PatientEntity> existingPatient = findByPhoneAndFirstNameAndLabsId(
+            Optional<PatientEntity> existingPatient = findByPhoneAndFullNameAndLabsId(
                     patientDTO.getPhone(),
-                    patientDTO.getFirstName()
-                    , lab.getId()
+                    patientDTO.getFirstName(),
+                    patientDTO.getLastName(),
+                    lab.getId()
             );
             if (existingPatient.isPresent()) {
                 return addVisitAndBillingToExistingPatient(lab, patientDTO, existingPatient.get(), currentUser);
@@ -171,7 +176,6 @@ public class PatientService {
 
     @Transactional(rollbackOn = Exception.class)
     public PatientDTO addVisitAndBillingToExistingPatient(Lab lab, PatientDTO patientDTO, PatientEntity existingPatient, String currentUser) {
-        if (patientDTO.getLastName() != null) existingPatient.setLastName(patientDTO.getLastName());
         if (patientDTO.getEmail() != null) existingPatient.setEmail(patientDTO.getEmail());
         VisitEntity visit = null;
         if (patientDTO.getVisit() != null) {
