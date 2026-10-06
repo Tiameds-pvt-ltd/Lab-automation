@@ -399,8 +399,7 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
     @Query(value =
         "SELECT t.category AS category, t.test_id AS testId, t.name AS testName, " +
         "t.test_code AS testCode, t.price AS testPrice, COUNT(*) AS orderedCount, " +
-        "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount::numeric, 0) IS NULL THEN 0 " +
-        "  ELSE t.price::numeric * COALESCE(b.actual_received_amount::numeric, 0) / b.total_amount::numeric END), 0), 2) AS totalEarnings, " +
+        "ROUND(t.price::numeric * COUNT(*), 2) AS totalEarnings, " +
         "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount::numeric, 0) IS NULL THEN 0 " +
         "  ELSE t.price::numeric * COALESCE(b.actual_received_amount::numeric, 0) / b.total_amount::numeric END), 0), 2) AS paidAmount, " +
         "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL THEN t.price::numeric" +
@@ -419,8 +418,7 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
     @Query(value =
         "SELECT t.category AS category, t.test_id AS testId, t.name AS testName, " +
         "t.test_code AS testCode, t.price AS testPrice, COUNT(*) AS orderedCount, " +
-        "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount::numeric, 0) IS NULL THEN 0 " +
-        "  ELSE t.price::numeric * COALESCE(b.actual_received_amount::numeric, 0) / b.total_amount::numeric END), 0), 2) AS totalEarnings, " +
+        "ROUND(t.price::numeric * COUNT(*), 2) AS totalEarnings, " +
         "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount::numeric, 0) IS NULL THEN 0 " +
         "  ELSE t.price::numeric * COALESCE(b.actual_received_amount::numeric, 0) / b.total_amount::numeric END), 0), 2) AS paidAmount, " +
         "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL THEN t.price::numeric" +

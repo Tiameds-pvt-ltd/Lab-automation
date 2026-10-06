@@ -1036,6 +1036,7 @@ public class SuperAdminDashboardController {
 
             Map<String, Object> catMap = new LinkedHashMap<>();
             catMap.put("category",   entry.getKey());
+            catMap.put("testCount",  tests.size());
             catMap.put("totalTests", catCount);
             catMap.put("revenue",    catRevenue.setScale(2, RoundingMode.HALF_UP));
             catMap.put("dueAmount",  catDue.setScale(2, RoundingMode.HALF_UP));

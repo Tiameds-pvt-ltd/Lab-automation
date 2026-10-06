@@ -529,6 +529,7 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
         String getPaymentStatus();
         String getBillingDate();
         Instant getCreatedAt();
+        String getTestNames();
     }
 
     String GRID_SELECT =
@@ -541,7 +542,11 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
         "b.total_amount AS totalAmount, b.discount AS discount, b.net_amount AS netAmount, " +
         "b.actual_received_amount AS paidAmount, b.due_amount AS dueAmount, " +
         "b.payment_method AS paymentMethod, b.payment_status AS paymentStatus, " +
-        "b.billing_date AS billingDate, b.created_at AS createdAt " +
+        "b.billing_date AS billingDate, b.created_at AS createdAt, " +
+        "(SELECT STRING_AGG(DISTINCT t.name, ', ') " +
+        "FROM patient_visit_tests pvt " +
+        "JOIN tests t ON t.test_id = pvt.test_id " +
+        "WHERE pvt.visit_id = v.visit_id) AS testNames " +
         "FROM billing b " +
         "JOIN patient_visits v ON v.billing_id = b.billing_id " +
         "JOIN patients p ON p.patient_id = v.patient_id " +
