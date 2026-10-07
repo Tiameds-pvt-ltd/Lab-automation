@@ -305,9 +305,12 @@ public class LabAdminController {
             return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
         }
 
-        // Check creator of the lab
-        if (!lab.getCreatedBy().equals(currentUser)) {
-            return ApiResponseHelper.errorResponse("You are not authorized to reset password for members in this lab", HttpStatus.UNAUTHORIZED);
+        // Check creator of the lab (SUPERADMIN can reset any lab member's password)
+        boolean isCurrentUserSuperAdmin = currentUser.getRoles().stream()
+                .map(role -> role.getName())
+                .anyMatch("SUPERADMIN"::equals);
+        if (!isCurrentUserSuperAdmin && !lab.getCreatedBy().equals(currentUser)) {
+            return ApiResponseHelper.errorResponse("You are not authorized to reset password for members in this lab", HttpStatus.FORBIDDEN);
         }
 
         User userToUpdate = userRepository.findById(userId).orElse(null);
