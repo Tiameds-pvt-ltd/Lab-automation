@@ -213,6 +213,78 @@ public class SuperAdminDashboardController {
         return ApiResponseHelper.successResponse("Grid report retrieved successfully", response);
     }
 
+    @GetMapping("/grid/download")
+    public ResponseEntity<?> downloadGridReport(
+            @RequestHeader("Authorization") String token,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate,
+            @RequestParam(required = false) Long labId) {
+
+        Optional<User> userOptional = userAuthService.authenticateUser(token);
+        if (userOptional.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
+        }
+
+        User currentUser = userOptional.get();
+        boolean hasDates = startDate != null && endDate != null;
+
+        List<BillingRepository.GridReportRowProjection> rows;
+        if (labId != null) {
+            rows = hasDates
+                ? billingRepository.getGridReportAllByLabIdWithDateRange(labId, toInstantStart(startDate), toInstantEnd(endDate))
+                : billingRepository.getGridReportAllByLabId(labId);
+        } else {
+            rows = hasDates
+                ? billingRepository.getGridReportAllWithDateRange(currentUser.getId(), toInstantStart(startDate), toInstantEnd(endDate))
+                : billingRepository.getGridReportAll(currentUser.getId());
+        }
+
+        StringBuilder csv = new StringBuilder();
+        csv.append("Billing ID,Billing Code,Visit ID,Visit Code,Visit Date,Visit Status,Visit Type,")
+           .append("Patient ID,Patient Name,Patient Phone,Patient Code,")
+           .append("Lab ID,Lab Name,Doctor Name,")
+           .append("Total Amount,Discount,Net Amount,Paid Amount,Due Amount,Refund Amount,")
+           .append("Payment Method,Payment Status,Billing Date,Created At,Test Names\n");
+
+        for (BillingRepository.GridReportRowProjection r : rows) {
+            csv.append(r.getBillingId()).append(",");
+            csv.append(escapeCsvCell(r.getBillingCode())).append(",");
+            csv.append(r.getVisitId()).append(",");
+            csv.append(escapeCsvCell(r.getVisitCode())).append(",");
+            csv.append(r.getVisitDate()).append(",");
+            csv.append(escapeCsvCell(r.getVisitStatus())).append(",");
+            csv.append(escapeCsvCell(r.getVisitType())).append(",");
+            csv.append(r.getPatientId()).append(",");
+            csv.append(escapeCsvCell(r.getPatientName())).append(",");
+            csv.append(escapeCsvCell(r.getPatientPhone())).append(",");
+            csv.append(escapeCsvCell(r.getPatientCode())).append(",");
+            csv.append(r.getLabId()).append(",");
+            csv.append(escapeCsvCell(r.getLabName())).append(",");
+            csv.append(escapeCsvCell(r.getDoctorName())).append(",");
+            csv.append(r.getTotalAmount()).append(",");
+            csv.append(r.getDiscount()).append(",");
+            csv.append(r.getNetAmount()).append(",");
+            csv.append(r.getPaidAmount()).append(",");
+            csv.append(r.getDueAmount()).append(",");
+            csv.append(r.getRefundAmount()).append(",");
+            csv.append(escapeCsvCell(r.getPaymentMethod())).append(",");
+            csv.append(escapeCsvCell(r.getPaymentStatus())).append(",");
+            csv.append(escapeCsvCell(r.getBillingDate())).append(",");
+            csv.append(r.getCreatedAt()).append(",");
+            csv.append(escapeCsvCell(r.getTestNames())).append("\n");
+        }
+
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        headers.add(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=grid_report.csv");
+        headers.add(org.springframework.http.HttpHeaders.CONTENT_TYPE, "text/csv; charset=UTF-8");
+        return ResponseEntity.ok().headers(headers).body(csv.toString());
+    }
+
+    private String escapeCsvCell(String value) {
+        if (value == null) return "";
+        return "\"" + value.replace("\"", "\"\"") + "\"";
+    }
+
     // ─── split/standalone per-section endpoints (frontend fetches these independently) ──
     // Each authenticates on its own and fetches whatever shared data its builder needs,
     // since there is no cross-request sharing possible for independent HTTP calls.

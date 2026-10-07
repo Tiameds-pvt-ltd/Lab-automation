@@ -530,6 +530,7 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
         String getBillingDate();
         Instant getCreatedAt();
         String getTestNames();
+        java.math.BigDecimal getRefundAmount();
     }
 
     String GRID_SELECT =
@@ -539,14 +540,16 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
         "p.patient_id AS patientId, CONCAT(p.first_name, ' ', COALESCE(p.last_name,'')) AS patientName, " +
         "p.phone AS patientPhone, p.patient_code AS patientCode, " +
         "l.lab_id AS labId, l.name AS labName, d.name AS doctorName, " +
-        "b.total_amount AS totalAmount, b.discount AS discount, b.net_amount AS netAmount, " +
+        "(b.due_amount + b.actual_received_amount + COALESCE((SELECT SUM(bt.refund_amount) FROM billing_transaction bt WHERE bt.billing_id = b.billing_id), 0) + COALESCE(b.discount, 0)) AS totalAmount, " +
+        "b.discount AS discount, b.net_amount AS netAmount, " +
         "b.actual_received_amount AS paidAmount, b.due_amount AS dueAmount, " +
         "b.payment_method AS paymentMethod, b.payment_status AS paymentStatus, " +
         "b.billing_date AS billingDate, b.created_at AS createdAt, " +
         "(SELECT STRING_AGG(DISTINCT t.name, ', ') " +
         "FROM patient_visit_tests pvt " +
         "JOIN tests t ON t.test_id = pvt.test_id " +
-        "WHERE pvt.visit_id = v.visit_id) AS testNames " +
+        "WHERE pvt.visit_id = v.visit_id) AS testNames, " +
+        "(SELECT COALESCE(SUM(bt.refund_amount), 0) FROM billing_transaction bt WHERE bt.billing_id = b.billing_id) AS refundAmount " +
         "FROM billing b " +
         "JOIN patient_visits v ON v.billing_id = b.billing_id " +
         "JOIN patients p ON p.patient_id = v.patient_id " +
@@ -603,5 +606,67 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
             @Param("startDate") Instant startDate,
             @Param("endDate") Instant endDate,
             org.springframework.data.domain.Pageable pageable);
+
+    // ─── Grid download (no pagination — optimised SQL for CSV export) ────────
+    // Aggregations are computed once via LEFT JOINs instead of a correlated
+    // subquery per row — dramatically faster on large date ranges.
+
+    String GRID_SELECT_DOWNLOAD =
+        "SELECT b.billing_id AS billingId, b.billing_code AS billingCode, " +
+        "v.visit_id AS visitId, v.visit_code AS visitCode, " +
+        "v.visit_date AS visitDate, v.visit_status AS visitStatus, v.visit_type AS visitType, " +
+        "p.patient_id AS patientId, CONCAT(p.first_name, ' ', COALESCE(p.last_name,'')) AS patientName, " +
+        "p.phone AS patientPhone, p.patient_code AS patientCode, " +
+        "l.lab_id AS labId, l.name AS labName, d.name AS doctorName, " +
+        "(b.due_amount + b.actual_received_amount + COALESCE(bt_sum.total_refund, 0) + COALESCE(b.discount, 0)) AS totalAmount, " +
+        "b.discount AS discount, b.net_amount AS netAmount, " +
+        "b.actual_received_amount AS paidAmount, b.due_amount AS dueAmount, " +
+        "b.payment_method AS paymentMethod, b.payment_status AS paymentStatus, " +
+        "b.billing_date AS billingDate, b.created_at AS createdAt, " +
+        "tn.testNames AS testNames, " +
+        "COALESCE(bt_sum.total_refund, 0) AS refundAmount " +
+        "FROM billing b " +
+        "JOIN patient_visits v ON v.billing_id = b.billing_id " +
+        "JOIN patients p ON p.patient_id = v.patient_id " +
+        "JOIN lab_billing lb ON lb.billing_id = b.billing_id " +
+        "JOIN labs l ON l.lab_id = lb.lab_id " +
+        "LEFT JOIN doctors d ON d.doctor_id = v.doctor_id " +
+        "LEFT JOIN (SELECT pvt.visit_id, STRING_AGG(DISTINCT t.name, ', ') AS testNames " +
+        "           FROM patient_visit_tests pvt JOIN tests t ON t.test_id = pvt.test_id " +
+        "           GROUP BY pvt.visit_id) tn ON tn.visit_id = v.visit_id " +
+        "LEFT JOIN (SELECT bt.billing_id, SUM(bt.refund_amount) AS total_refund " +
+        "           FROM billing_transaction bt GROUP BY bt.billing_id) bt_sum ON bt_sum.billing_id = b.billing_id ";
+
+    @Query(value = GRID_SELECT_DOWNLOAD +
+        "WHERE l.created_by = :createdById " +
+        "ORDER BY b.created_at DESC",
+        nativeQuery = true)
+    java.util.List<GridReportRowProjection> getGridReportAll(
+            @Param("createdById") Long createdById);
+
+    @Query(value = GRID_SELECT_DOWNLOAD +
+        "WHERE l.created_by = :createdById AND b.created_at BETWEEN :startDate AND :endDate " +
+        "ORDER BY b.created_at DESC",
+        nativeQuery = true)
+    java.util.List<GridReportRowProjection> getGridReportAllWithDateRange(
+            @Param("createdById") Long createdById,
+            @Param("startDate") Instant startDate,
+            @Param("endDate") Instant endDate);
+
+    @Query(value = GRID_SELECT_DOWNLOAD +
+        "WHERE l.lab_id = :labId " +
+        "ORDER BY b.created_at DESC",
+        nativeQuery = true)
+    java.util.List<GridReportRowProjection> getGridReportAllByLabId(
+            @Param("labId") Long labId);
+
+    @Query(value = GRID_SELECT_DOWNLOAD +
+        "WHERE l.lab_id = :labId AND b.created_at BETWEEN :startDate AND :endDate " +
+        "ORDER BY b.created_at DESC",
+        nativeQuery = true)
+    java.util.List<GridReportRowProjection> getGridReportAllByLabIdWithDateRange(
+            @Param("labId") Long labId,
+            @Param("startDate") Instant startDate,
+            @Param("endDate") Instant endDate);
 
 }
