@@ -434,6 +434,10 @@ public class TestReferenceServices {
         entity.setDropdown(testReferenceDTO.getDropdown());
         entity.setImpression(testReferenceDTO.getImpression());
 
+        // Parameter dropdown
+        entity.setParameterId(testReferenceDTO.getParameterId());
+        entity.setParameterName(testReferenceDTO.getParameterName());
+
         entity.setCreatedBy(currentUser.getUsername());
         entity.setUpdatedBy(currentUser.getUsername());
         entity.setTestReferenceCode(generateUniqueReferenceCode(lab.getId()));
@@ -468,6 +472,10 @@ public class TestReferenceServices {
         dto.setReferenceRanges(saved.getReferenceRanges());
         dto.setDropdown(saved.getDropdown());
         dto.setImpression(saved.getImpression());
+
+        // Parameter dropdown
+        dto.setParameterId(saved.getParameterId());
+        dto.setParameterName(saved.getParameterName());
 
         return dto;
     }

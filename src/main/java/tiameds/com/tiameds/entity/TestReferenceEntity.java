@@ -103,6 +103,12 @@ public class TestReferenceEntity {
     @Column(name = "test_reference_code", unique = true)
     private String testReferenceCode;
 
+    @Column(name = "parameter_id")
+    private Integer parameterId;
+
+    @Column(name = "parameter_name")
+    private String parameterName;
+
     public void setLab(Lab lab) {
         this.labs.add(lab);
         lab.getTestReferences().add(this);
