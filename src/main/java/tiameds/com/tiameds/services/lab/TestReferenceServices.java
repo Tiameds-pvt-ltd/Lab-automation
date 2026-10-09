@@ -73,7 +73,11 @@ public class TestReferenceServices {
                     // Add JSON fields
                     dto.setReportJson(TestReferenceEntity.getReportJson());
                     dto.setReferenceRanges(TestReferenceEntity.getReferenceRanges());
-                    
+
+                    // Parameter master fields
+                    dto.setParameterId(TestReferenceEntity.getParameterId());
+                    dto.setParameterName(TestReferenceEntity.getParameterName());
+
                     return dto;
                 }).toList();
         return testReferenceDTOS;
@@ -108,12 +112,14 @@ public class TestReferenceServices {
                     dto.setReferenceRanges(TestReferenceEntity.getReferenceRanges());
                     dto.setDropdown(TestReferenceEntity.getDropdown());
                     dto.setImpression(TestReferenceEntity.getImpression());
-                    dto.setDropdown(TestReferenceEntity.getDropdown());
-                    dto.setImpression(TestReferenceEntity.getImpression());
+
+                    // Parameter master fields
+                    dto.setParameterId(TestReferenceEntity.getParameterId());
+                    dto.setParameterName(TestReferenceEntity.getParameterName());
 
                     return dto;
                 }).toList();
-        
+
         // Calculate pagination
         int totalElements = allTestReferences.size();
         int totalPages = (int) Math.ceil((double) totalElements / size);
@@ -270,6 +276,10 @@ public class TestReferenceServices {
         testReferenceEntity.setDropdown(testReferenceDTO.getDropdown());
         testReferenceEntity.setImpression(testReferenceDTO.getImpression());
 
+        // Parameter master fields
+        testReferenceEntity.setParameterId(testReferenceDTO.getParameterId());
+        testReferenceEntity.setParameterName(testReferenceDTO.getParameterName());
+
         testReferenceEntity.setUpdatedBy(currentUser.getUsername());
         testReferenceRepository.save(testReferenceEntity);
         
@@ -300,6 +310,10 @@ public class TestReferenceServices {
         dto.setReferenceRanges(testReferenceEntity.getReferenceRanges());
         dto.setDropdown(testReferenceEntity.getDropdown());
         dto.setImpression(testReferenceEntity.getImpression());
+
+        // Parameter master fields
+        dto.setParameterId(testReferenceEntity.getParameterId());
+        dto.setParameterName(testReferenceEntity.getParameterName());
 
         return dto;
     }
@@ -434,6 +448,10 @@ public class TestReferenceServices {
         entity.setDropdown(testReferenceDTO.getDropdown());
         entity.setImpression(testReferenceDTO.getImpression());
 
+        // Parameter master fields
+        entity.setParameterId(testReferenceDTO.getParameterId());
+        entity.setParameterName(testReferenceDTO.getParameterName());
+
         entity.setCreatedBy(currentUser.getUsername());
         entity.setUpdatedBy(currentUser.getUsername());
         entity.setTestReferenceCode(generateUniqueReferenceCode(lab.getId()));
@@ -468,6 +486,10 @@ public class TestReferenceServices {
         dto.setReferenceRanges(saved.getReferenceRanges());
         dto.setDropdown(saved.getDropdown());
         dto.setImpression(saved.getImpression());
+
+        // Parameter master fields
+        dto.setParameterId(saved.getParameterId());
+        dto.setParameterName(saved.getParameterName());
 
         return dto;
     }
@@ -668,6 +690,10 @@ public class TestReferenceServices {
                     dto.setReferenceRanges(TestReferenceEntity.getReferenceRanges());
                     dto.setDropdown(TestReferenceEntity.getDropdown());
                     dto.setImpression(TestReferenceEntity.getImpression());
+
+                    // Parameter master fields
+                    dto.setParameterId(TestReferenceEntity.getParameterId());
+                    dto.setParameterName(TestReferenceEntity.getParameterName());
 
                     return dto;
                 }).toList();

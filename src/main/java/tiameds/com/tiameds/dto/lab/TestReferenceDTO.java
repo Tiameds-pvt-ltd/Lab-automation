@@ -32,4 +32,8 @@ public class TestReferenceDTO {
     private String referenceRanges;
     private String dropdown;
     private String impression;
+
+    // Parameter master fields
+    private Integer parameterId;
+    private String parameterName;
 }
