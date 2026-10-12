@@ -5,9 +5,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import tiameds.com.tiameds.dto.lab.ParameterMasterRequest;
 import tiameds.com.tiameds.entity.ParameterMasterEntity;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.services.auth.MyUserDetails;
@@ -39,6 +38,48 @@ public class ParameterMasterController {
 
         List<ParameterMasterEntity> parameters = parameterMasterService.getAllActiveParameters();
         return ApiResponseHelper.successResponse("Parameters fetched successfully", parameters);
+    }
+
+    @PostMapping
+    public ResponseEntity<?> createParameter(@RequestBody ParameterMasterRequest request) {
+        Optional<User> currentUser = getAuthenticatedUser();
+        if (currentUser.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+        }
+        try {
+            ParameterMasterEntity created = parameterMasterService.createParameter(request);
+            return ApiResponseHelper.successResponse("Parameter created successfully", created);
+        } catch (IllegalArgumentException e) {
+            return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateParameter(@PathVariable Integer id, @RequestBody ParameterMasterRequest request) {
+        Optional<User> currentUser = getAuthenticatedUser();
+        if (currentUser.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+        }
+        try {
+            ParameterMasterEntity updated = parameterMasterService.updateParameter(id, request);
+            return ApiResponseHelper.successResponse("Parameter updated successfully", updated);
+        } catch (IllegalArgumentException e) {
+            return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteParameter(@PathVariable Integer id) {
+        Optional<User> currentUser = getAuthenticatedUser();
+        if (currentUser.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+        }
+        try {
+            parameterMasterService.deleteParameter(id);
+            return ApiResponseHelper.successResponse("Parameter deleted successfully", null);
+        } catch (IllegalArgumentException e) {
+            return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
+        }
     }
 
     private Optional<User> getAuthenticatedUser() {

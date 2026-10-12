@@ -8,4 +8,8 @@ import java.util.List;
 public interface ParameterMasterRepository extends JpaRepository<ParameterMasterEntity, Integer> {
 
     List<ParameterMasterEntity> findAllByIsActiveTrue();
+
+    boolean existsByParameterNameIgnoreCase(String parameterName);
+
+    boolean existsByParameterNameIgnoreCaseAndParameterIdNot(String parameterName, Integer parameterId);
 }

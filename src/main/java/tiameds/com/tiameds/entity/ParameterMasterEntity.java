@@ -15,6 +15,7 @@ import lombok.Setter;
 public class ParameterMasterEntity {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "parameter_id")
     private Integer parameterId;
 
