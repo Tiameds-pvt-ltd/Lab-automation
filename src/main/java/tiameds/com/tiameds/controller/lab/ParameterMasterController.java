@@ -40,6 +40,17 @@ public class ParameterMasterController {
         return ApiResponseHelper.successResponse("Parameters fetched successfully", parameters);
     }
 
+    @GetMapping("/deleted")
+    public ResponseEntity<?> getDeletedParameters() {
+        Optional<User> currentUser = getAuthenticatedUser();
+        if (currentUser.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+        }
+
+        List<ParameterMasterEntity> parameters = parameterMasterService.getDeletedParameters();
+        return ApiResponseHelper.successResponse("Deleted parameters fetched successfully", parameters);
+    }
+
     @PostMapping
     public ResponseEntity<?> createParameter(@RequestBody ParameterMasterRequest request) {
         Optional<User> currentUser = getAuthenticatedUser();
@@ -63,6 +74,20 @@ public class ParameterMasterController {
         try {
             ParameterMasterEntity updated = parameterMasterService.updateParameter(id, request);
             return ApiResponseHelper.successResponse("Parameter updated successfully", updated);
+        } catch (IllegalArgumentException e) {
+            return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @PatchMapping("/{id}/activate")
+    public ResponseEntity<?> activateParameter(@PathVariable Integer id) {
+        Optional<User> currentUser = getAuthenticatedUser();
+        if (currentUser.isEmpty()) {
+            return ApiResponseHelper.errorResponse("User not found", HttpStatus.UNAUTHORIZED);
+        }
+        try {
+            ParameterMasterEntity activated = parameterMasterService.activateParameter(id);
+            return ApiResponseHelper.successResponse("Parameter activated successfully", activated);
         } catch (IllegalArgumentException e) {
             return ApiResponseHelper.errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
         }

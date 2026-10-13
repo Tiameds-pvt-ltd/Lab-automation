@@ -9,6 +9,8 @@ public interface ParameterMasterRepository extends JpaRepository<ParameterMaster
 
     List<ParameterMasterEntity> findAllByIsActiveTrue();
 
+    List<ParameterMasterEntity> findAllByIsActiveFalse();
+
     boolean existsByParameterNameIgnoreCase(String parameterName);
 
     boolean existsByParameterNameIgnoreCaseAndParameterIdNot(String parameterName, Integer parameterId);

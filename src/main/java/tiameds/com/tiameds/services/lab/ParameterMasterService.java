@@ -21,6 +21,10 @@ public class ParameterMasterService {
         return parameterMasterRepository.findAllByIsActiveTrue();
     }
 
+    public List<ParameterMasterEntity> getDeletedParameters() {
+        return parameterMasterRepository.findAllByIsActiveFalse();
+    }
+
     public ParameterMasterEntity createParameter(ParameterMasterRequest request) {
         if (request.getParameterName() == null || request.getParameterName().isBlank()) {
             throw new IllegalArgumentException("parameterName is required");
@@ -58,5 +62,12 @@ public class ParameterMasterService {
                 .orElseThrow(() -> new IllegalArgumentException("Parameter with id " + parameterId + " not found"));
         entity.setIsActive(false);
         parameterMasterRepository.save(entity);
+    }
+
+    public ParameterMasterEntity activateParameter(Integer parameterId) {
+        ParameterMasterEntity entity = parameterMasterRepository.findById(parameterId)
+                .orElseThrow(() -> new IllegalArgumentException("Parameter with id " + parameterId + " not found"));
+        entity.setIsActive(true);
+        return parameterMasterRepository.save(entity);
     }
 }
