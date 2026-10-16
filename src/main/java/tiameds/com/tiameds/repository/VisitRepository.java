@@ -22,6 +22,54 @@ import tiameds.com.tiameds.entity.User;
 @Repository
 public interface VisitRepository extends JpaRepository<VisitEntity, Long> {
 
+    /**
+     * Stores the test name and price on the patient_visit_tests rows of a newly created visit,
+     * so later changes to the master tests table don't alter this visit's history.
+     * Must run in the same transaction that created the visit; the pending join-table rows are
+     * flushed first. Only fills NULL columns, so existing snapshots are never overwritten.
+     */
+    @Modifying(flushAutomatically = true)
+    @Query(value = "UPDATE patient_visit_tests pvt SET test_name = t.name, price = t.price " +
+            "FROM tests t, patient_visits v " +
+            "WHERE pvt.test_id = t.test_id AND pvt.visit_id = v.visit_id " +
+            "AND v.visit_code = :visitCode " +
+            "AND (pvt.test_name IS NULL OR pvt.price IS NULL)", nativeQuery = true)
+    int snapshotTestNameAndPrice(@Param("visitCode") String visitCode);
+
+    /** Same as {@link #snapshotTestNameAndPrice(String)} but for a visit identified by id. */
+    @Modifying(flushAutomatically = true)
+    @Query(value = "UPDATE patient_visit_tests pvt SET test_name = t.name, price = t.price " +
+            "FROM tests t " +
+            "WHERE pvt.test_id = t.test_id AND pvt.visit_id = :visitId " +
+            "AND (pvt.test_name IS NULL OR pvt.price IS NULL)", nativeQuery = true)
+    int snapshotTestNameAndPriceByVisitId(@Param("visitId") Long visitId);
+
+    /** Name/price currently saved on a visit's tests (read before an edit replaces the rows). */
+    interface VisitTestSnapshot {
+        Long getTestId();
+
+        String getTestName();
+
+        java.math.BigDecimal getPrice();
+    }
+
+    @Query(value = "SELECT test_id AS \"testId\", test_name AS \"testName\", price AS \"price\" " +
+            "FROM patient_visit_tests WHERE visit_id = :visitId " +
+            "AND (test_name IS NOT NULL OR price IS NOT NULL)", nativeQuery = true)
+    List<VisitTestSnapshot> findTestSnapshotsByVisitId(@Param("visitId") Long visitId);
+
+    /** Puts a previously saved name/price back on a re-inserted row; never overwrites existing values. */
+    @Modifying(flushAutomatically = true)
+    @Query(value = "UPDATE patient_visit_tests SET " +
+            "test_name = COALESCE(test_name, CAST(:testName AS varchar)), " +
+            "price = COALESCE(price, CAST(:price AS numeric)) " +
+            "WHERE visit_id = :visitId AND test_id = :testId", nativeQuery = true)
+    int restoreTestSnapshot(@Param("visitId") Long visitId, @Param("testId") Long testId,
+                            @Param("testName") String testName, @Param("price") java.math.BigDecimal price);
+
+    @Query(value = "SELECT visit_id FROM patient_visits WHERE patient_id = :patientId", nativeQuery = true)
+    List<Long> findVisitIdsByPatientId(@Param("patientId") Long patientId);
+
     @Query("SELECT DISTINCT v FROM VisitEntity v JOIN FETCH v.patient p JOIN p.labs l WHERE l = :lab")
     List<VisitEntity> findAllByPatient_Labs(@Param("lab") Lab lab);
 

@@ -437,6 +437,61 @@ public interface VisitTestResultRepository extends JpaRepository<VisitTestResult
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
 
+    // ── Earnings by category, using the name/price saved on patient_visit_tests ──────────────
+    // Same calculations as the getEarningsByTestByLabId* / getEarningsByTestByLabIds* queries
+    // above, but the test name and price come from the visit's own patient_visit_tests row, so
+    // later edits to the master tests table don't change past visits. Rows saved before the
+    // snapshot columns existed (NULL) fall back to the master tests values.
+    String PVT_NAME  = "COALESCE(pvt.test_name, t.name)";
+    String PVT_PRICE = "COALESCE(pvt.price::numeric, t.price::numeric)";
+    String PVT_EARNINGS_SELECT =
+        "SELECT t.category AS category, t.test_id AS testId, " + PVT_NAME + " AS testName, " +
+        "t.test_code AS testCode, " + PVT_PRICE + " AS testPrice, COUNT(*) AS orderedCount, " +
+        "ROUND(" + PVT_PRICE + " * COUNT(*), 2) AS totalEarnings, " +
+        "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL OR NULLIF(b.total_amount::numeric, 0) IS NULL THEN 0 " +
+        "  ELSE " + PVT_PRICE + " * COALESCE(b.actual_received_amount::numeric, 0) / b.total_amount::numeric END), 0), 2) AS paidAmount, " +
+        "ROUND(COALESCE(SUM(CASE WHEN b.billing_id IS NULL THEN " + PVT_PRICE + " " +
+        "  WHEN NULLIF(b.total_amount::numeric, 0) IS NULL THEN " + PVT_PRICE + " " +
+        "  ELSE " + PVT_PRICE + " * COALESCE(b.due_amount::numeric, 0) / b.total_amount::numeric END), 0), 2) AS dueAmount " +
+        "FROM visit_test_result vtr " +
+        "JOIN patient_visits pv ON vtr.visit_id = pv.visit_id " +
+        "JOIN lab_visit lv ON pv.visit_id = lv.visit_id " +
+        "JOIN tests t ON vtr.test_id = t.test_id " +
+        "LEFT JOIN patient_visit_tests pvt ON pvt.visit_id = vtr.visit_id AND pvt.test_id = vtr.test_id " +
+        "LEFT JOIN billing b ON pv.billing_id = b.billing_id ";
+    String PVT_EARNINGS_GROUP_ORDER =
+        "GROUP BY t.category, t.test_id, " + PVT_NAME + ", t.test_code, " + PVT_PRICE + " " +
+        "ORDER BY t.category, totalEarnings DESC";
+
+    @Query(value = PVT_EARNINGS_SELECT +
+        "WHERE lv.lab_id = :labId AND LOWER(vtr.test_status) = 'active' AND LOWER(pv.visit_status) != 'cancelled' " +
+        PVT_EARNINGS_GROUP_ORDER, nativeQuery = true)
+    List<TestEarningsByTestProjection> getEarningsByTestSnapshotByLabId(@Param("labId") Long labId);
+
+    @Query(value = PVT_EARNINGS_SELECT +
+        "WHERE lv.lab_id = :labId AND vtr.created_at BETWEEN :startDate AND :endDate " +
+        "AND LOWER(vtr.test_status) = 'active' AND LOWER(pv.visit_status) != 'cancelled' " +
+        PVT_EARNINGS_GROUP_ORDER, nativeQuery = true)
+    List<TestEarningsByTestProjection> getEarningsByTestSnapshotByLabIdWithDateRange(
+            @Param("labId") Long labId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
+
+    @Query(value = PVT_EARNINGS_SELECT +
+        "WHERE lv.lab_id IN (:labIds) " +
+        "AND LOWER(vtr.test_status) = 'active' AND LOWER(pv.visit_status) != 'cancelled' " +
+        PVT_EARNINGS_GROUP_ORDER, nativeQuery = true)
+    List<TestEarningsByTestProjection> getEarningsByTestSnapshotByLabIds(@Param("labIds") List<Long> labIds);
+
+    @Query(value = PVT_EARNINGS_SELECT +
+        "WHERE lv.lab_id IN (:labIds) AND vtr.created_at BETWEEN :startDate AND :endDate " +
+        "AND LOWER(vtr.test_status) = 'active' AND LOWER(pv.visit_status) != 'cancelled' " +
+        PVT_EARNINGS_GROUP_ORDER, nativeQuery = true)
+    List<TestEarningsByTestProjection> getEarningsByTestSnapshotByLabIdsWithDateRange(
+            @Param("labIds") List<Long> labIds,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
+
     @Query(value =
         "SELECT cats.category AS category, " +
         "COALESCE(vtr_agg.testCount, 0) AS testCount, " +

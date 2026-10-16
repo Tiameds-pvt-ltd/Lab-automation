@@ -992,6 +992,19 @@ public class UpdatePatientService {
     @Transactional
     public PatientDTO updatePatientDetails(PatientEntity existingPatient, Lab lab, PatientDTO patientDTO, String username) {
         try {
+            // patient_visit_tests name/price snapshot: replacing a visit's tests makes Hibernate delete
+            // and re-insert every row, which would lose the saved values. Read them before the edit.
+            Long patientId = existingPatient.getPatientId();
+            Long editedVisitId = patientDTO.getVisit() != null ? patientDTO.getVisit().getVisitId() : null;
+            Set<Long> visitIdsBefore = new HashSet<>();
+            List<VisitRepository.VisitTestSnapshot> previousSnapshots = List.of();
+            if (patientDTO.getVisit() != null) {
+                visitIdsBefore.addAll(visitRepository.findVisitIdsByPatientId(patientId));
+                if (editedVisitId != null) {
+                    previousSnapshots = visitRepository.findTestSnapshotsByVisitId(editedVisitId);
+                }
+            }
+
             // Update basic patient information
             updateBasicPatientInfo(existingPatient, patientDTO, username);
 
@@ -1002,6 +1015,25 @@ public class UpdatePatientService {
 
             // Save the updated patient
             PatientEntity savedPatient = patientRepository.save(existingPatient);
+
+            if (patientDTO.getVisit() != null) {
+                visitRepository.flush();
+                // Visits created by this update need their snapshot filled
+                Set<Long> visitsToSnapshot = new HashSet<>(visitRepository.findVisitIdsByPatientId(patientId));
+                visitsToSnapshot.removeAll(visitIdsBefore);
+                if (editedVisitId != null && visitIdsBefore.contains(editedVisitId)) {
+                    // Tests kept on the edited visit get their original values back; tests added
+                    // during the edit are then filled from the current master values.
+                    for (VisitRepository.VisitTestSnapshot snapshot : previousSnapshots) {
+                        visitRepository.restoreTestSnapshot(editedVisitId, snapshot.getTestId(),
+                                snapshot.getTestName(), snapshot.getPrice());
+                    }
+                    visitsToSnapshot.add(editedVisitId);
+                }
+                for (Long visitId : visitsToSnapshot) {
+                    visitRepository.snapshotTestNameAndPriceByVisitId(visitId);
+                }
+            }
             return new PatientDTO(savedPatient);
         } catch (Exception e) {
             throw new RuntimeException("Failed to update patient: " + e.getMessage(), e);

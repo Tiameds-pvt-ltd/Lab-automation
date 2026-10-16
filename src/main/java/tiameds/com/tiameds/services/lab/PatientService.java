@@ -166,6 +166,7 @@ public class PatientService {
                 // Hibernate IDENTITY/cascade timing reason. Saving the (still-transient) visit
                 // directly avoids merging the patient at all.
                 visitRepository.save(visit);
+                visitRepository.snapshotTestNameAndPrice(visit.getVisitCode());
             }
             return new PatientDTO(savedPatient);
         } catch (Exception e) {
@@ -184,6 +185,11 @@ public class PatientService {
             existingPatient.getVisits().add(visit);
         }
         patientRepository.save(existingPatient);
+        if (visit != null) {
+            // Looked up by visit code: existingPatient may be detached, so save() merges and
+            // the local visit instance can end up without an id.
+            visitRepository.snapshotTestNameAndPrice(visit.getVisitCode());
+        }
         if (visit != null && visit.getCreatedAt() != null) {
             eventPublisher.publishEvent(new RollupRecomputeEvent(lab.getId(), visit.getCreatedAt().atZone(ZoneId.systemDefault()).toLocalDate()));
         }

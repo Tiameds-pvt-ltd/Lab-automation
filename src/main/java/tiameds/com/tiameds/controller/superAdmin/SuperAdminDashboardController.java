@@ -1044,9 +1044,9 @@ public class SuperAdminDashboardController {
 
         if (labId != null) {
             if (hasDates) {
-                rows = visitTestResultRepository.getEarningsByTestByLabIdWithDateRange(labId, toStart(startDate), toEnd(endDate));
+                rows = visitTestResultRepository.getEarningsByTestSnapshotByLabIdWithDateRange(labId, toStart(startDate), toEnd(endDate));
             } else {
-                rows = visitTestResultRepository.getEarningsByTestByLabId(labId);
+                rows = visitTestResultRepository.getEarningsByTestSnapshotByLabId(labId);
             }
         } else {
             // Superadmin (all labs): use IN (:labIds) with idx_lab_visit_lab_id instead of
@@ -1057,10 +1057,10 @@ public class SuperAdminDashboardController {
             if (labIds.isEmpty()) {
                 rows = Collections.emptyList();
             } else if (hasDates) {
-                rows = visitTestResultRepository.getEarningsByTestByLabIdsWithDateRange(
+                rows = visitTestResultRepository.getEarningsByTestSnapshotByLabIdsWithDateRange(
                         labIds, toStart(startDate), toEnd(endDate));
             } else {
-                rows = visitTestResultRepository.getEarningsByTestByLabIds(labIds);
+                rows = visitTestResultRepository.getEarningsByTestSnapshotByLabIds(labIds);
             }
         }
 
