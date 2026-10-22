@@ -140,6 +140,14 @@ public class SpringSecurityConfig {
                                         "/admin/lab/{labId}/download"
                                 ).hasAnyRole("SUPERADMIN", "ADMIN")
 
+                                // ---------------test active / inactive toggle endpoints---------------------
+                                .requestMatchers(HttpMethod.GET, "/admin/lab/*/tests/active")
+                                .hasAnyRole("ADMIN", "DESKROLE", "TECHNICIAN", "SUPERADMIN")
+                                .requestMatchers(HttpMethod.GET, "/admin/lab/*/tests/inactive")
+                                .hasAnyRole("SUPERADMIN", "ADMIN")
+                                .requestMatchers(HttpMethod.PUT, "/admin/lab/*/activate/{testId}")
+                                .hasAnyRole("SUPERADMIN", "ADMIN")
+
 
                               //-------------userManagement endpoints for admin and super admin-------------------
                                 .requestMatchers(

@@ -21,8 +21,11 @@ public interface TestRepository extends JpaRepository<Test, Long>, JpaSpecificat
 
     Page<Test> findByLabs(Lab lab, Pageable pageable);
 
-    @Query("SELECT DISTINCT t.category FROM Test t JOIN t.labs l WHERE l.id = :labId ORDER BY t.category")
+    @Query("SELECT DISTINCT t.category FROM Test t JOIN t.labs l WHERE l.id = :labId AND t.active = true ORDER BY t.category")
     List<String> findDistinctCategoriesByLabId(@Param("labId") Long labId);
+
+    @Query("SELECT DISTINCT t.category FROM Test t JOIN t.labs l WHERE l.id = :labId AND t.active = :active ORDER BY t.category")
+    List<String> findDistinctCategoriesByLabIdAndActive(@Param("labId") Long labId, @Param("active") boolean active);
 
     boolean existsByLabs_Id(Long labId);
     boolean existsByTestCode(String testCode);

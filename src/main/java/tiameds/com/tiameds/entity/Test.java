@@ -61,6 +61,9 @@ public class Test {
     @Column(name = "test_code", unique = true)
     private String testCode;
 
+    @Column(name = "is_active", nullable = false)
+    private boolean active = true;
+
     public Object getTestName() {
         return this.name;
     }

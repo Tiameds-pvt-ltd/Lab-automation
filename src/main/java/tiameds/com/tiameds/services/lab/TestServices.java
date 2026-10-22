@@ -157,6 +157,7 @@ public class TestServices {
 
     public List<TestDTO> getAllTests(Lab lab) {
         return lab.getTests().stream()
+                .filter(Test::isActive)
                 .sorted(Comparator.comparingLong(Test::getId))
                 .map(test -> new TestDTO(
                         test.getId(),
@@ -168,6 +169,66 @@ public class TestServices {
                         test.getUpdatedAt()
                 ))
                 .toList();
+    }
+
+    // Same filters/response shape as getAllTests(lab, page, size, search, category, sortOrder), but for a chosen active state
+    public Map<String, Object> getTestsByStatus(Lab lab, boolean active, int page, int size, String search, String category, String sortOrder) {
+        Sort sort = switch (sortOrder == null ? "" : sortOrder) {
+            case "low" -> Sort.by("price").ascending();
+            case "high" -> Sort.by("price").descending();
+            default -> Sort.by("id").ascending();
+        };
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        String normalizedSearch = (search == null || search.isBlank()) ? null : search.trim().toLowerCase();
+        String normalizedCategory = (category == null || category.isBlank()) ? null : category.trim();
+
+        Specification<Test> spec = (root, query, cb) -> {
+            var labJoin = root.join("labs");
+            var predicate = cb.and(
+                    cb.equal(labJoin.get("id"), lab.getId()),
+                    cb.equal(root.get("active"), active));
+
+            if (normalizedSearch != null) {
+                String likePattern = "%" + normalizedSearch + "%";
+                predicate = cb.and(predicate, cb.or(
+                        cb.like(cb.lower(root.get("name")), likePattern),
+                        cb.like(cb.lower(root.get("category")), likePattern)
+                ));
+            }
+
+            if (normalizedCategory != null) {
+                predicate = cb.and(predicate, cb.equal(root.get("category"), normalizedCategory));
+            }
+
+            return predicate;
+        };
+
+        Page<Test> testPage = testRepository.findAll(spec, pageable);
+
+        List<TestDTO> tests = testPage.getContent().stream()
+                .map(test -> new TestDTO(
+                        test.getId(),
+                        test.getTestCode(),
+                        test.getCategory(),
+                        test.getName(),
+                        test.getPrice(),
+                        test.getCreatedAt(),
+                        test.getUpdatedAt()
+                ))
+                .toList();
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("content", tests);
+        response.put("page", page);
+        response.put("size", size);
+        response.put("totalElements", testPage.getTotalElements());
+        response.put("totalPages", testPage.getTotalPages());
+        response.put("hasNext", testPage.hasNext());
+        response.put("hasPrevious", testPage.hasPrevious());
+        response.put("categories", testRepository.findDistinctCategoriesByLabIdAndActive(lab.getId(), active));
+
+        return response;
     }
 
     public Map<String, Object> getAllTests(Lab lab, int page, int size) {
@@ -187,7 +248,9 @@ public class TestServices {
 
         Specification<Test> spec = (root, query, cb) -> {
             var labJoin = root.join("labs");
-            var predicate = cb.equal(labJoin.get("id"), lab.getId());
+            var predicate = cb.and(
+                    cb.equal(labJoin.get("id"), lab.getId()),
+                    cb.isTrue(root.get("active")));
 
             if (normalizedSearch != null) {
                 String likePattern = "%" + normalizedSearch + "%";
@@ -233,7 +296,7 @@ public class TestServices {
 
     public ResponseEntity<?> downloadCSV(Lab lab) {
         // Fetch all tests associated with the specified lab
-        List<Test> tests = testRepository.findByLabs(lab);
+        List<Test> tests = testRepository.findByLabs(lab).stream().filter(Test::isActive).toList();
 
         // Generate CSV content
         StringBuilder csvContent = new StringBuilder();

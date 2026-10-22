@@ -178,7 +178,7 @@ public class TestController {
             // check the test is already in the  the particular lab
             Set<Test> tests = lab.getTests();
             for (Test test : tests) {
-                if (test.getName().equals(testDTO.getName())) {
+                if (test.isActive() && test.getName().equals(testDTO.getName())) {
                     return ApiResponseHelper.successResponseWithDataAndMessage("Test already exists in the lab", HttpStatus.BAD_REQUEST, null);
                 }
             }
@@ -380,14 +380,13 @@ public class TestController {
 
             TestDTO oldTestSnapshot = getTestSnapshot(labId, testId);
 
-            // Remove the test from the lab and maintain the bidirectional relationship
-            lab.removeTest(test);
+            if (!test.isActive()) {
+                return ApiResponseHelper.errorResponse("Test is already removed", HttpStatus.BAD_REQUEST);
+            }
 
-            //delete the test
-            testRepository.delete(test);
-
-            // Persist the updated Lab entity
-            labRepository.save(lab);
+            // Soft delete: keep the row and its lab/visit/package links so history stays intact
+            test.setActive(false);
+            testRepository.save(test);
 
             logTestAudit(labId,
                     "TEST_DELETE",
@@ -402,6 +401,124 @@ public class TestController {
         } catch (Exception e) {
             // Handle unexpected exceptions and provide meaningful error messages
             return ApiResponseHelper.successResponseWithDataAndMessage("An unexpected error occurred: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR, null);
+        }
+    }
+
+    // 5a. activate a previously removed (inactive) test: sets isActive back to true
+    @PutMapping("/{labId}/activate/{testId}")
+    @Transactional
+    public ResponseEntity<?> activateTest(
+            @PathVariable Long labId,
+            @PathVariable Long testId,
+            HttpServletRequest request) {
+        try {
+            User currentUser = getAuthenticatedUser()
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            Lab lab = labRepository.findById(labId)
+                    .orElseThrow(() -> new RuntimeException("Lab not found"));
+
+            if (!userService.isUserMemberOfLab(currentUser.getId(), labId)) {
+                return ApiResponseHelper.errorResponse("User is not a member of this lab", HttpStatus.UNAUTHORIZED);
+            }
+
+            if (!labAccessableFilter.isLabAccessible(labId)) {
+                return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+            }
+
+            Test test = testRepository.findById(testId)
+                    .orElseThrow(() -> new RuntimeException("Test not found"));
+
+            if (!lab.getTests().contains(test)) {
+                return ApiResponseHelper.errorResponse("Test does not belong to this lab", HttpStatus.BAD_REQUEST);
+            }
+
+            if (test.isActive()) {
+                return ApiResponseHelper.errorResponse("Test is already active", HttpStatus.BAD_REQUEST);
+            }
+
+            // Same rule as addTest: an active test with this name must not already exist in the lab
+            for (Test existing : lab.getTests()) {
+                if (existing.isActive() && Objects.equals(existing.getName(), test.getName())) {
+                    return ApiResponseHelper.errorResponse("An active test with the same name already exists in the lab", HttpStatus.BAD_REQUEST);
+                }
+            }
+
+            TestDTO oldTestSnapshot = toTestDTO(test);
+
+            test.setActive(true);
+            testRepository.save(test);
+
+            logTestAudit(labId,
+                    "TEST_ACTIVATE",
+                    oldTestSnapshot,
+                    toTestDTO(test),
+                    resolveChangeReason(oldTestSnapshot, toTestDTO(test)),
+                    currentUser,
+                    request);
+
+            return ResponseEntity.ok(ApiResponseHelper.successResponse("Test activated successfully", null).getBody());
+
+        } catch (Exception e) {
+            return ApiResponseHelper.errorResponse("Error processing request: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    // 5b. list active tests of a lab: /admin/lab/1/tests/active
+    @Transactional
+    @GetMapping("/{labId}/tests/active")
+    public ResponseEntity<?> getActiveTestsByLabId(
+            @PathVariable Long labId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String sortOrder) {
+        return listTestsByStatus(labId, true, page, size, search, category, sortOrder);
+    }
+
+    // 5c. list inactive (removed) tests of a lab: /admin/lab/1/tests/inactive
+    @Transactional
+    @GetMapping("/{labId}/tests/inactive")
+    public ResponseEntity<?> getInactiveTestsByLabId(
+            @PathVariable Long labId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String sortOrder) {
+        return listTestsByStatus(labId, false, page, size, search, category, sortOrder);
+    }
+
+    private ResponseEntity<?> listTestsByStatus(Long labId, boolean active, int page, int size,
+                                                String search, String category, String sortOrder) {
+        try {
+            Optional<User> userOptional = getAuthenticatedUser();
+            if (userOptional.isEmpty()) {
+                return ApiResponseHelper.errorResponse("User authentication failed", HttpStatus.UNAUTHORIZED);
+            }
+            User currentUser = userOptional.get();
+
+            Optional<Lab> labOptional = labRepository.findById(labId);
+            if (labOptional.isEmpty()) {
+                return ApiResponseHelper.errorResponse("Lab not found", HttpStatus.NOT_FOUND);
+            }
+            Lab lab = labOptional.get();
+
+            if (!userService.isUserMemberOfLab(currentUser.getId(), labId)) {
+                return ApiResponseHelper.errorResponse("User is not authorized for this lab", HttpStatus.UNAUTHORIZED);
+            }
+
+            if (!labAccessableFilter.isLabAccessible(labId)) {
+                return ApiResponseHelper.errorResponse("Lab is not accessible", HttpStatus.UNAUTHORIZED);
+            }
+
+            Map<String, Object> tests = testServices.getTestsByStatus(lab, active, page, size, search, category, sortOrder);
+            return ApiResponseHelper.successResponseWithDataAndMessage(
+                    (active ? "Active" : "Inactive") + " tests retrieved successfully", HttpStatus.OK, tests);
+
+        } catch (Exception e) {
+            return ApiResponseHelper.errorResponse("Error processing request: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
