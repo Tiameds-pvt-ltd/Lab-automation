@@ -172,9 +172,6 @@ public class RadiologyReportService {
                 if (request.getSignatories() != null && request.getSignatories().isEmpty()) {
                     throw new IllegalArgumentException("A finalized report must keep at least one signing doctor");
                 }
-                if (isBlank(request.getImpression())) {
-                    throw new IllegalArgumentException("impression is required for a finalized report");
-                }
                 saveHistory(report, request.getReason().trim(), username);
                 report.setStatus(RadiologyReportStatus.AMENDED);
                 amendment = true;
@@ -211,9 +208,6 @@ public class RadiologyReportService {
             throw new IllegalStateException("Report is already finalized");
         }
         checkVersion(report, expectedVersion);
-        if (isBlank(report.getImpression())) {
-            throw new IllegalArgumentException("impression is required to finalize the report");
-        }
         List<RadiologyReportSignatory> signatories = signatoryRepository.findByReportIdOrderBySortOrderAsc(report.getId());
         if (signatories.stream().noneMatch(s -> "REPORTING".equals(s.getRole()))) {
             throw new IllegalArgumentException("At least one REPORTING doctor is required to finalize the report");
