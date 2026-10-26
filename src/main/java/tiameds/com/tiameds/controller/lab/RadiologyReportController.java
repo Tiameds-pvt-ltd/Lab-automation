@@ -5,7 +5,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.core.Authentication;
@@ -13,19 +16,23 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import tiameds.com.tiameds.audit.AuditLogService;
 import tiameds.com.tiameds.audit.helpers.FieldChangeTracker;
 import tiameds.com.tiameds.dto.lab.RadiologyFinalizeRequest;
 import tiameds.com.tiameds.dto.lab.RadiologyReportRequest;
 import tiameds.com.tiameds.dto.lab.RadiologyTemplateRequest;
 import tiameds.com.tiameds.entity.LabAuditLogs;
+import tiameds.com.tiameds.entity.RadiologyReportFormat;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.services.auth.MyUserDetails;
 import tiameds.com.tiameds.services.auth.UserService;
 import tiameds.com.tiameds.services.lab.RadiologyReportService;
+import tiameds.com.tiameds.services.lab.RadiologyReportFormatService;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -45,17 +52,20 @@ public class RadiologyReportController {
     private static final Set<String> TEMPLATE_ROLES = Set.of("ADMIN", "SUPERADMIN");
 
     private final RadiologyReportService radiologyReportService;
+    private final RadiologyReportFormatService radiologyReportFormatService;
     private final LabAccessableFilter labAccessableFilter;
     private final UserService userService;
     private final AuditLogService auditLogService;
     private final FieldChangeTracker fieldChangeTracker;
 
     public RadiologyReportController(RadiologyReportService radiologyReportService,
+                                     RadiologyReportFormatService radiologyReportFormatService,
                                      LabAccessableFilter labAccessableFilter,
                                      UserService userService,
                                      AuditLogService auditLogService,
                                      FieldChangeTracker fieldChangeTracker) {
         this.radiologyReportService = radiologyReportService;
+        this.radiologyReportFormatService = radiologyReportFormatService;
         this.labAccessableFilter = labAccessableFilter;
         this.userService = userService;
         this.auditLogService = auditLogService;
@@ -214,6 +224,90 @@ public class RadiologyReportController {
         try {
             return ApiResponseHelper.successResponse("Radiology report history fetched successfully",
                     radiologyReportService.getHistory(labId, visitId, testId));
+        } catch (Exception e) {
+            return handle(e);
+        }
+    }
+
+    // -------------------------------------------------------------- report formats
+
+    @Operation(summary = "Upload a Word report format (.doc / .docx) with its document name and doctor name", tags = {"Radiology Report"})
+    @PostMapping(value = "/{labId}/radiology/report-formats", consumes = "multipart/form-data")
+    public ResponseEntity<?> uploadReportFormat(
+            @PathVariable Long labId,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "documentName", required = false) String documentName,
+            @RequestParam(value = "doctorId", required = false) Long doctorId,
+            @RequestParam(value = "doctorName", required = false) String doctorName,
+            HttpServletRequest httpRequest) {
+        Optional<User> currentUser = getAuthenticatedUser();
+        ResponseEntity<?> denied = checkAccess(currentUser, labId, WRITE_ROLES);
+        if (denied != null) {
+            return denied;
+        }
+        try {
+            Map<String, Object> saved = radiologyReportFormatService.upload(
+                    labId, file, documentName, doctorId, doctorName, currentUser.get().getUsername());
+            logAudit(labId, "RADIOLOGY_FORMAT_UPLOAD", "RadiologyReportFormat", String.valueOf(saved.get("id")),
+                    Map.of("documentName", String.valueOf(saved.get("documentName")),
+                            "doctorName", String.valueOf(saved.get("doctorName"))),
+                    "Uploaded radiology report format", currentUser.get(), httpRequest);
+            return ApiResponseHelper.successResponse("Report format saved successfully", saved);
+        } catch (Exception e) {
+            return handle(e);
+        }
+    }
+
+    @Operation(summary = "List the Word report formats uploaded for the lab", tags = {"Radiology Report"})
+    @GetMapping("/{labId}/radiology/report-formats")
+    public ResponseEntity<?> listReportFormats(@PathVariable Long labId) {
+        Optional<User> currentUser = getAuthenticatedUser();
+        ResponseEntity<?> denied = checkAccess(currentUser, labId, null);
+        if (denied != null) {
+            return denied;
+        }
+        try {
+            return ApiResponseHelper.successResponse("Report formats fetched successfully",
+                    radiologyReportFormatService.list(labId));
+        } catch (Exception e) {
+            return handle(e);
+        }
+    }
+
+    @Operation(summary = "Get an uploaded Word report format as JSON (text and tables)", tags = {"Radiology Report"})
+    @GetMapping("/{labId}/radiology/report-formats/{id}")
+    public ResponseEntity<?> getReportFormat(@PathVariable Long labId, @PathVariable Long id) {
+        Optional<User> currentUser = getAuthenticatedUser();
+        ResponseEntity<?> denied = checkAccess(currentUser, labId, null);
+        if (denied != null) {
+            return denied;
+        }
+        try {
+            return ApiResponseHelper.successResponse("Report format fetched successfully",
+                    radiologyReportFormatService.getContent(labId, id));
+        } catch (Exception e) {
+            return handle(e);
+        }
+    }
+
+    @Operation(summary = "Download an uploaded Word report format", tags = {"Radiology Report"})
+    @GetMapping("/{labId}/radiology/report-formats/{id}/download")
+    public ResponseEntity<?> downloadReportFormat(@PathVariable Long labId, @PathVariable Long id) {
+        Optional<User> currentUser = getAuthenticatedUser();
+        ResponseEntity<?> denied = checkAccess(currentUser, labId, null);
+        if (denied != null) {
+            return denied;
+        }
+        try {
+            RadiologyReportFormat format = radiologyReportFormatService.get(labId, id);
+            String contentType = format.getContentType() != null && !format.getContentType().isBlank()
+                    ? format.getContentType() : "application/octet-stream";
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(contentType))
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            ContentDisposition.attachment().filename(format.getDocumentName(), StandardCharsets.UTF_8).build().toString())
+                    .contentLength(format.getFileData().length)
+                    .body(format.getFileData());
         } catch (Exception e) {
             return handle(e);
         }
