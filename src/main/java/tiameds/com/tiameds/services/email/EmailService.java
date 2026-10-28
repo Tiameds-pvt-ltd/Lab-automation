@@ -205,6 +205,41 @@ public class EmailService {
     }
 
     /**
+     * Sends the notification that an onboarding application has been approved
+     * @param to Verified email address of the applicant
+     */
+    public void sendApplicationApprovedEmail(String to) {
+        log.info("Attempting to send application approved email to: {}", to);
+
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(fromEmail);
+            helper.setTo(to);
+            helper.setSubject("Your Application Has Been Approved");
+
+            String bodyText = "Your application has been approved. You can now login to your application.";
+            String bodyHtml = "<html><body>" +
+                "<h2>Application Approved</h2>" +
+                "<p>Your application has been approved. You can now login to your application.</p>" +
+                "</body></html>";
+
+            helper.setText(bodyText, bodyHtml);
+
+            mailSender.send(message);
+            log.info("Application approved email sent successfully to: {}", to);
+
+        } catch (MessagingException e) {
+            log.error("Failed to send application approved email to {}: {}", to, e.getMessage(), e);
+            throw new EmailException("Failed to send application approved email: " + e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("Unexpected error sending application approved email to {}: {}", to, e.getMessage(), e);
+            throw new EmailException("Unexpected error sending application approved email: " + e.getMessage(), e);
+        }
+    }
+
+    /**
      * Custom exception for email-related errors
      */
     public static class EmailException extends RuntimeException {

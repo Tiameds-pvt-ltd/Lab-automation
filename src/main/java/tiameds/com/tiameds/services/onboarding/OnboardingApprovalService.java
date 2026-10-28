@@ -3,11 +3,14 @@ package tiameds.com.tiameds.services.onboarding;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tiameds.com.tiameds.dto.onboarding.OnboardingRequestSummaryDTO;
 import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.entity.LabApprovalStatus;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.repository.LabRepository;
+import tiameds.com.tiameds.services.email.EmailService;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -23,9 +26,11 @@ import java.util.Optional;
 public class OnboardingApprovalService {
 
     private final LabRepository labRepository;
+    private final EmailService emailService;
 
-    public OnboardingApprovalService(LabRepository labRepository) {
+    public OnboardingApprovalService(LabRepository labRepository, EmailService emailService) {
         this.labRepository = labRepository;
+        this.emailService = emailService;
     }
 
     @Transactional(readOnly = true)
@@ -44,7 +49,37 @@ public class OnboardingApprovalService {
         lab.setReviewedAt(LocalDateTime.now());
         Lab saved = labRepository.save(lab);
         log.info("Onboarding request for lab {} approved", saved.getId());
+        sendApprovalEmailAfterCommit(saved.getCreatedBy());
         return toSummary(saved);
+    }
+
+    /**
+     * Notifies the applicant on their verified email once the approval is committed.
+     * A mail failure is logged and never undoes the approval.
+     */
+    private void sendApprovalEmailAfterCommit(User applicant) {
+        if (applicant == null || applicant.getEmail() == null || applicant.getEmail().isBlank()) {
+            log.warn("No applicant email found; approval email not sent");
+            return;
+        }
+        String email = applicant.getEmail();
+        Runnable send = () -> {
+            try {
+                emailService.sendApplicationApprovedEmail(email);
+            } catch (Exception e) {
+                log.error("Approval email could not be sent to {}: {}", email, e.getMessage());
+            }
+        };
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    send.run();
+                }
+            });
+        } else {
+            send.run();
+        }
     }
 
     @Transactional
