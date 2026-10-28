@@ -1,0 +1,97 @@
+{
+  "info": {
+    "name": "Lab Onboarding Approval",
+    "description": "Review of onboarding requests (OnboardingApprovalController), called by the independent platform-admin module. No authentication - access is restricted at network level. Set {{baseUrl}} (without /api/v1) and {{labId}}.\n\nSubmitting onboarding (POST /public/onboarding/complete) creates the lab as PENDING and inactive; approve activates it, reject keeps it inactive and stores the reason.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "labId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "List onboarding requests (PENDING / APPROVED / REJECTED)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/platform-admin/onboarding-requests?status=PENDING",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform-admin",
+            "onboarding-requests"
+          ],
+          "query": [
+            {
+              "key": "status",
+              "value": "PENDING"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Approve onboarding request",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/platform-admin/onboarding-requests/{{labId}}/approve",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform-admin",
+            "onboarding-requests",
+            "{{labId}}",
+            "approve"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Reject onboarding request",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"reason\": \"Establishment registration certificate is not legible\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/platform-admin/onboarding-requests/{{labId}}/reject",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform-admin",
+            "onboarding-requests",
+            "{{labId}}",
+            "reject"
+          ]
+        }
+      }
+    }
+  ]
+}

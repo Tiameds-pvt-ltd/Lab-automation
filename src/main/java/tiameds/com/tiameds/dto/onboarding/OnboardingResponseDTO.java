@@ -20,5 +20,6 @@ public class OnboardingResponseDTO {
     private Long labId;
     private String labName;
     private boolean accountActive;
+    private String labApprovalStatus;
 }
 

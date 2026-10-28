@@ -8,6 +8,7 @@ import tiameds.com.tiameds.dto.onboarding.OnboardingRequestDTO;
 import tiameds.com.tiameds.dto.onboarding.OnboardingResponseDTO;
 import tiameds.com.tiameds.entity.EntityType;
 import tiameds.com.tiameds.entity.Lab;
+import tiameds.com.tiameds.entity.LabApprovalStatus;
 import tiameds.com.tiameds.entity.Role;
 import tiameds.com.tiameds.entity.User;
 import tiameds.com.tiameds.entity.VerificationToken;
@@ -16,6 +17,7 @@ import tiameds.com.tiameds.repository.RoleRepository;
 import tiameds.com.tiameds.repository.UserRepository;
 import tiameds.com.tiameds.services.lab.SequenceGeneratorService;
 
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
@@ -26,6 +28,15 @@ import java.util.Set;
 @Slf4j
 @Service
 public class OnboardingService {
+
+    private static final Set<String> ORGANIZATION_TYPES = Set.of(
+            "Proprietorship", "Partnership", "LLP", "Private Limited Company", "Public Limited Company",
+            "Trust", "Society", "Government Institution", "Other");
+
+    private static final Set<String> LAB_SERVICES = Set.of(
+            "Clinical Pathology", "Biochemistry", "Haematology", "Microbiology", "Histopathology",
+            "Cytopathology", "Serology", "Immunology", "Molecular Diagnostics", "Genetic Testing",
+            "Ultrasound", "X-ray", "CT Scan", "MRI", "Blood Banking", "Sample Collection", "All");
 
     private final UserRepository userRepository;
     private final LabRepository labRepository;
@@ -64,6 +75,9 @@ public class OnboardingService {
      */
     @Transactional
     public OnboardingResponseDTO completeOnboarding(OnboardingRequestDTO request) {
+        // Validate the additional onboarding fields first so a bad request does not consume the token
+        validateAdditionalFields(request);
+
         // Step 1: Validate and consume the token
         Optional<VerificationToken> tokenOpt = tokenService.validateAndConsumeToken(request.getToken());
         
@@ -134,7 +148,10 @@ public class OnboardingService {
         lab.setCity(labInfo.getCity());
         lab.setState(labInfo.getState());
         lab.setDescription(labInfo.getDescription());
-        lab.setIsActive(true);
+        // The lab stays inactive until a platform admin approves the onboarding request
+        lab.setIsActive(false);
+        lab.setApprovalStatus(LabApprovalStatus.PENDING);
+        lab.setApprovalRequestedAt(LocalDateTime.now());
         lab.setCreatedBy(savedUser);
         
         // Set all lab fields
@@ -157,6 +174,8 @@ public class OnboardingService {
         lab.setLabAccreditation(labInfo.getLabAccreditation());
         lab.setDataPrivacyAgreement(labInfo.getDataPrivacyAgreement() != null && labInfo.getDataPrivacyAgreement());
 
+        applyAdditionalFields(lab, request);
+
         Lab savedLab = labRepository.save(lab);
         log.info("Created lab during onboarding: {} (ID: {})", savedLab.getName(), savedLab.getId());
 
@@ -167,14 +186,139 @@ public class OnboardingService {
 
         // Build response
         return OnboardingResponseDTO.builder()
-                .message("Onboarding completed successfully")
+                .message("Onboarding submitted successfully. Your lab is pending approval.")
                 .userId(savedUser.getId())
                 .username(savedUser.getUsername())
                 .email(savedUser.getEmail())
                 .labId(savedLab.getId())
                 .labName(savedLab.getName())
                 .accountActive(true)
+                .labApprovalStatus(savedLab.getApprovalStatus().name())
                 .build();
+    }
+
+    /**
+     * Validates the optional organization / compliance / terms fields.
+     * Only rules that depend on the new fields are checked, so requests without them are unaffected.
+     */
+    private void validateAdditionalFields(OnboardingRequestDTO request) {
+        if (request.getConfirmPassword() != null && !request.getConfirmPassword().equals(request.getPassword())) {
+            throw new IllegalArgumentException("Password and confirm password do not match");
+        }
+
+        OnboardingRequestDTO.OrganizationInfoDTO org = request.getOrganization();
+        if (org != null && org.getType() != null && !isAllowed(ORGANIZATION_TYPES, org.getType())) {
+            throw new IllegalArgumentException("Invalid organization type: " + org.getType());
+        }
+
+        OnboardingRequestDTO.LabInfoDTO labInfo = request.getLab();
+        if (labInfo == null) {
+            return;
+        }
+
+        if (labInfo.getLabServices() != null) {
+            for (String service : labInfo.getLabServices()) {
+                if (!isAllowed(LAB_SERVICES, service)) {
+                    throw new IllegalArgumentException("Invalid laboratory service: " + service);
+                }
+            }
+        }
+
+        if (labInfo.getIssuingDate() != null && labInfo.getExpiryDate() != null
+                && labInfo.getExpiryDate().isBefore(labInfo.getIssuingDate())) {
+            throw new IllegalArgumentException("Expiry date cannot be before issuing date");
+        }
+
+        // Biomedical waste authorization details are conditionally mandatory
+        if (Boolean.TRUE.equals(labInfo.getBiomedicalWasteGenerated())) {
+            if (isBlank(labInfo.getBiomedicalWasteAuthorizationNumber())) {
+                throw new IllegalArgumentException("Biomedical waste authorization number is required when biomedical waste is generated");
+            }
+            if (isBlank(labInfo.getBiomedicalWasteAuthorizationCertificate())) {
+                throw new IllegalArgumentException("Biomedical waste authorization certificate is required when biomedical waste is generated");
+            }
+        }
+    }
+
+    /**
+     * Copies the optional organization / compliance / terms fields onto the lab.
+     */
+    private void applyAdditionalFields(Lab lab, OnboardingRequestDTO request) {
+        OnboardingRequestDTO.OrganizationInfoDTO org = request.getOrganization();
+        OnboardingRequestDTO.LabInfoDTO labInfo = request.getLab();
+
+        if (org != null) {
+            lab.setOrganizationName(org.getName());
+            lab.setOrganizationType(org.getType());
+            lab.setOrganizationEmail(org.getEmail());
+            lab.setOrganizationPhone(org.getPhone());
+            lab.setOrganizationAddressLine1(org.getAddressLine1());
+            lab.setOrganizationAddressLine2(org.getAddressLine2());
+            lab.setOrganizationCountry(org.getCountry());
+            lab.setOrganizationState(org.getState());
+            lab.setOrganizationDistrict(org.getDistrict());
+            lab.setOrganizationCity(org.getCity());
+            lab.setOrganizationPinCode(org.getPinCode());
+            lab.setOrganizationPan(org.getPan());
+            lab.setOrganizationGstin(org.getGstin());
+        }
+
+        // Lab services (multi-select) stored as comma-separated values
+        if (labInfo.getLabServices() != null && !labInfo.getLabServices().isEmpty()) {
+            lab.setLabServices(String.join(",", labInfo.getLabServices()));
+        }
+
+        lab.setSameAsOrganizationAddress(labInfo.getSameAsOrganizationAddress());
+        lab.setLabAddressLine2(labInfo.getLabAddressLine2());
+        lab.setLabDistrict(labInfo.getLabDistrict());
+        if (org != null && Boolean.TRUE.equals(labInfo.getSameAsOrganizationAddress())) {
+            if (isBlank(lab.getLabAddressLine2())) {
+                lab.setLabAddressLine2(org.getAddressLine2());
+            }
+            if (isBlank(lab.getLabDistrict())) {
+                lab.setLabDistrict(org.getDistrict());
+            }
+        }
+
+        lab.setEstablishmentRegistrationNumber(labInfo.getEstablishmentRegistrationNumber());
+        lab.setIssuingAuthority(labInfo.getIssuingAuthority());
+        lab.setIssuingDate(labInfo.getIssuingDate());
+        lab.setExpiryDate(labInfo.getExpiryDate());
+        lab.setEstablishmentRegistrationCertificate(labInfo.getEstablishmentRegistrationCertificate());
+
+        lab.setLabPanSameAsOrganization(labInfo.getLabPanSameAsOrganization());
+        lab.setLabPan(labInfo.getLabPan());
+        if (org != null && Boolean.TRUE.equals(labInfo.getLabPanSameAsOrganization()) && isBlank(lab.getLabPan())) {
+            lab.setLabPan(org.getPan());
+        }
+
+        lab.setLabGstinSameAsOrganization(labInfo.getLabGstinSameAsOrganization());
+        lab.setLabGstin(labInfo.getLabGstin());
+        if (org != null && Boolean.TRUE.equals(labInfo.getLabGstinSameAsOrganization()) && isBlank(lab.getLabGstin())) {
+            lab.setLabGstin(org.getGstin());
+        }
+        lab.setGstinCertificate(labInfo.getGstinCertificate());
+
+        lab.setBiomedicalWasteGenerated(labInfo.getBiomedicalWasteGenerated());
+        lab.setBiomedicalWasteAuthorizationNumber(labInfo.getBiomedicalWasteAuthorizationNumber());
+        lab.setBiomedicalWasteAuthorizationCertificate(labInfo.getBiomedicalWasteAuthorizationCertificate());
+        lab.setNablAccreditationCertificate(labInfo.getNablAccreditationCertificate());
+
+        // Authorization and Terms & Conditions acceptance record (version + timestamp)
+        lab.setRegistrationAuthorizationAccepted(request.getRegistrationAuthorizationAccepted());
+        lab.setTermsAccepted(request.getTermsAccepted());
+        if (Boolean.TRUE.equals(request.getTermsAccepted())) {
+            lab.setTermsVersion(request.getTermsVersion());
+            lab.setTermsAcceptedAt(LocalDateTime.now());
+        }
+    }
+
+    private static boolean isAllowed(Set<String> allowedValues, String value) {
+        return value != null && allowedValues.stream().anyMatch(allowed -> allowed.equalsIgnoreCase(value.trim()));
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 }
 

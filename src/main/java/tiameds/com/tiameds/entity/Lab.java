@@ -10,6 +10,7 @@ import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
@@ -103,6 +104,138 @@ public class Lab {
     private Boolean dataPrivacyAgreement;
 
     //    ======================new feilds=========================
+
+    //    ======================onboarding: organization info=========================
+
+    @Column(name = "organization_name", length = 100)
+    private String organizationName;
+
+    @Column(name = "organization_type", length = 50)
+    private String organizationType;
+
+    @Column(name = "organization_email")
+    private String organizationEmail;
+
+    @Column(name = "organization_phone", length = 20)
+    private String organizationPhone;
+
+    @Column(name = "organization_address_line1", length = 100)
+    private String organizationAddressLine1;
+
+    @Column(name = "organization_address_line2", length = 100)
+    private String organizationAddressLine2;
+
+    @Column(name = "organization_country", length = 100)
+    private String organizationCountry;
+
+    @Column(name = "organization_state", length = 100)
+    private String organizationState;
+
+    @Column(name = "organization_district", length = 100)
+    private String organizationDistrict;
+
+    @Column(name = "organization_city", length = 50)
+    private String organizationCity;
+
+    @Column(name = "organization_pin_code", length = 10)
+    private String organizationPinCode;
+
+    @Column(name = "organization_pan", length = 10)
+    private String organizationPan;
+
+    @Column(name = "organization_gstin", length = 15)
+    private String organizationGstin;
+
+    //    ======================onboarding: additional lab info=========================
+
+    // Comma-separated list of selected laboratory services
+    @Column(name = "lab_services", columnDefinition = "TEXT")
+    private String labServices;
+
+    @Column(name = "same_as_organization_address")
+    private Boolean sameAsOrganizationAddress;
+
+    @Column(name = "lab_address_line2", length = 100)
+    private String labAddressLine2;
+
+    @Column(name = "lab_district", length = 100)
+    private String labDistrict;
+
+    //    ======================onboarding: compliance details=========================
+
+    @Column(name = "establishment_registration_number", length = 50)
+    private String establishmentRegistrationNumber;
+
+    @Column(name = "issuing_authority", length = 25)
+    private String issuingAuthority;
+
+    @Column(name = "issuing_date")
+    private LocalDate issuingDate;
+
+    @Column(name = "expiry_date")
+    private LocalDate expiryDate;
+
+    @Column(name = "establishment_registration_certificate")
+    private String establishmentRegistrationCertificate;
+
+    @Column(name = "lab_pan", length = 10)
+    private String labPan;
+
+    @Column(name = "lab_pan_same_as_organization")
+    private Boolean labPanSameAsOrganization;
+
+    @Column(name = "lab_gstin", length = 15)
+    private String labGstin;
+
+    @Column(name = "lab_gstin_same_as_organization")
+    private Boolean labGstinSameAsOrganization;
+
+    @Column(name = "gstin_certificate")
+    private String gstinCertificate;
+
+    @Column(name = "biomedical_waste_generated")
+    private Boolean biomedicalWasteGenerated;
+
+    @Column(name = "biomedical_waste_authorization_number", length = 25)
+    private String biomedicalWasteAuthorizationNumber;
+
+    @Column(name = "biomedical_waste_authorization_certificate")
+    private String biomedicalWasteAuthorizationCertificate;
+
+    @Column(name = "nabl_accreditation_certificate")
+    private String nablAccreditationCertificate;
+
+    //    ======================onboarding: authorization and terms=========================
+
+    @Column(name = "registration_authorization_accepted")
+    private Boolean registrationAuthorizationAccepted;
+
+    @Column(name = "terms_accepted")
+    private Boolean termsAccepted;
+
+    @Column(name = "terms_version", length = 20)
+    private String termsVersion;
+
+    @Column(name = "terms_accepted_at")
+    private LocalDateTime termsAcceptedAt;
+
+    //    ======================onboarding: approval workflow=========================
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "approval_status", nullable = false, length = 20)
+    private LabApprovalStatus approvalStatus = LabApprovalStatus.APPROVED;
+
+    @Column(name = "approval_requested_at")
+    private LocalDateTime approvalRequestedAt;
+
+    @Column(name = "reviewed_at")
+    private LocalDateTime reviewedAt;
+
+    @Column(name = "reviewed_by")
+    private Long reviewedBy;
+
+    @Column(name = "rejection_reason", columnDefinition = "TEXT")
+    private String rejectionReason;
 
     @CreationTimestamp
     @Column(updatable = false)

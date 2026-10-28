@@ -1,0 +1,1848 @@
+{
+  "info": {
+    "name": "Lab Onboarding (Complete Flow)",
+    "description": "Full self-registration flow: verification email -> token -> complete onboarding -> login -> lab documents (S3).\n\nHOW TO RUN\n1. Set {{baseUrl}}, {{email}} (a real inbox you can read), {{username}} and {{password}} (min 8 chars) in the collection variables.\n2. Folder 1: \"Request verification email\". Open the email, copy the `token` query param from the link into {{verificationToken}}.\n3. Folder 2: run \"Complete onboarding - FULL\" (or \"MINIMAL\"). The verification token is single-use; a successful submit consumes it, so request a new email for every successful run. The additional-field validation failures (400 cases) are rejected before the token is consumed, so they can be re-run with the same token.\n4. Folder 3: \"Login\" captures {{accessToken}}. Folder 4 then uses it with the labId captured in step 2.\n\nContext path /api/v1 is included in each request path. Folders 1-2 are public; folders 3-4 send `Authorization: Bearer {{accessToken}}`.\nThe new onboarding fields (organization, compliance, terms) are all optional, so MINIMAL (existing fields only) still works unchanged.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "email",
+      "value": "newlab@example.com",
+      "type": "string"
+    },
+    {
+      "key": "username",
+      "value": "newlabadmin",
+      "type": "string"
+    },
+    {
+      "key": "password",
+      "value": "ChangeMe@123",
+      "type": "string"
+    },
+    {
+      "key": "verificationToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "labId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Email verification",
+      "item": [
+        {
+          "name": "Request verification email",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/onboarding/request-verification",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "public",
+                "onboarding",
+                "request-verification"
+              ]
+            },
+            "description": "POST /public/onboarding/request-verification - sends the verification link. Max 3 emails per hour per email. Copy the `token` from the link into {{verificationToken}}."
+          },
+          "response": []
+        },
+        {
+          "name": "Resend verification email",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/onboarding/resend-verification",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "public",
+                "onboarding",
+                "resend-verification"
+              ]
+            },
+            "description": "Same logic and same rate limit as request-verification."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify email token (GET, as in the email link)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('valid', function () { pm.expect(pm.response.json().valid).to.be.true; });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/onboarding/verify-email?token={{verificationToken}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "public",
+                "onboarding",
+                "verify-email"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "{{verificationToken}}"
+                }
+              ]
+            },
+            "description": "GET /public/onboarding/verify-email?token= - checks the token (does not consume it) and returns the frontend onboarding redirectUrl."
+          },
+          "response": []
+        },
+        {
+          "name": "Validate token (POST API)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/onboarding/validate-token?token={{verificationToken}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "public",
+                "onboarding",
+                "validate-token"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "{{verificationToken}}"
+                }
+              ]
+            },
+            "description": "POST /public/onboarding/validate-token?token= - JSON variant; does not consume the token."
+          },
+          "response": []
+        },
+        {
+          "name": "NEGATIVE - request with invalid email (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', function () { pm.response.to.have.status(400); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"not-an-email\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/onboarding/request-verification",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "public",
+                "onboarding",
+                "request-verification"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "NEGATIVE - validate invalid token (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', function () { pm.response.to.have.status(400); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/onboarding/validate-token?token=invalid-token-value",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "public",
+                "onboarding",
+                "validate-token"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "invalid-token-value"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Complete onboarding",
+      "item": [
+        {
+          "name": "Complete onboarding - FULL (all new fields)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function () { pm.response.to.have.status(201); });",
+                  "const d = pm.response.json().data;",
+                  "if (d) {",
+                  "    pm.collectionVariables.set('labId', d.labId);",
+                  "    console.log('labId captured:', d.labId, 'userId:', d.userId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{verificationToken}}\",\n  \"email\": \"{{email}}\",\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\",\n  \"firstName\": \"Somil\",\n  \"lastName\": \"Sharma\",\n  \"phone\": \"9876543210\",\n  \"address\": \"12 MG Road\",\n  \"city\": \"Mumbai\",\n  \"state\": \"Maharashtra\",\n  \"zip\": \"400001\",\n  \"country\": \"India\",\n  \"lab\": {\n    \"name\": \"Sunrise Diagnostics\",\n    \"address\": \"12 MG Road\",\n    \"city\": \"Mumbai\",\n    \"state\": \"Maharashtra\",\n    \"description\": \"Full service diagnostic laboratory\",\n    \"licenseNumber\": \"LIC-2025-001\",\n    \"labType\": \"Diagnostic\",\n    \"labZip\": \"400001\",\n    \"labCountry\": \"India\",\n    \"labPhone\": \"9876543210\",\n    \"labEmail\": \"lab@example.com\",\n    \"directorName\": \"Dr. Asha Rao\",\n    \"directorEmail\": \"director@example.com\",\n    \"directorPhone\": \"9876500000\",\n    \"certificationBody\": \"NABL\",\n    \"labCertificate\": \"CERT-001\",\n    \"directorGovtId\": \"GOVID-001\",\n    \"labBusinessRegistration\": \"REG-001\",\n    \"labLicense\": \"LICENSE-001\",\n    \"taxId\": \"TAX-001\",\n    \"labAccreditation\": \"NABL-12345\",\n    \"dataPrivacyAgreement\": true,\n    \"labServices\": [\n      \"Clinical Pathology\",\n      \"Biochemistry\",\n      \"Haematology\",\n      \"X-ray\"\n    ],\n    \"sameAsOrganizationAddress\": true,\n    \"labAddressLine2\": \"\",\n    \"labDistrict\": \"\",\n    \"establishmentRegistrationNumber\": \"CEA/MH/2025/00123\",\n    \"issuingAuthority\": \"District Health Office\",\n    \"issuingDate\": \"2025-01-01\",\n    \"expiryDate\": \"2030-01-01\",\n    \"labPanSameAsOrganization\": true,\n    \"labGstinSameAsOrganization\": true,\n    \"biomedicalWasteGenerated\": true,\n    \"biomedicalWasteAuthorizationNumber\": \"BMW-2025-0045\",\n    \"biomedicalWasteAuthorizationCertificate\": \"https://example.com/placeholder-bmw.pdf\",\n    \"labLogo\": \"https://example.com/placeholder-logo.png\",\n    \"gstinCertificate\": \"https://example.com/placeholder-gstin.pdf\",\n    \"establishmentRegistrationCertificate\": \"https://example.com/placeholder-establishment-registration.pdf\",\n    \"nablAccreditationCertificate\": \"https://example.com/placeholder-nabl.pdf\"\n  },\n  \"confirmPassword\": \"{{password}}\",\n  \"organization\": {\n    \"name\": \"Sunrise Healthcare Pvt Ltd\",\n    \"type\": \"Private Limited Company\",\n    \"email\": \"org@example.com\",\n    \"phone\": \"9876543210\",\n    \"addressLine1\": \"12 MG Road\",\n    \"addressLine2\": \"Near Central Park\",\n    \"country\": \"India\",\n    \"state\": \"Maharashtra\",\n    \"district\": \"Mumbai\",\n    \"city\": \"Mumbai\",\n    \"pinCode\": \"400001\",\n    \"pan\": \"ABCDE1234F\",\n    \"gstin\": \"27ABCDE1234F1Z5\"\n  },\n  \"registrationAuthorizationAccepted\": true,\n  \"termsAccepted\": true,\n  \"termsVersion\": \"1.0\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/onboarding/complete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "public",
+                "onboarding",
+                "complete"
+              ]
+            },
+            "description": "POST /public/onboarding/complete - creates the SUPERADMIN user and the lab with organization, compliance and terms fields. 201 on success; labId is captured into {{labId}}. Consumes the verification token.\n\nAll 5 file URL fields (labLogo, gstinCertificate, establishmentRegistrationCertificate, biomedicalWasteAuthorizationCertificate, nablAccreditationCertificate) are optional strings; placeholder URLs are used here. In real use, upload the files with the Lab documents endpoints after login (Add fails with 400 for a document that already has a URL - use Update instead).\n\nlabAddressLine2/labDistrict are blank on purpose: with sameAsOrganizationAddress=true they are copied from the organization. labPan/labGstin are omitted: with the same-as-organization flags they are copied from the organization."
+          },
+          "response": []
+        },
+        {
+          "name": "Complete onboarding - MINIMAL (existing fields only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function () { pm.response.to.have.status(201); });",
+                  "const d = pm.response.json().data;",
+                  "if (d) {",
+                  "    pm.collectionVariables.set('labId', d.labId);",
+                  "    console.log('labId captured:', d.labId, 'userId:', d.userId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{verificationToken}}\",\n  \"email\": \"{{email}}\",\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\",\n  \"firstName\": \"Somil\",\n  \"lastName\": \"Sharma\",\n  \"phone\": \"9876543210\",\n  \"address\": \"12 MG Road\",\n  \"city\": \"Mumbai\",\n  \"state\": \"Maharashtra\",\n  \"zip\": \"400001\",\n  \"country\": \"India\",\n  \"lab\": {\n    \"name\": \"Sunrise Diagnostics\",\n    \"address\": \"12 MG Road\",\n    \"city\": \"Mumbai\",\n    \"state\": \"Maharashtra\",\n    \"description\": \"Full service diagnostic laboratory\",\n    \"licenseNumber\": \"LIC-2025-001\",\n    \"labType\": \"Diagnostic\",\n    \"labZip\": \"400001\",\n    \"labCountry\": \"India\",\n    \"labPhone\": \"9876543210\",\n    \"labEmail\": \"lab@example.com\",\n    \"directorName\": \"Dr. Asha Rao\",\n    \"directorEmail\": \"director@example.com\",\n    \"directorPhone\": \"9876500000\",\n    \"certificationBody\": \"NABL\",\n    \"labCertificate\": \"CERT-001\",\n    \"directorGovtId\": \"GOVID-001\",\n    \"labBusinessRegistration\": \"REG-001\",\n    \"labLicense\": \"LICENSE-001\",\n    \"taxId\": \"TAX-001\",\n    \"labAccreditation\": \"NABL-12345\",\n    \"dataPrivacyAgreement\": true\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/onboarding/complete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "public",
+                "onboarding",
+                "complete"
+              ]
+            },
+            "description": "Same request as before the new fields were added - proves backward compatibility. Use a fresh verification token."
+          },
+          "response": []
+        },
+        {
+          "name": "NEGATIVE validation (rejected before token is consumed)",
+          "item": [
+            {
+              "name": "confirmPassword mismatch",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 400', function () { pm.response.to.have.status(400); });",
+                      "pm.test('Message mentions: confirm password', function () { pm.expect(JSON.stringify(pm.response.json()).toLowerCase()).to.include(\"confirm password\"); });"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"{{verificationToken}}\",\n  \"email\": \"{{email}}\",\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\",\n  \"firstName\": \"Somil\",\n  \"lastName\": \"Sharma\",\n  \"phone\": \"9876543210\",\n  \"address\": \"12 MG Road\",\n  \"city\": \"Mumbai\",\n  \"state\": \"Maharashtra\",\n  \"zip\": \"400001\",\n  \"country\": \"India\",\n  \"lab\": {\n    \"name\": \"Sunrise Diagnostics\",\n    \"address\": \"12 MG Road\",\n    \"city\": \"Mumbai\",\n    \"state\": \"Maharashtra\",\n    \"description\": \"Full service diagnostic laboratory\",\n    \"licenseNumber\": \"LIC-2025-001\",\n    \"labType\": \"Diagnostic\",\n    \"labZip\": \"400001\",\n    \"labCountry\": \"India\",\n    \"labPhone\": \"9876543210\",\n    \"labEmail\": \"lab@example.com\",\n    \"directorName\": \"Dr. Asha Rao\",\n    \"directorEmail\": \"director@example.com\",\n    \"directorPhone\": \"9876500000\",\n    \"certificationBody\": \"NABL\",\n    \"labCertificate\": \"CERT-001\",\n    \"directorGovtId\": \"GOVID-001\",\n    \"labBusinessRegistration\": \"REG-001\",\n    \"labLicense\": \"LICENSE-001\",\n    \"taxId\": \"TAX-001\",\n    \"labAccreditation\": \"NABL-12345\",\n    \"dataPrivacyAgreement\": true,\n    \"labServices\": [\n      \"Clinical Pathology\",\n      \"Biochemistry\",\n      \"Haematology\",\n      \"X-ray\"\n    ],\n    \"sameAsOrganizationAddress\": true,\n    \"labAddressLine2\": \"\",\n    \"labDistrict\": \"\",\n    \"establishmentRegistrationNumber\": \"CEA/MH/2025/00123\",\n    \"issuingAuthority\": \"District Health Office\",\n    \"issuingDate\": \"2025-01-01\",\n    \"expiryDate\": \"2030-01-01\",\n    \"labPanSameAsOrganization\": true,\n    \"labGstinSameAsOrganization\": true,\n    \"biomedicalWasteGenerated\": true,\n    \"biomedicalWasteAuthorizationNumber\": \"BMW-2025-0045\",\n    \"biomedicalWasteAuthorizationCertificate\": \"https://example.com/placeholder-bmw.pdf\"\n  },\n  \"confirmPassword\": \"Different@123\",\n  \"organization\": {\n    \"name\": \"Sunrise Healthcare Pvt Ltd\",\n    \"type\": \"Private Limited Company\",\n    \"email\": \"org@example.com\",\n    \"phone\": \"9876543210\",\n    \"addressLine1\": \"12 MG Road\",\n    \"addressLine2\": \"Near Central Park\",\n    \"country\": \"India\",\n    \"state\": \"Maharashtra\",\n    \"district\": \"Mumbai\",\n    \"city\": \"Mumbai\",\n    \"pinCode\": \"400001\",\n    \"pan\": \"ABCDE1234F\",\n    \"gstin\": \"27ABCDE1234F1Z5\"\n  },\n  \"registrationAuthorizationAccepted\": true,\n  \"termsAccepted\": true,\n  \"termsVersion\": \"1.0\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/public/onboarding/complete",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "public",
+                    "onboarding",
+                    "complete"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "invalid organization type",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 400', function () { pm.response.to.have.status(400); });",
+                      "pm.test('Message mentions: organization type', function () { pm.expect(JSON.stringify(pm.response.json()).toLowerCase()).to.include(\"organization type\"); });"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"{{verificationToken}}\",\n  \"email\": \"{{email}}\",\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\",\n  \"firstName\": \"Somil\",\n  \"lastName\": \"Sharma\",\n  \"phone\": \"9876543210\",\n  \"address\": \"12 MG Road\",\n  \"city\": \"Mumbai\",\n  \"state\": \"Maharashtra\",\n  \"zip\": \"400001\",\n  \"country\": \"India\",\n  \"lab\": {\n    \"name\": \"Sunrise Diagnostics\",\n    \"address\": \"12 MG Road\",\n    \"city\": \"Mumbai\",\n    \"state\": \"Maharashtra\",\n    \"description\": \"Full service diagnostic laboratory\",\n    \"licenseNumber\": \"LIC-2025-001\",\n    \"labType\": \"Diagnostic\",\n    \"labZip\": \"400001\",\n    \"labCountry\": \"India\",\n    \"labPhone\": \"9876543210\",\n    \"labEmail\": \"lab@example.com\",\n    \"directorName\": \"Dr. Asha Rao\",\n    \"directorEmail\": \"director@example.com\",\n    \"directorPhone\": \"9876500000\",\n    \"certificationBody\": \"NABL\",\n    \"labCertificate\": \"CERT-001\",\n    \"directorGovtId\": \"GOVID-001\",\n    \"labBusinessRegistration\": \"REG-001\",\n    \"labLicense\": \"LICENSE-001\",\n    \"taxId\": \"TAX-001\",\n    \"labAccreditation\": \"NABL-12345\",\n    \"dataPrivacyAgreement\": true,\n    \"labServices\": [\n      \"Clinical Pathology\",\n      \"Biochemistry\",\n      \"Haematology\",\n      \"X-ray\"\n    ],\n    \"sameAsOrganizationAddress\": true,\n    \"labAddressLine2\": \"\",\n    \"labDistrict\": \"\",\n    \"establishmentRegistrationNumber\": \"CEA/MH/2025/00123\",\n    \"issuingAuthority\": \"District Health Office\",\n    \"issuingDate\": \"2025-01-01\",\n    \"expiryDate\": \"2030-01-01\",\n    \"labPanSameAsOrganization\": true,\n    \"labGstinSameAsOrganization\": true,\n    \"biomedicalWasteGenerated\": true,\n    \"biomedicalWasteAuthorizationNumber\": \"BMW-2025-0045\",\n    \"biomedicalWasteAuthorizationCertificate\": \"https://example.com/placeholder-bmw.pdf\"\n  },\n  \"confirmPassword\": \"{{password}}\",\n  \"organization\": {\n    \"name\": \"Sunrise Healthcare Pvt Ltd\",\n    \"type\": \"Sole Wizard\",\n    \"email\": \"org@example.com\",\n    \"phone\": \"9876543210\",\n    \"addressLine1\": \"12 MG Road\",\n    \"addressLine2\": \"Near Central Park\",\n    \"country\": \"India\",\n    \"state\": \"Maharashtra\",\n    \"district\": \"Mumbai\",\n    \"city\": \"Mumbai\",\n    \"pinCode\": \"400001\",\n    \"pan\": \"ABCDE1234F\",\n    \"gstin\": \"27ABCDE1234F1Z5\"\n  },\n  \"registrationAuthorizationAccepted\": true,\n  \"termsAccepted\": true,\n  \"termsVersion\": \"1.0\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/public/onboarding/complete",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "public",
+                    "onboarding",
+                    "complete"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "invalid organization PAN",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 400', function () { pm.response.to.have.status(400); });"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"{{verificationToken}}\",\n  \"email\": \"{{email}}\",\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\",\n  \"firstName\": \"Somil\",\n  \"lastName\": \"Sharma\",\n  \"phone\": \"9876543210\",\n  \"address\": \"12 MG Road\",\n  \"city\": \"Mumbai\",\n  \"state\": \"Maharashtra\",\n  \"zip\": \"400001\",\n  \"country\": \"India\",\n  \"lab\": {\n    \"name\": \"Sunrise Diagnostics\",\n    \"address\": \"12 MG Road\",\n    \"city\": \"Mumbai\",\n    \"state\": \"Maharashtra\",\n    \"description\": \"Full service diagnostic laboratory\",\n    \"licenseNumber\": \"LIC-2025-001\",\n    \"labType\": \"Diagnostic\",\n    \"labZip\": \"400001\",\n    \"labCountry\": \"India\",\n    \"labPhone\": \"9876543210\",\n    \"labEmail\": \"lab@example.com\",\n    \"directorName\": \"Dr. Asha Rao\",\n    \"directorEmail\": \"director@example.com\",\n    \"directorPhone\": \"9876500000\",\n    \"certificationBody\": \"NABL\",\n    \"labCertificate\": \"CERT-001\",\n    \"directorGovtId\": \"GOVID-001\",\n    \"labBusinessRegistration\": \"REG-001\",\n    \"labLicense\": \"LICENSE-001\",\n    \"taxId\": \"TAX-001\",\n    \"labAccreditation\": \"NABL-12345\",\n    \"dataPrivacyAgreement\": true,\n    \"labServices\": [\n      \"Clinical Pathology\",\n      \"Biochemistry\",\n      \"Haematology\",\n      \"X-ray\"\n    ],\n    \"sameAsOrganizationAddress\": true,\n    \"labAddressLine2\": \"\",\n    \"labDistrict\": \"\",\n    \"establishmentRegistrationNumber\": \"CEA/MH/2025/00123\",\n    \"issuingAuthority\": \"District Health Office\",\n    \"issuingDate\": \"2025-01-01\",\n    \"expiryDate\": \"2030-01-01\",\n    \"labPanSameAsOrganization\": true,\n    \"labGstinSameAsOrganization\": true,\n    \"biomedicalWasteGenerated\": true,\n    \"biomedicalWasteAuthorizationNumber\": \"BMW-2025-0045\",\n    \"biomedicalWasteAuthorizationCertificate\": \"https://example.com/placeholder-bmw.pdf\"\n  },\n  \"confirmPassword\": \"{{password}}\",\n  \"organization\": {\n    \"name\": \"Sunrise Healthcare Pvt Ltd\",\n    \"type\": \"Private Limited Company\",\n    \"email\": \"org@example.com\",\n    \"phone\": \"9876543210\",\n    \"addressLine1\": \"12 MG Road\",\n    \"addressLine2\": \"Near Central Park\",\n    \"country\": \"India\",\n    \"state\": \"Maharashtra\",\n    \"district\": \"Mumbai\",\n    \"city\": \"Mumbai\",\n    \"pinCode\": \"400001\",\n    \"pan\": \"abc123\",\n    \"gstin\": \"27ABCDE1234F1Z5\"\n  },\n  \"registrationAuthorizationAccepted\": true,\n  \"termsAccepted\": true,\n  \"termsVersion\": \"1.0\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/public/onboarding/complete",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "public",
+                    "onboarding",
+                    "complete"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "invalid organization GSTIN",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 400', function () { pm.response.to.have.status(400); });"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"{{verificationToken}}\",\n  \"email\": \"{{email}}\",\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\",\n  \"firstName\": \"Somil\",\n  \"lastName\": \"Sharma\",\n  \"phone\": \"9876543210\",\n  \"address\": \"12 MG Road\",\n  \"city\": \"Mumbai\",\n  \"state\": \"Maharashtra\",\n  \"zip\": \"400001\",\n  \"country\": \"India\",\n  \"lab\": {\n    \"name\": \"Sunrise Diagnostics\",\n    \"address\": \"12 MG Road\",\n    \"city\": \"Mumbai\",\n    \"state\": \"Maharashtra\",\n    \"description\": \"Full service diagnostic laboratory\",\n    \"licenseNumber\": \"LIC-2025-001\",\n    \"labType\": \"Diagnostic\",\n    \"labZip\": \"400001\",\n    \"labCountry\": \"India\",\n    \"labPhone\": \"9876543210\",\n    \"labEmail\": \"lab@example.com\",\n    \"directorName\": \"Dr. Asha Rao\",\n    \"directorEmail\": \"director@example.com\",\n    \"directorPhone\": \"9876500000\",\n    \"certificationBody\": \"NABL\",\n    \"labCertificate\": \"CERT-001\",\n    \"directorGovtId\": \"GOVID-001\",\n    \"labBusinessRegistration\": \"REG-001\",\n    \"labLicense\": \"LICENSE-001\",\n    \"taxId\": \"TAX-001\",\n    \"labAccreditation\": \"NABL-12345\",\n    \"dataPrivacyAgreement\": true,\n    \"labServices\": [\n      \"Clinical Pathology\",\n      \"Biochemistry\",\n      \"Haematology\",\n      \"X-ray\"\n    ],\n    \"sameAsOrganizationAddress\": true,\n    \"labAddressLine2\": \"\",\n    \"labDistrict\": \"\",\n    \"establishmentRegistrationNumber\": \"CEA/MH/2025/00123\",\n    \"issuingAuthority\": \"District Health Office\",\n    \"issuingDate\": \"2025-01-01\",\n    \"expiryDate\": \"2030-01-01\",\n    \"labPanSameAsOrganization\": true,\n    \"labGstinSameAsOrganization\": true,\n    \"biomedicalWasteGenerated\": true,\n    \"biomedicalWasteAuthorizationNumber\": \"BMW-2025-0045\",\n    \"biomedicalWasteAuthorizationCertificate\": \"https://example.com/placeholder-bmw.pdf\"\n  },\n  \"confirmPassword\": \"{{password}}\",\n  \"organization\": {\n    \"name\": \"Sunrise Healthcare Pvt Ltd\",\n    \"type\": \"Private Limited Company\",\n    \"email\": \"org@example.com\",\n    \"phone\": \"9876543210\",\n    \"addressLine1\": \"12 MG Road\",\n    \"addressLine2\": \"Near Central Park\",\n    \"country\": \"India\",\n    \"state\": \"Maharashtra\",\n    \"district\": \"Mumbai\",\n    \"city\": \"Mumbai\",\n    \"pinCode\": \"400001\",\n    \"pan\": \"ABCDE1234F\",\n    \"gstin\": \"123\"\n  },\n  \"registrationAuthorizationAccepted\": true,\n  \"termsAccepted\": true,\n  \"termsVersion\": \"1.0\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/public/onboarding/complete",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "public",
+                    "onboarding",
+                    "complete"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "invalid organization PIN code",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 400', function () { pm.response.to.have.status(400); });"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"{{verificationToken}}\",\n  \"email\": \"{{email}}\",\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\",\n  \"firstName\": \"Somil\",\n  \"lastName\": \"Sharma\",\n  \"phone\": \"9876543210\",\n  \"address\": \"12 MG Road\",\n  \"city\": \"Mumbai\",\n  \"state\": \"Maharashtra\",\n  \"zip\": \"400001\",\n  \"country\": \"India\",\n  \"lab\": {\n    \"name\": \"Sunrise Diagnostics\",\n    \"address\": \"12 MG Road\",\n    \"city\": \"Mumbai\",\n    \"state\": \"Maharashtra\",\n    \"description\": \"Full service diagnostic laboratory\",\n    \"licenseNumber\": \"LIC-2025-001\",\n    \"labType\": \"Diagnostic\",\n    \"labZip\": \"400001\",\n    \"labCountry\": \"India\",\n    \"labPhone\": \"9876543210\",\n    \"labEmail\": \"lab@example.com\",\n    \"directorName\": \"Dr. Asha Rao\",\n    \"directorEmail\": \"director@example.com\",\n    \"directorPhone\": \"9876500000\",\n    \"certificationBody\": \"NABL\",\n    \"labCertificate\": \"CERT-001\",\n    \"directorGovtId\": \"GOVID-001\",\n    \"labBusinessRegistration\": \"REG-001\",\n    \"labLicense\": \"LICENSE-001\",\n    \"taxId\": \"TAX-001\",\n    \"labAccreditation\": \"NABL-12345\",\n    \"dataPrivacyAgreement\": true,\n    \"labServices\": [\n      \"Clinical Pathology\",\n      \"Biochemistry\",\n      \"Haematology\",\n      \"X-ray\"\n    ],\n    \"sameAsOrganizationAddress\": true,\n    \"labAddressLine2\": \"\",\n    \"labDistrict\": \"\",\n    \"establishmentRegistrationNumber\": \"CEA/MH/2025/00123\",\n    \"issuingAuthority\": \"District Health Office\",\n    \"issuingDate\": \"2025-01-01\",\n    \"expiryDate\": \"2030-01-01\",\n    \"labPanSameAsOrganization\": true,\n    \"labGstinSameAsOrganization\": true,\n    \"biomedicalWasteGenerated\": true,\n    \"biomedicalWasteAuthorizationNumber\": \"BMW-2025-0045\",\n    \"biomedicalWasteAuthorizationCertificate\": \"https://example.com/placeholder-bmw.pdf\"\n  },\n  \"confirmPassword\": \"{{password}}\",\n  \"organization\": {\n    \"name\": \"Sunrise Healthcare Pvt Ltd\",\n    \"type\": \"Private Limited Company\",\n    \"email\": \"org@example.com\",\n    \"phone\": \"9876543210\",\n    \"addressLine1\": \"12 MG Road\",\n    \"addressLine2\": \"Near Central Park\",\n    \"country\": \"India\",\n    \"state\": \"Maharashtra\",\n    \"district\": \"Mumbai\",\n    \"city\": \"Mumbai\",\n    \"pinCode\": \"12ab\",\n    \"pan\": \"ABCDE1234F\",\n    \"gstin\": \"27ABCDE1234F1Z5\"\n  },\n  \"registrationAuthorizationAccepted\": true,\n  \"termsAccepted\": true,\n  \"termsVersion\": \"1.0\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/public/onboarding/complete",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "public",
+                    "onboarding",
+                    "complete"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "invalid organization email",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 400', function () { pm.response.to.have.status(400); });"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"{{verificationToken}}\",\n  \"email\": \"{{email}}\",\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\",\n  \"firstName\": \"Somil\",\n  \"lastName\": \"Sharma\",\n  \"phone\": \"9876543210\",\n  \"address\": \"12 MG Road\",\n  \"city\": \"Mumbai\",\n  \"state\": \"Maharashtra\",\n  \"zip\": \"400001\",\n  \"country\": \"India\",\n  \"lab\": {\n    \"name\": \"Sunrise Diagnostics\",\n    \"address\": \"12 MG Road\",\n    \"city\": \"Mumbai\",\n    \"state\": \"Maharashtra\",\n    \"description\": \"Full service diagnostic laboratory\",\n    \"licenseNumber\": \"LIC-2025-001\",\n    \"labType\": \"Diagnostic\",\n    \"labZip\": \"400001\",\n    \"labCountry\": \"India\",\n    \"labPhone\": \"9876543210\",\n    \"labEmail\": \"lab@example.com\",\n    \"directorName\": \"Dr. Asha Rao\",\n    \"directorEmail\": \"director@example.com\",\n    \"directorPhone\": \"9876500000\",\n    \"certificationBody\": \"NABL\",\n    \"labCertificate\": \"CERT-001\",\n    \"directorGovtId\": \"GOVID-001\",\n    \"labBusinessRegistration\": \"REG-001\",\n    \"labLicense\": \"LICENSE-001\",\n    \"taxId\": \"TAX-001\",\n    \"labAccreditation\": \"NABL-12345\",\n    \"dataPrivacyAgreement\": true,\n    \"labServices\": [\n      \"Clinical Pathology\",\n      \"Biochemistry\",\n      \"Haematology\",\n      \"X-ray\"\n    ],\n    \"sameAsOrganizationAddress\": true,\n    \"labAddressLine2\": \"\",\n    \"labDistrict\": \"\",\n    \"establishmentRegistrationNumber\": \"CEA/MH/2025/00123\",\n    \"issuingAuthority\": \"District Health Office\",\n    \"issuingDate\": \"2025-01-01\",\n    \"expiryDate\": \"2030-01-01\",\n    \"labPanSameAsOrganization\": true,\n    \"labGstinSameAsOrganization\": true,\n    \"biomedicalWasteGenerated\": true,\n    \"biomedicalWasteAuthorizationNumber\": \"BMW-2025-0045\",\n    \"biomedicalWasteAuthorizationCertificate\": \"https://example.com/placeholder-bmw.pdf\"\n  },\n  \"confirmPassword\": \"{{password}}\",\n  \"organization\": {\n    \"name\": \"Sunrise Healthcare Pvt Ltd\",\n    \"type\": \"Private Limited Company\",\n    \"email\": \"nope\",\n    \"phone\": \"9876543210\",\n    \"addressLine1\": \"12 MG Road\",\n    \"addressLine2\": \"Near Central Park\",\n    \"country\": \"India\",\n    \"state\": \"Maharashtra\",\n    \"district\": \"Mumbai\",\n    \"city\": \"Mumbai\",\n    \"pinCode\": \"400001\",\n    \"pan\": \"ABCDE1234F\",\n    \"gstin\": \"27ABCDE1234F1Z5\"\n  },\n  \"registrationAuthorizationAccepted\": true,\n  \"termsAccepted\": true,\n  \"termsVersion\": \"1.0\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/public/onboarding/complete",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "public",
+                    "onboarding",
+                    "complete"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "organization name > 100 chars",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 400', function () { pm.response.to.have.status(400); });"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"{{verificationToken}}\",\n  \"email\": \"{{email}}\",\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\",\n  \"firstName\": \"Somil\",\n  \"lastName\": \"Sharma\",\n  \"phone\": \"9876543210\",\n  \"address\": \"12 MG Road\",\n  \"city\": \"Mumbai\",\n  \"state\": \"Maharashtra\",\n  \"zip\": \"400001\",\n  \"country\": \"India\",\n  \"lab\": {\n    \"name\": \"Sunrise Diagnostics\",\n    \"address\": \"12 MG Road\",\n    \"city\": \"Mumbai\",\n    \"state\": \"Maharashtra\",\n    \"description\": \"Full service diagnostic laboratory\",\n    \"licenseNumber\": \"LIC-2025-001\",\n    \"labType\": \"Diagnostic\",\n    \"labZip\": \"400001\",\n    \"labCountry\": \"India\",\n    \"labPhone\": \"9876543210\",\n    \"labEmail\": \"lab@example.com\",\n    \"directorName\": \"Dr. Asha Rao\",\n    \"directorEmail\": \"director@example.com\",\n    \"directorPhone\": \"9876500000\",\n    \"certificationBody\": \"NABL\",\n    \"labCertificate\": \"CERT-001\",\n    \"directorGovtId\": \"GOVID-001\",\n    \"labBusinessRegistration\": \"REG-001\",\n    \"labLicense\": \"LICENSE-001\",\n    \"taxId\": \"TAX-001\",\n    \"labAccreditation\": \"NABL-12345\",\n    \"dataPrivacyAgreement\": true,\n    \"labServices\": [\n      \"Clinical Pathology\",\n      \"Biochemistry\",\n      \"Haematology\",\n      \"X-ray\"\n    ],\n    \"sameAsOrganizationAddress\": true,\n    \"labAddressLine2\": \"\",\n    \"labDistrict\": \"\",\n    \"establishmentRegistrationNumber\": \"CEA/MH/2025/00123\",\n    \"issuingAuthority\": \"District Health Office\",\n    \"issuingDate\": \"2025-01-01\",\n    \"expiryDate\": \"2030-01-01\",\n    \"labPanSameAsOrganization\": true,\n    \"labGstinSameAsOrganization\": true,\n    \"biomedicalWasteGenerated\": true,\n    \"biomedicalWasteAuthorizationNumber\": \"BMW-2025-0045\",\n    \"biomedicalWasteAuthorizationCertificate\": \"https://example.com/placeholder-bmw.pdf\"\n  },\n  \"confirmPassword\": \"{{password}}\",\n  \"organization\": {\n    \"name\": \"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\",\n    \"type\": \"Private Limited Company\",\n    \"email\": \"org@example.com\",\n    \"phone\": \"9876543210\",\n    \"addressLine1\": \"12 MG Road\",\n    \"addressLine2\": \"Near Central Park\",\n    \"country\": \"India\",\n    \"state\": \"Maharashtra\",\n    \"district\": \"Mumbai\",\n    \"city\": \"Mumbai\",\n    \"pinCode\": \"400001\",\n    \"pan\": \"ABCDE1234F\",\n    \"gstin\": \"27ABCDE1234F1Z5\"\n  },\n  \"registrationAuthorizationAccepted\": true,\n  \"termsAccepted\": true,\n  \"termsVersion\": \"1.0\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/public/onboarding/complete",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "public",
+                    "onboarding",
+                    "complete"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "invalid lab service",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 400', function () { pm.response.to.have.status(400); });",
+                      "pm.test('Message mentions: laboratory service', function () { pm.expect(JSON.stringify(pm.response.json()).toLowerCase()).to.include(\"laboratory service\"); });"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"{{verificationToken}}\",\n  \"email\": \"{{email}}\",\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\",\n  \"firstName\": \"Somil\",\n  \"lastName\": \"Sharma\",\n  \"phone\": \"9876543210\",\n  \"address\": \"12 MG Road\",\n  \"city\": \"Mumbai\",\n  \"state\": \"Maharashtra\",\n  \"zip\": \"400001\",\n  \"country\": \"India\",\n  \"lab\": {\n    \"name\": \"Sunrise Diagnostics\",\n    \"address\": \"12 MG Road\",\n    \"city\": \"Mumbai\",\n    \"state\": \"Maharashtra\",\n    \"description\": \"Full service diagnostic laboratory\",\n    \"licenseNumber\": \"LIC-2025-001\",\n    \"labType\": \"Diagnostic\",\n    \"labZip\": \"400001\",\n    \"labCountry\": \"India\",\n    \"labPhone\": \"9876543210\",\n    \"labEmail\": \"lab@example.com\",\n    \"directorName\": \"Dr. Asha Rao\",\n    \"directorEmail\": \"director@example.com\",\n    \"directorPhone\": \"9876500000\",\n    \"certificationBody\": \"NABL\",\n    \"labCertificate\": \"CERT-001\",\n    \"directorGovtId\": \"GOVID-001\",\n    \"labBusinessRegistration\": \"REG-001\",\n    \"labLicense\": \"LICENSE-001\",\n    \"taxId\": \"TAX-001\",\n    \"labAccreditation\": \"NABL-12345\",\n    \"dataPrivacyAgreement\": true,\n    \"labServices\": [\n      \"Clinical Pathology\",\n      \"Astrology\"\n    ],\n    \"sameAsOrganizationAddress\": true,\n    \"labAddressLine2\": \"\",\n    \"labDistrict\": \"\",\n    \"establishmentRegistrationNumber\": \"CEA/MH/2025/00123\",\n    \"issuingAuthority\": \"District Health Office\",\n    \"issuingDate\": \"2025-01-01\",\n    \"expiryDate\": \"2030-01-01\",\n    \"labPanSameAsOrganization\": true,\n    \"labGstinSameAsOrganization\": true,\n    \"biomedicalWasteGenerated\": true,\n    \"biomedicalWasteAuthorizationNumber\": \"BMW-2025-0045\",\n    \"biomedicalWasteAuthorizationCertificate\": \"https://example.com/placeholder-bmw.pdf\"\n  },\n  \"confirmPassword\": \"{{password}}\",\n  \"organization\": {\n    \"name\": \"Sunrise Healthcare Pvt Ltd\",\n    \"type\": \"Private Limited Company\",\n    \"email\": \"org@example.com\",\n    \"phone\": \"9876543210\",\n    \"addressLine1\": \"12 MG Road\",\n    \"addressLine2\": \"Near Central Park\",\n    \"country\": \"India\",\n    \"state\": \"Maharashtra\",\n    \"district\": \"Mumbai\",\n    \"city\": \"Mumbai\",\n    \"pinCode\": \"400001\",\n    \"pan\": \"ABCDE1234F\",\n    \"gstin\": \"27ABCDE1234F1Z5\"\n  },\n  \"registrationAuthorizationAccepted\": true,\n  \"termsAccepted\": true,\n  \"termsVersion\": \"1.0\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/public/onboarding/complete",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "public",
+                    "onboarding",
+                    "complete"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "expiry date before issuing date",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 400', function () { pm.response.to.have.status(400); });",
+                      "pm.test('Message mentions: expiry date', function () { pm.expect(JSON.stringify(pm.response.json()).toLowerCase()).to.include(\"expiry date\"); });"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"{{verificationToken}}\",\n  \"email\": \"{{email}}\",\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\",\n  \"firstName\": \"Somil\",\n  \"lastName\": \"Sharma\",\n  \"phone\": \"9876543210\",\n  \"address\": \"12 MG Road\",\n  \"city\": \"Mumbai\",\n  \"state\": \"Maharashtra\",\n  \"zip\": \"400001\",\n  \"country\": \"India\",\n  \"lab\": {\n    \"name\": \"Sunrise Diagnostics\",\n    \"address\": \"12 MG Road\",\n    \"city\": \"Mumbai\",\n    \"state\": \"Maharashtra\",\n    \"description\": \"Full service diagnostic laboratory\",\n    \"licenseNumber\": \"LIC-2025-001\",\n    \"labType\": \"Diagnostic\",\n    \"labZip\": \"400001\",\n    \"labCountry\": \"India\",\n    \"labPhone\": \"9876543210\",\n    \"labEmail\": \"lab@example.com\",\n    \"directorName\": \"Dr. Asha Rao\",\n    \"directorEmail\": \"director@example.com\",\n    \"directorPhone\": \"9876500000\",\n    \"certificationBody\": \"NABL\",\n    \"labCertificate\": \"CERT-001\",\n    \"directorGovtId\": \"GOVID-001\",\n    \"labBusinessRegistration\": \"REG-001\",\n    \"labLicense\": \"LICENSE-001\",\n    \"taxId\": \"TAX-001\",\n    \"labAccreditation\": \"NABL-12345\",\n    \"dataPrivacyAgreement\": true,\n    \"labServices\": [\n      \"Clinical Pathology\",\n      \"Biochemistry\",\n      \"Haematology\",\n      \"X-ray\"\n    ],\n    \"sameAsOrganizationAddress\": true,\n    \"labAddressLine2\": \"\",\n    \"labDistrict\": \"\",\n    \"establishmentRegistrationNumber\": \"CEA/MH/2025/00123\",\n    \"issuingAuthority\": \"District Health Office\",\n    \"issuingDate\": \"2030-01-01\",\n    \"expiryDate\": \"2025-01-01\",\n    \"labPanSameAsOrganization\": true,\n    \"labGstinSameAsOrganization\": true,\n    \"biomedicalWasteGenerated\": true,\n    \"biomedicalWasteAuthorizationNumber\": \"BMW-2025-0045\",\n    \"biomedicalWasteAuthorizationCertificate\": \"https://example.com/placeholder-bmw.pdf\"\n  },\n  \"confirmPassword\": \"{{password}}\",\n  \"organization\": {\n    \"name\": \"Sunrise Healthcare Pvt Ltd\",\n    \"type\": \"Private Limited Company\",\n    \"email\": \"org@example.com\",\n    \"phone\": \"9876543210\",\n    \"addressLine1\": \"12 MG Road\",\n    \"addressLine2\": \"Near Central Park\",\n    \"country\": \"India\",\n    \"state\": \"Maharashtra\",\n    \"district\": \"Mumbai\",\n    \"city\": \"Mumbai\",\n    \"pinCode\": \"400001\",\n    \"pan\": \"ABCDE1234F\",\n    \"gstin\": \"27ABCDE1234F1Z5\"\n  },\n  \"registrationAuthorizationAccepted\": true,\n  \"termsAccepted\": true,\n  \"termsVersion\": \"1.0\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/public/onboarding/complete",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "public",
+                    "onboarding",
+                    "complete"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "biomedical waste generated but no authorization number",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 400', function () { pm.response.to.have.status(400); });",
+                      "pm.test('Message mentions: authorization number', function () { pm.expect(JSON.stringify(pm.response.json()).toLowerCase()).to.include(\"authorization number\"); });"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"{{verificationToken}}\",\n  \"email\": \"{{email}}\",\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\",\n  \"firstName\": \"Somil\",\n  \"lastName\": \"Sharma\",\n  \"phone\": \"9876543210\",\n  \"address\": \"12 MG Road\",\n  \"city\": \"Mumbai\",\n  \"state\": \"Maharashtra\",\n  \"zip\": \"400001\",\n  \"country\": \"India\",\n  \"lab\": {\n    \"name\": \"Sunrise Diagnostics\",\n    \"address\": \"12 MG Road\",\n    \"city\": \"Mumbai\",\n    \"state\": \"Maharashtra\",\n    \"description\": \"Full service diagnostic laboratory\",\n    \"licenseNumber\": \"LIC-2025-001\",\n    \"labType\": \"Diagnostic\",\n    \"labZip\": \"400001\",\n    \"labCountry\": \"India\",\n    \"labPhone\": \"9876543210\",\n    \"labEmail\": \"lab@example.com\",\n    \"directorName\": \"Dr. Asha Rao\",\n    \"directorEmail\": \"director@example.com\",\n    \"directorPhone\": \"9876500000\",\n    \"certificationBody\": \"NABL\",\n    \"labCertificate\": \"CERT-001\",\n    \"directorGovtId\": \"GOVID-001\",\n    \"labBusinessRegistration\": \"REG-001\",\n    \"labLicense\": \"LICENSE-001\",\n    \"taxId\": \"TAX-001\",\n    \"labAccreditation\": \"NABL-12345\",\n    \"dataPrivacyAgreement\": true,\n    \"labServices\": [\n      \"Clinical Pathology\",\n      \"Biochemistry\",\n      \"Haematology\",\n      \"X-ray\"\n    ],\n    \"sameAsOrganizationAddress\": true,\n    \"labAddressLine2\": \"\",\n    \"labDistrict\": \"\",\n    \"establishmentRegistrationNumber\": \"CEA/MH/2025/00123\",\n    \"issuingAuthority\": \"District Health Office\",\n    \"issuingDate\": \"2025-01-01\",\n    \"expiryDate\": \"2030-01-01\",\n    \"labPanSameAsOrganization\": true,\n    \"labGstinSameAsOrganization\": true,\n    \"biomedicalWasteGenerated\": true,\n    \"biomedicalWasteAuthorizationCertificate\": \"https://example.com/placeholder-bmw.pdf\"\n  },\n  \"confirmPassword\": \"{{password}}\",\n  \"organization\": {\n    \"name\": \"Sunrise Healthcare Pvt Ltd\",\n    \"type\": \"Private Limited Company\",\n    \"email\": \"org@example.com\",\n    \"phone\": \"9876543210\",\n    \"addressLine1\": \"12 MG Road\",\n    \"addressLine2\": \"Near Central Park\",\n    \"country\": \"India\",\n    \"state\": \"Maharashtra\",\n    \"district\": \"Mumbai\",\n    \"city\": \"Mumbai\",\n    \"pinCode\": \"400001\",\n    \"pan\": \"ABCDE1234F\",\n    \"gstin\": \"27ABCDE1234F1Z5\"\n  },\n  \"registrationAuthorizationAccepted\": true,\n  \"termsAccepted\": true,\n  \"termsVersion\": \"1.0\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/public/onboarding/complete",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "public",
+                    "onboarding",
+                    "complete"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "biomedical waste generated but no certificate",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 400', function () { pm.response.to.have.status(400); });",
+                      "pm.test('Message mentions: authorization certificate', function () { pm.expect(JSON.stringify(pm.response.json()).toLowerCase()).to.include(\"authorization certificate\"); });"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"{{verificationToken}}\",\n  \"email\": \"{{email}}\",\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\",\n  \"firstName\": \"Somil\",\n  \"lastName\": \"Sharma\",\n  \"phone\": \"9876543210\",\n  \"address\": \"12 MG Road\",\n  \"city\": \"Mumbai\",\n  \"state\": \"Maharashtra\",\n  \"zip\": \"400001\",\n  \"country\": \"India\",\n  \"lab\": {\n    \"name\": \"Sunrise Diagnostics\",\n    \"address\": \"12 MG Road\",\n    \"city\": \"Mumbai\",\n    \"state\": \"Maharashtra\",\n    \"description\": \"Full service diagnostic laboratory\",\n    \"licenseNumber\": \"LIC-2025-001\",\n    \"labType\": \"Diagnostic\",\n    \"labZip\": \"400001\",\n    \"labCountry\": \"India\",\n    \"labPhone\": \"9876543210\",\n    \"labEmail\": \"lab@example.com\",\n    \"directorName\": \"Dr. Asha Rao\",\n    \"directorEmail\": \"director@example.com\",\n    \"directorPhone\": \"9876500000\",\n    \"certificationBody\": \"NABL\",\n    \"labCertificate\": \"CERT-001\",\n    \"directorGovtId\": \"GOVID-001\",\n    \"labBusinessRegistration\": \"REG-001\",\n    \"labLicense\": \"LICENSE-001\",\n    \"taxId\": \"TAX-001\",\n    \"labAccreditation\": \"NABL-12345\",\n    \"dataPrivacyAgreement\": true,\n    \"labServices\": [\n      \"Clinical Pathology\",\n      \"Biochemistry\",\n      \"Haematology\",\n      \"X-ray\"\n    ],\n    \"sameAsOrganizationAddress\": true,\n    \"labAddressLine2\": \"\",\n    \"labDistrict\": \"\",\n    \"establishmentRegistrationNumber\": \"CEA/MH/2025/00123\",\n    \"issuingAuthority\": \"District Health Office\",\n    \"issuingDate\": \"2025-01-01\",\n    \"expiryDate\": \"2030-01-01\",\n    \"labPanSameAsOrganization\": true,\n    \"labGstinSameAsOrganization\": true,\n    \"biomedicalWasteGenerated\": true,\n    \"biomedicalWasteAuthorizationNumber\": \"BMW-2025-0045\"\n  },\n  \"confirmPassword\": \"{{password}}\",\n  \"organization\": {\n    \"name\": \"Sunrise Healthcare Pvt Ltd\",\n    \"type\": \"Private Limited Company\",\n    \"email\": \"org@example.com\",\n    \"phone\": \"9876543210\",\n    \"addressLine1\": \"12 MG Road\",\n    \"addressLine2\": \"Near Central Park\",\n    \"country\": \"India\",\n    \"state\": \"Maharashtra\",\n    \"district\": \"Mumbai\",\n    \"city\": \"Mumbai\",\n    \"pinCode\": \"400001\",\n    \"pan\": \"ABCDE1234F\",\n    \"gstin\": \"27ABCDE1234F1Z5\"\n  },\n  \"registrationAuthorizationAccepted\": true,\n  \"termsAccepted\": true,\n  \"termsVersion\": \"1.0\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/public/onboarding/complete",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "public",
+                    "onboarding",
+                    "complete"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "missing existing mandatory field (username)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 400', function () { pm.response.to.have.status(400); });"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"{{verificationToken}}\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"firstName\": \"Somil\",\n  \"lastName\": \"Sharma\",\n  \"phone\": \"9876543210\",\n  \"address\": \"12 MG Road\",\n  \"city\": \"Mumbai\",\n  \"state\": \"Maharashtra\",\n  \"zip\": \"400001\",\n  \"country\": \"India\",\n  \"lab\": {\n    \"name\": \"Sunrise Diagnostics\",\n    \"address\": \"12 MG Road\",\n    \"city\": \"Mumbai\",\n    \"state\": \"Maharashtra\",\n    \"description\": \"Full service diagnostic laboratory\",\n    \"licenseNumber\": \"LIC-2025-001\",\n    \"labType\": \"Diagnostic\",\n    \"labZip\": \"400001\",\n    \"labCountry\": \"India\",\n    \"labPhone\": \"9876543210\",\n    \"labEmail\": \"lab@example.com\",\n    \"directorName\": \"Dr. Asha Rao\",\n    \"directorEmail\": \"director@example.com\",\n    \"directorPhone\": \"9876500000\",\n    \"certificationBody\": \"NABL\",\n    \"labCertificate\": \"CERT-001\",\n    \"directorGovtId\": \"GOVID-001\",\n    \"labBusinessRegistration\": \"REG-001\",\n    \"labLicense\": \"LICENSE-001\",\n    \"taxId\": \"TAX-001\",\n    \"labAccreditation\": \"NABL-12345\",\n    \"dataPrivacyAgreement\": true,\n    \"labServices\": [\n      \"Clinical Pathology\",\n      \"Biochemistry\",\n      \"Haematology\",\n      \"X-ray\"\n    ],\n    \"sameAsOrganizationAddress\": true,\n    \"labAddressLine2\": \"\",\n    \"labDistrict\": \"\",\n    \"establishmentRegistrationNumber\": \"CEA/MH/2025/00123\",\n    \"issuingAuthority\": \"District Health Office\",\n    \"issuingDate\": \"2025-01-01\",\n    \"expiryDate\": \"2030-01-01\",\n    \"labPanSameAsOrganization\": true,\n    \"labGstinSameAsOrganization\": true,\n    \"biomedicalWasteGenerated\": true,\n    \"biomedicalWasteAuthorizationNumber\": \"BMW-2025-0045\",\n    \"biomedicalWasteAuthorizationCertificate\": \"https://example.com/placeholder-bmw.pdf\"\n  },\n  \"confirmPassword\": \"{{password}}\",\n  \"organization\": {\n    \"name\": \"Sunrise Healthcare Pvt Ltd\",\n    \"type\": \"Private Limited Company\",\n    \"email\": \"org@example.com\",\n    \"phone\": \"9876543210\",\n    \"addressLine1\": \"12 MG Road\",\n    \"addressLine2\": \"Near Central Park\",\n    \"country\": \"India\",\n    \"state\": \"Maharashtra\",\n    \"district\": \"Mumbai\",\n    \"city\": \"Mumbai\",\n    \"pinCode\": \"400001\",\n    \"pan\": \"ABCDE1234F\",\n    \"gstin\": \"27ABCDE1234F1Z5\"\n  },\n  \"registrationAuthorizationAccepted\": true,\n  \"termsAccepted\": true,\n  \"termsVersion\": \"1.0\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/public/onboarding/complete",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "public",
+                    "onboarding",
+                    "complete"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "missing lab object",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 400', function () { pm.response.to.have.status(400); });"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"{{verificationToken}}\",\n  \"email\": \"{{email}}\",\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\",\n  \"firstName\": \"Somil\",\n  \"lastName\": \"Sharma\",\n  \"phone\": \"9876543210\",\n  \"address\": \"12 MG Road\",\n  \"city\": \"Mumbai\",\n  \"state\": \"Maharashtra\",\n  \"zip\": \"400001\",\n  \"country\": \"India\",\n  \"confirmPassword\": \"{{password}}\",\n  \"organization\": {\n    \"name\": \"Sunrise Healthcare Pvt Ltd\",\n    \"type\": \"Private Limited Company\",\n    \"email\": \"org@example.com\",\n    \"phone\": \"9876543210\",\n    \"addressLine1\": \"12 MG Road\",\n    \"addressLine2\": \"Near Central Park\",\n    \"country\": \"India\",\n    \"state\": \"Maharashtra\",\n    \"district\": \"Mumbai\",\n    \"city\": \"Mumbai\",\n    \"pinCode\": \"400001\",\n    \"pan\": \"ABCDE1234F\",\n    \"gstin\": \"27ABCDE1234F1Z5\"\n  },\n  \"registrationAuthorizationAccepted\": true,\n  \"termsAccepted\": true,\n  \"termsVersion\": \"1.0\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/public/onboarding/complete",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "public",
+                    "onboarding",
+                    "complete"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "NEGATIVE - invalid / already used verification token (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('Message mentions: verification token', function () { pm.expect(JSON.stringify(pm.response.json()).toLowerCase()).to.include(\"verification token\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"invalid-token-value\",\n  \"email\": \"{{email}}\",\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\",\n  \"firstName\": \"Somil\",\n  \"lastName\": \"Sharma\",\n  \"phone\": \"9876543210\",\n  \"address\": \"12 MG Road\",\n  \"city\": \"Mumbai\",\n  \"state\": \"Maharashtra\",\n  \"zip\": \"400001\",\n  \"country\": \"India\",\n  \"lab\": {\n    \"name\": \"Sunrise Diagnostics\",\n    \"address\": \"12 MG Road\",\n    \"city\": \"Mumbai\",\n    \"state\": \"Maharashtra\",\n    \"description\": \"Full service diagnostic laboratory\",\n    \"licenseNumber\": \"LIC-2025-001\",\n    \"labType\": \"Diagnostic\",\n    \"labZip\": \"400001\",\n    \"labCountry\": \"India\",\n    \"labPhone\": \"9876543210\",\n    \"labEmail\": \"lab@example.com\",\n    \"directorName\": \"Dr. Asha Rao\",\n    \"directorEmail\": \"director@example.com\",\n    \"directorPhone\": \"9876500000\",\n    \"certificationBody\": \"NABL\",\n    \"labCertificate\": \"CERT-001\",\n    \"directorGovtId\": \"GOVID-001\",\n    \"labBusinessRegistration\": \"REG-001\",\n    \"labLicense\": \"LICENSE-001\",\n    \"taxId\": \"TAX-001\",\n    \"labAccreditation\": \"NABL-12345\",\n    \"dataPrivacyAgreement\": true,\n    \"labServices\": [\n      \"Clinical Pathology\",\n      \"Biochemistry\",\n      \"Haematology\",\n      \"X-ray\"\n    ],\n    \"sameAsOrganizationAddress\": true,\n    \"labAddressLine2\": \"\",\n    \"labDistrict\": \"\",\n    \"establishmentRegistrationNumber\": \"CEA/MH/2025/00123\",\n    \"issuingAuthority\": \"District Health Office\",\n    \"issuingDate\": \"2025-01-01\",\n    \"expiryDate\": \"2030-01-01\",\n    \"labPanSameAsOrganization\": true,\n    \"labGstinSameAsOrganization\": true,\n    \"biomedicalWasteGenerated\": true,\n    \"biomedicalWasteAuthorizationNumber\": \"BMW-2025-0045\",\n    \"biomedicalWasteAuthorizationCertificate\": \"https://example.com/placeholder-bmw.pdf\"\n  },\n  \"confirmPassword\": \"{{password}}\",\n  \"organization\": {\n    \"name\": \"Sunrise Healthcare Pvt Ltd\",\n    \"type\": \"Private Limited Company\",\n    \"email\": \"org@example.com\",\n    \"phone\": \"9876543210\",\n    \"addressLine1\": \"12 MG Road\",\n    \"addressLine2\": \"Near Central Park\",\n    \"country\": \"India\",\n    \"state\": \"Maharashtra\",\n    \"district\": \"Mumbai\",\n    \"city\": \"Mumbai\",\n    \"pinCode\": \"400001\",\n    \"pan\": \"ABCDE1234F\",\n    \"gstin\": \"27ABCDE1234F1Z5\"\n  },\n  \"registrationAuthorizationAccepted\": true,\n  \"termsAccepted\": true,\n  \"termsVersion\": \"1.0\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/onboarding/complete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "public",
+                "onboarding",
+                "complete"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Login (new account)",
+      "item": [
+        {
+          "name": "Login (captures accessToken)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "if (body && body.token) { pm.collectionVariables.set('accessToken', body.token); console.log('accessToken captured'); }",
+                  "else { console.warn('No token in login response body:', body); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "public",
+                "login"
+              ]
+            },
+            "description": "POST /public/login with the account created in step 2."
+          },
+          "response": []
+        },
+        {
+          "name": "Get lab by id (verify stored onboarding fields)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab/admin/get-lab-by-id/{{labId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "lab",
+                "admin",
+                "get-lab-by-id",
+                "{{labId}}"
+              ]
+            },
+            "description": "Verifies the lab created during onboarding."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Lab documents (logo & certificates - S3)",
+      "item": [
+        {
+          "name": "Get document URLs (logo + certificates)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "const d = pm.response.json().data;",
+                  "pm.test('Returns all 5 keys', function () {",
+                  "    ['labLogo','gstinCertificate','establishmentRegistrationCertificate','biomedicalWasteAuthorizationCertificate','nablAccreditationCertificate']",
+                  "        .forEach(k => pm.expect(d).to.have.property(k));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "lab",
+                "admin",
+                "{{labId}}",
+                "documents"
+              ]
+            },
+            "description": "GET /lab/admin/{labId}/documents - returns the stored S3 URL for labLogo, gstinCertificate, establishmentRegistrationCertificate, biomedicalWasteAuthorizationCertificate and nablAccreditationCertificate (null when not uploaded). The same URLs are also returned by the Add / Update calls."
+          },
+          "response": []
+        },
+        {
+          "name": "Add all 5 (logo + 4 certificates)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "const data = pm.response.json().data;",
+                  "pm.test('All 5 URLs returned', function () { ['labLogo','gstinCertificate','establishmentRegistrationCertificate','biomedicalWasteAuthorizationCertificate','nablAccreditationCertificate'].forEach(k => pm.expect(data[k], k).to.be.a('string').and.to.include('/labs/')); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "labLogo",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "gstinCertificate",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "establishmentRegistrationCertificate",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "biomedicalWasteAuthorizationCertificate",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "nablAccreditationCertificate",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "lab",
+                "admin",
+                "{{labId}}",
+                "documents"
+              ]
+            },
+            "description": "POST /lab/admin/{labId}/documents (multipart). Pick a file for each part (PDF/PNG/JPEG, < 1 MB; logo must be PNG/JPEG). All-or-nothing; 400 if a document already exists (use PUT). If the lab was onboarded with the FULL body, the BMW certificate already holds a placeholder URL, so use Update for that one instead of Add."
+          },
+          "response": []
+        },
+        {
+          "name": "Add logo only",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "labLogo",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "lab",
+                "admin",
+                "{{labId}}",
+                "documents"
+              ]
+            },
+            "description": "Any subset of the 5 part names is allowed."
+          },
+          "response": []
+        },
+        {
+          "name": "Add certificates only (no logo)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "gstinCertificate",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "establishmentRegistrationCertificate",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "lab",
+                "admin",
+                "{{labId}}",
+                "documents"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update - replace logo + GSTIN certificate",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "labLogo",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "gstinCertificate",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "lab",
+                "admin",
+                "{{labId}}",
+                "documents"
+              ]
+            },
+            "description": "PUT replaces documents that already exist; old S3 files are deleted only after the DB commit. 400 if a document does not exist yet."
+          },
+          "response": []
+        },
+        {
+          "name": "Update - replace NABL certificate only",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "nablAccreditationCertificate",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "lab",
+                "admin",
+                "{{labId}}",
+                "documents"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete one (gstinCertificate)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('URL cleared', function () { pm.expect(pm.response.json().data.gstinCertificate).to.be.null; });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents?types=gstinCertificate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "lab",
+                "admin",
+                "{{labId}}",
+                "documents"
+              ],
+              "query": [
+                {
+                  "key": "types",
+                  "value": "gstinCertificate"
+                }
+              ]
+            },
+            "description": "DELETE /lab/admin/{labId}/documents?types=... - clears the URL; the S3 object is deleted after commit."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete several",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents?types=labLogo&types=establishmentRegistrationCertificate&types=biomedicalWasteAuthorizationCertificate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "lab",
+                "admin",
+                "{{labId}}",
+                "documents"
+              ],
+              "query": [
+                {
+                  "key": "types",
+                  "value": "labLogo"
+                },
+                {
+                  "key": "types",
+                  "value": "establishmentRegistrationCertificate"
+                },
+                {
+                  "key": "types",
+                  "value": "biomedicalWasteAuthorizationCertificate"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete all 5",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents?types=labLogo&types=gstinCertificate&types=establishmentRegistrationCertificate&types=biomedicalWasteAuthorizationCertificate&types=nablAccreditationCertificate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "lab",
+                "admin",
+                "{{labId}}",
+                "documents"
+              ],
+              "query": [
+                {
+                  "key": "types",
+                  "value": "labLogo"
+                },
+                {
+                  "key": "types",
+                  "value": "gstinCertificate"
+                },
+                {
+                  "key": "types",
+                  "value": "establishmentRegistrationCertificate"
+                },
+                {
+                  "key": "types",
+                  "value": "biomedicalWasteAuthorizationCertificate"
+                },
+                {
+                  "key": "types",
+                  "value": "nablAccreditationCertificate"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "NEGATIVE / rollback checks",
+          "item": [
+            {
+              "name": "Add - valid file + invalid file (expect 400, nothing saved)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 400', function () { pm.response.to.have.status(400); });"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "gstinCertificate",
+                      "type": "file",
+                      "src": []
+                    },
+                    {
+                      "key": "nablAccreditationCertificate",
+                      "type": "file",
+                      "src": []
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "lab",
+                    "admin",
+                    "{{labId}}",
+                    "documents"
+                  ]
+                },
+                "description": "Pick a valid PDF/PNG/JPEG for gstinCertificate and a .txt/.docx for nablAccreditationCertificate. Validation fails before any upload, so gstinCertificate must not be saved either."
+              },
+              "response": []
+            },
+            {
+              "name": "Add - file over 1 MB (expect 400)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 400', function () { pm.response.to.have.status(400); });"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "establishmentRegistrationCertificate",
+                      "type": "file",
+                      "src": []
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "lab",
+                    "admin",
+                    "{{labId}}",
+                    "documents"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Add - PDF as labLogo (expect 400)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 400', function () { pm.response.to.have.status(400); });"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "labLogo",
+                      "type": "file",
+                      "src": []
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "lab",
+                    "admin",
+                    "{{labId}}",
+                    "documents"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Add - unknown part name (expect 400)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 400', function () { pm.response.to.have.status(400); });"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "somethingElse",
+                      "type": "file",
+                      "src": []
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "lab",
+                    "admin",
+                    "{{labId}}",
+                    "documents"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Add - already exists (expect 400)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "labLogo",
+                      "type": "file",
+                      "src": []
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "lab",
+                    "admin",
+                    "{{labId}}",
+                    "documents"
+                  ]
+                },
+                "description": "Run after a successful add."
+              },
+              "response": []
+            },
+            {
+              "name": "Update - does not exist yet (expect 400)",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "labLogo",
+                      "type": "file",
+                      "src": []
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "lab",
+                    "admin",
+                    "{{labId}}",
+                    "documents"
+                  ]
+                },
+                "description": "Run when the document has not been added yet."
+              },
+              "response": []
+            },
+            {
+              "name": "Delete - no types (expect 400)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 400', function () { pm.response.to.have.status(400); });"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "lab",
+                    "admin",
+                    "{{labId}}",
+                    "documents"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Delete - one existing + one missing (expect 400, nothing deleted)",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents?types=labLogo&types=nablAccreditationCertificate",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "lab",
+                    "admin",
+                    "{{labId}}",
+                    "documents"
+                  ],
+                  "query": [
+                    {
+                      "key": "types",
+                      "value": "labLogo"
+                    },
+                    {
+                      "key": "types",
+                      "value": "nablAccreditationCertificate"
+                    }
+                  ]
+                },
+                "description": "Use when one of the two is empty: the whole request is rejected and the existing one is kept."
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

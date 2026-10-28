@@ -1,0 +1,848 @@
+{
+  "info": {
+    "name": "Lab Documents (Logo & Certificates - S3)",
+    "description": "Add / update / delete lab logo and certificates stored in S3 (LabDocumentController). Run \"Login\" first - it auto-captures the JWT into {{token}}, which every request sends as `Authorization: Bearer {{token}}`.\n\nSet {{labId}} to a lab the logged-in user is a member of (role ADMIN / SUPERADMIN).\nIn each form-data request, tick only the parts you want and pick a file for them (PDF/PNG/JPEG, < 1 MB; the logo must be PNG/JPEG).\n\nAll operations are all-or-nothing: if any upload or the DB save fails, nothing is saved and files uploaded in that call are deleted from S3.\n\nBase URL: {{baseUrl}} (context path /api/v1 included in each request path below).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "username",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "password",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "labId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Login",
+      "item": [
+        {
+          "name": "Login (get token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "if (body && body.token) {",
+                  "    pm.collectionVariables.set('token', body.token);",
+                  "    console.log('token captured');",
+                  "} else {",
+                  "    console.warn('No token in login response body:', body);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "public",
+                "login"
+              ]
+            },
+            "description": "POST /public/login - stores `token` into {{token}} automatically."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Add documents (POST)",
+      "item": [
+        {
+          "name": "Get document URLs (logo + certificates)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "const d = pm.response.json().data;",
+                  "pm.test('Returns all 5 keys', function () {",
+                  "    ['labLogo','gstinCertificate','establishmentRegistrationCertificate','biomedicalWasteAuthorizationCertificate','nablAccreditationCertificate']",
+                  "        .forEach(k => pm.expect(d).to.have.property(k));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "lab",
+                "admin",
+                "{{labId}}",
+                "documents"
+              ]
+            },
+            "description": "GET /lab/admin/{labId}/documents - returns the stored S3 URL for labLogo, gstinCertificate, establishmentRegistrationCertificate, biomedicalWasteAuthorizationCertificate and nablAccreditationCertificate (null when not uploaded). The same URLs are also returned by the Add / Update calls."
+          },
+          "response": []
+        },
+        {
+          "name": "Add all 5 (logo + 4 certificates)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "const data = pm.response.json().data;",
+                  "pm.test('All 5 URLs returned', function () {",
+                  "    ['labLogo','gstinCertificate','establishmentRegistrationCertificate','biomedicalWasteAuthorizationCertificate','nablAccreditationCertificate']",
+                  "        .forEach(k => pm.expect(data[k], k).to.be.a('string').and.to.include('/labs/'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "labLogo",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "gstinCertificate",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "establishmentRegistrationCertificate",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "biomedicalWasteAuthorizationCertificate",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "nablAccreditationCertificate",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "lab",
+                "admin",
+                "{{labId}}",
+                "documents"
+              ]
+            },
+            "description": "POST /lab/admin/{labId}/documents - uploads every attached file to S3 and stores the URLs. Fails with 400 if a document already exists (use PUT). If any one fails, everything is rolled back."
+          },
+          "response": []
+        },
+        {
+          "name": "Add logo only",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "labLogo",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "lab",
+                "admin",
+                "{{labId}}",
+                "documents"
+              ]
+            },
+            "description": "Add a single document. Any subset of the 5 part names is allowed."
+          },
+          "response": []
+        },
+        {
+          "name": "Add certificates only (no logo)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "gstinCertificate",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "establishmentRegistrationCertificate",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "lab",
+                "admin",
+                "{{labId}}",
+                "documents"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Update documents (PUT)",
+      "item": [
+        {
+          "name": "Replace logo + one certificate",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "labLogo",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "gstinCertificate",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "lab",
+                "admin",
+                "{{labId}}",
+                "documents"
+              ]
+            },
+            "description": "PUT /lab/admin/{labId}/documents - replaces documents that already exist (400 if one does not exist yet - use POST). The old S3 files are deleted only after the DB commit succeeds."
+          },
+          "response": []
+        },
+        {
+          "name": "Replace NABL certificate only",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "nablAccreditationCertificate",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "lab",
+                "admin",
+                "{{labId}}",
+                "documents"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Delete documents (DELETE)",
+      "item": [
+        {
+          "name": "Delete one (gstinCertificate)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('URL cleared', function () { pm.expect(pm.response.json().data.gstinCertificate).to.be.null; });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents?types=gstinCertificate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "lab",
+                "admin",
+                "{{labId}}",
+                "documents"
+              ],
+              "query": [
+                {
+                  "key": "types",
+                  "value": "gstinCertificate"
+                }
+              ]
+            },
+            "description": "DELETE /lab/admin/{labId}/documents?types=... - clears the stored URL and deletes the S3 object after commit. 400 if that document does not exist."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete several (repeat `types`)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents?types=labLogo&types=establishmentRegistrationCertificate&types=biomedicalWasteAuthorizationCertificate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "lab",
+                "admin",
+                "{{labId}}",
+                "documents"
+              ],
+              "query": [
+                {
+                  "key": "types",
+                  "value": "labLogo"
+                },
+                {
+                  "key": "types",
+                  "value": "establishmentRegistrationCertificate"
+                },
+                {
+                  "key": "types",
+                  "value": "biomedicalWasteAuthorizationCertificate"
+                }
+              ]
+            },
+            "description": "Valid values: labLogo, gstinCertificate, establishmentRegistrationCertificate, biomedicalWasteAuthorizationCertificate, nablAccreditationCertificate."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete all 5",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents?types=labLogo&types=gstinCertificate&types=establishmentRegistrationCertificate&types=biomedicalWasteAuthorizationCertificate&types=nablAccreditationCertificate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "lab",
+                "admin",
+                "{{labId}}",
+                "documents"
+              ],
+              "query": [
+                {
+                  "key": "types",
+                  "value": "labLogo"
+                },
+                {
+                  "key": "types",
+                  "value": "gstinCertificate"
+                },
+                {
+                  "key": "types",
+                  "value": "establishmentRegistrationCertificate"
+                },
+                {
+                  "key": "types",
+                  "value": "biomedicalWasteAuthorizationCertificate"
+                },
+                {
+                  "key": "types",
+                  "value": "nablAccreditationCertificate"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Negative / rollback checks",
+      "item": [
+        {
+          "name": "Add - one valid file + one non-PDF/image file (expect 400, nothing saved)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', function () { pm.response.to.have.status(400); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "gstinCertificate",
+                  "type": "file",
+                  "src": [],
+                  "description": "pick a valid PDF/PNG/JPEG"
+                },
+                {
+                  "key": "nablAccreditationCertificate",
+                  "type": "file",
+                  "src": [],
+                  "description": "pick an invalid file, e.g. a .txt or .docx"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "lab",
+                "admin",
+                "{{labId}}",
+                "documents"
+              ]
+            },
+            "description": "Validation fails before any upload, so gstinCertificate must NOT be saved either. Verify with get-lab-by-id / S3 console."
+          },
+          "response": []
+        },
+        {
+          "name": "Add - file over 1 MB (expect 400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "establishmentRegistrationCertificate",
+                  "type": "file",
+                  "src": [],
+                  "description": "pick a file larger than 1 MB"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "lab",
+                "admin",
+                "{{labId}}",
+                "documents"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add - PDF as labLogo (expect 400, logo must be an image)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "labLogo",
+                  "type": "file",
+                  "src": [],
+                  "description": "pick a PDF"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "lab",
+                "admin",
+                "{{labId}}",
+                "documents"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add - unknown part name (expect 400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "somethingElse",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "lab",
+                "admin",
+                "{{labId}}",
+                "documents"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add - already exists (expect 400, use update)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "labLogo",
+                  "type": "file",
+                  "src": [],
+                  "description": "run after a successful add"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "lab",
+                "admin",
+                "{{labId}}",
+                "documents"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update - does not exist yet (expect 400, use add)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "labLogo",
+                  "type": "file",
+                  "src": [],
+                  "description": "run when the lab has no logo stored via this API"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "lab",
+                "admin",
+                "{{labId}}",
+                "documents"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete - no types (expect 400)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "lab",
+                "admin",
+                "{{labId}}",
+                "documents"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete - one valid + one that does not exist (expect 400, nothing deleted)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents?types=labLogo&types=nablAccreditationCertificate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "lab",
+                "admin",
+                "{{labId}}",
+                "documents"
+              ],
+              "query": [
+                {
+                  "key": "types",
+                  "value": "labLogo"
+                },
+                {
+                  "key": "types",
+                  "value": "nablAccreditationCertificate"
+                }
+              ]
+            },
+            "description": "Use with a lab where one of the two is empty: the whole request is rejected and the existing one is kept."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

@@ -56,3 +56,5 @@ Thumbs.db
 #application-dev.yml
 application-test.yml
 application-dev.yml
+# local environment variables (use .env.example as a template)
+.env

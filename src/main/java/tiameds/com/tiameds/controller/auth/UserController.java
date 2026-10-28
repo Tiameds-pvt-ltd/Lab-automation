@@ -24,6 +24,7 @@ import tiameds.com.tiameds.repository.ModuleRepository;
 import tiameds.com.tiameds.services.auth.UserDetailsServiceImpl;
 import tiameds.com.tiameds.services.auth.UserService;
 import tiameds.com.tiameds.services.lab.SequenceGeneratorService;
+import tiameds.com.tiameds.services.onboarding.OnboardingApprovalService;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.JwtUtil;
 import tiameds.com.tiameds.entity.Role;
@@ -47,9 +48,10 @@ public class UserController {
     private final ModuleRepository moduleRepository;
     private final RateLimitConfig.RateLimitService rateLimitService;
     private final SequenceGeneratorService sequenceGeneratorService;
+    private final OnboardingApprovalService onboardingApprovalService;
 
     @Autowired
-    public UserController(UserService userService, AuthenticationManager authenticationManager, UserDetailsServiceImpl userDetailsService, PasswordEncoder passwordEncoder, JwtUtil jwtUtils, ModuleRepository moduleRepository, RateLimitConfig.RateLimitService rateLimitService, SequenceGeneratorService sequenceGeneratorService) {
+    public UserController(UserService userService, AuthenticationManager authenticationManager, UserDetailsServiceImpl userDetailsService, PasswordEncoder passwordEncoder, JwtUtil jwtUtils, ModuleRepository moduleRepository, RateLimitConfig.RateLimitService rateLimitService, SequenceGeneratorService sequenceGeneratorService, OnboardingApprovalService onboardingApprovalService) {
         this.userService = userService;
         this.authenticationManager = authenticationManager;
         this.userDetailsService = userDetailsService;
@@ -58,6 +60,7 @@ public class UserController {
         this.moduleRepository = moduleRepository;
         this.rateLimitService = rateLimitService;
         this.sequenceGeneratorService = sequenceGeneratorService;
+        this.onboardingApprovalService = onboardingApprovalService;
     }
 
     @GetMapping("/health-check")
@@ -111,6 +114,13 @@ public class UserController {
                     .body(new AuthResponse(HttpStatus.BAD_REQUEST, "User not found", null, null));
         }
         User user = userOptional.get();
+
+        // Labs registered through onboarding can only log in once approved
+        Optional<String> loginBlockedMessage = onboardingApprovalService.getLoginBlockedMessage(user.getId());
+        if (loginBlockedMessage.isPresent()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(new AuthResponse(HttpStatus.FORBIDDEN, loginBlockedMessage.get(), null, null));
+        }
 
         // Generate JWT token with tokenVersion
         token = jwtUtils.generateToken(userDetails.getUsername(), user.getTokenVersion());

@@ -7,6 +7,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import tiameds.com.tiameds.services.onboarding.OnboardingApprovalService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -82,6 +83,7 @@ public class  AuthController {
     private final PasswordResetRateLimitService passwordResetRateLimitService;
     private final PasswordEncoder passwordEncoder;
     private final AuditLogService auditLogService;
+    private final OnboardingApprovalService onboardingApprovalService;
 
     @Value("${password.reset.url:https://app.com/reset-password}")
     private String passwordResetUrl;
@@ -111,6 +113,12 @@ public class  AuthController {
 
         User user = findByUsernameOrEmail(usernameOrEmail)
                 .orElseThrow(() -> new IllegalStateException("Authenticated user not found"));
+
+        // Labs registered through onboarding can only log in once approved (checked after the password, before any OTP is sent)
+        Optional<String> loginBlockedMessage = onboardingApprovalService.getLoginBlockedMessage(user.getId());
+        if (loginBlockedMessage.isPresent()) {
+            return errorResponse(HttpStatus.FORBIDDEN, loginBlockedMessage.get());
+        }
 
         // Extract email from database (not from client input)
         String email = user.getEmail();

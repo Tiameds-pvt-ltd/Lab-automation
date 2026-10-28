@@ -1,0 +1,52 @@
+{
+  "info": {
+    "name": "Lab - Upload Documents",
+    "description": "Upload lab logo and certificates to S3 (URLs are saved on the lab). Set {{baseUrl}}, {{accessToken}} (JWT of an ADMIN/SUPERADMIN lab member) and {{labId}}. Tick only the parts you want and pick a file for each (PDF/PNG/JPEG, < 1 MB; logo must be PNG/JPEG).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080", "type": "string" },
+    { "key": "accessToken", "value": "", "type": "string" },
+    { "key": "labId", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Upload documents",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+              "console.log(pm.response.json().data);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "labLogo", "type": "file", "src": [] },
+            { "key": "gstinCertificate", "type": "file", "src": [] },
+            { "key": "establishmentRegistrationCertificate", "type": "file", "src": [] },
+            { "key": "biomedicalWasteAuthorizationCertificate", "type": "file", "src": [] },
+            { "key": "nablAccreditationCertificate", "type": "file", "src": [] }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/lab/admin/{{labId}}/documents",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "lab", "admin", "{{labId}}", "documents"]
+        },
+        "description": "POST /lab/admin/{labId}/documents (multipart/form-data). Uploads each attached file to S3 and saves the URLs. All-or-nothing: if any file fails, nothing is saved. Returns 400 if a document already exists (use PUT to replace)."
+      },
+      "response": []
+    }
+  ]
+}

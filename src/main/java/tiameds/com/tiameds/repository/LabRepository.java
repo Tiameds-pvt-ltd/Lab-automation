@@ -6,6 +6,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 import tiameds.com.tiameds.entity.Lab;
+import tiameds.com.tiameds.entity.LabApprovalStatus;
 import tiameds.com.tiameds.entity.User;
 
 import java.math.BigDecimal;
@@ -20,6 +21,11 @@ import java.util.Set;
 public interface LabRepository extends JpaRepository<Lab, Long> {
 
     boolean existsByName(String name);
+
+    List<Lab> findByApprovalStatusOrderByApprovalRequestedAtAsc(LabApprovalStatus approvalStatus);
+
+    @Query("SELECT l.approvalStatus FROM Lab l JOIN l.members m WHERE m.id = :userId")
+    List<LabApprovalStatus> findApprovalStatusesByMemberId(@Param("userId") Long userId);
 
     @Query("SELECT l FROM Lab l WHERE l.createdBy = :currentUser AND l.isActive = true")
     List<Lab> findByCreatedBy(@Param("currentUser") User currentUser);

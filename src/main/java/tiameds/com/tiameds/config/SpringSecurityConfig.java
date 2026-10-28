@@ -167,6 +167,8 @@ public class SpringSecurityConfig {
                                 .requestMatchers("/lab/*/report-settings", "/lab/*/report-settings/**").hasAnyRole("SUPERADMIN", "ADMIN")
 //                                .requestMatchers("/lab/**").hasRole("ADMIN")
                                 .requestMatchers("/lab-admin/stats/**").hasAnyRole("SUPERADMIN", "ADMIN")
+                                // Called by the independent platform-admin module; no auth here, access is restricted at network level
+                                .requestMatchers("/platform-admin/**").permitAll()
                                 .requestMatchers("/lab-super-admin/samples/**").hasAnyRole("SUPERADMIN", "ADMIN", "TECHNICIAN")
                                 .requestMatchers("/lab-super-admin/**").hasRole("SUPERADMIN")
                                 .requestMatchers("/error").permitAll()
