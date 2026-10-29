@@ -13,6 +13,8 @@ import java.util.function.Function;
 public enum LabDocumentType {
 
     LAB_LOGO("labLogo", "lab-logo", Lab::getLabLogo, Lab::setLabLogo),
+    ORGANIZATION_GSTIN_CERTIFICATE("organizationGstinCertificate", "organization-gstin-certificate",
+            Lab::getOrganizationGstinCertificate, Lab::setOrganizationGstinCertificate),
     GSTIN_CERTIFICATE("gstinCertificate", "gstin-certificate", Lab::getGstinCertificate, Lab::setGstinCertificate),
     ESTABLISHMENT_REGISTRATION_CERTIFICATE("establishmentRegistrationCertificate", "establishment-registration-certificate",
             Lab::getEstablishmentRegistrationCertificate, Lab::setEstablishmentRegistrationCertificate),

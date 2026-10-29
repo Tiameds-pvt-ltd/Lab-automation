@@ -117,6 +117,21 @@ public class S3StorageService {
         return "https://" + s3Bucket + ".s3." + s3Region + ".amazonaws.com/" + key;
     }
 
+    /**
+     * True if the URL points to an object stored by this service under the given key prefix.
+     */
+    public boolean isUrlUnderPrefix(String url, String keyPrefix) {
+        if (url == null) {
+            return false;
+        }
+        String base = buildFileUrl(keyPrefix);
+        if (!url.startsWith(base)) {
+            return false;
+        }
+        String remainder = url.substring(base.length());
+        return !remainder.isEmpty() && !java.util.Arrays.asList(remainder.split("/")).contains("..") && !remainder.contains("?") && !remainder.contains("#");
+    }
+
     public String sanitizeFileName(String fileName) {
         String normalized = fileName.replace("\\", "/");
         String baseName = normalized.substring(normalized.lastIndexOf("/") + 1);

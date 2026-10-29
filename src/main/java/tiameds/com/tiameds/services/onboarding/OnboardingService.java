@@ -15,6 +15,8 @@ import tiameds.com.tiameds.entity.VerificationToken;
 import tiameds.com.tiameds.repository.LabRepository;
 import tiameds.com.tiameds.repository.RoleRepository;
 import tiameds.com.tiameds.repository.UserRepository;
+import tiameds.com.tiameds.services.S3StorageService;
+import tiameds.com.tiameds.services.lab.LabDocumentService;
 import tiameds.com.tiameds.services.lab.SequenceGeneratorService;
 
 import java.time.LocalDateTime;
@@ -44,6 +46,7 @@ public class OnboardingService {
     private final PasswordEncoder passwordEncoder;
     private final VerificationTokenService tokenService;
     private final SequenceGeneratorService sequenceGeneratorService;
+    private final S3StorageService s3StorageService;
 
     public OnboardingService(
             UserRepository userRepository,
@@ -51,13 +54,15 @@ public class OnboardingService {
             RoleRepository roleRepository,
             PasswordEncoder passwordEncoder,
             VerificationTokenService tokenService,
-            SequenceGeneratorService sequenceGeneratorService) {
+            SequenceGeneratorService sequenceGeneratorService,
+            S3StorageService s3StorageService) {
         this.userRepository = userRepository;
         this.labRepository = labRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenService = tokenService;
         this.sequenceGeneratorService = sequenceGeneratorService;
+        this.s3StorageService = s3StorageService;
     }
 
     /**
@@ -211,10 +216,21 @@ public class OnboardingService {
             throw new IllegalArgumentException("Invalid organization type: " + org.getType());
         }
 
+        // Documents must be files uploaded through /public/onboarding/documents, not arbitrary URLs
+        if (org != null) {
+            requireUploadedDocument("organizationGstinCertificate", org.getGstinCertificate());
+        }
+
         OnboardingRequestDTO.LabInfoDTO labInfo = request.getLab();
         if (labInfo == null) {
             return;
         }
+
+        requireUploadedDocument("labLogo", labInfo.getLabLogo());
+        requireUploadedDocument("gstinCertificate", labInfo.getGstinCertificate());
+        requireUploadedDocument("establishmentRegistrationCertificate", labInfo.getEstablishmentRegistrationCertificate());
+        requireUploadedDocument("biomedicalWasteAuthorizationCertificate", labInfo.getBiomedicalWasteAuthorizationCertificate());
+        requireUploadedDocument("nablAccreditationCertificate", labInfo.getNablAccreditationCertificate());
 
         if (labInfo.getLabServices() != null) {
             for (String service : labInfo.getLabServices()) {
@@ -261,6 +277,7 @@ public class OnboardingService {
             lab.setOrganizationPinCode(org.getPinCode());
             lab.setOrganizationPan(org.getPan());
             lab.setOrganizationGstin(org.getGstin());
+            lab.setOrganizationGstinCertificate(org.getGstinCertificate());
         }
 
         // Lab services (multi-select) stored as comma-separated values
@@ -310,6 +327,12 @@ public class OnboardingService {
         if (Boolean.TRUE.equals(request.getTermsAccepted())) {
             lab.setTermsVersion(request.getTermsVersion());
             lab.setTermsAcceptedAt(LocalDateTime.now());
+        }
+    }
+
+    private void requireUploadedDocument(String field, String url) {
+        if (!isBlank(url) && !s3StorageService.isUrlUnderPrefix(url, LabDocumentService.ONBOARDING_S3_PREFIX)) {
+            throw new IllegalArgumentException(field + " must be a file uploaded through the onboarding document upload");
         }
     }
 

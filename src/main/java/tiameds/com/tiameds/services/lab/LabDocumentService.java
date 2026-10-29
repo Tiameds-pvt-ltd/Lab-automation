@@ -33,6 +33,9 @@ import java.util.Set;
 @Service
 public class LabDocumentService {
 
+    /** S3 key prefix of documents uploaded during onboarding (before the lab exists). */
+    public static final String ONBOARDING_S3_PREFIX = "onboarding/";
+
     private static final long MAX_FILE_SIZE_BYTES = 1024 * 1024; // 1 MB
 
     private final LabRepository labRepository;
@@ -116,6 +119,36 @@ public class LabDocumentService {
         labRepository.saveAndFlush(lab);
 
         registerS3Cleanup(new ArrayList<>(), obsoleteUrls);
+        return result;
+    }
+
+    /**
+     * Uploads files to S3 without a lab (used during onboarding, before the lab exists) and returns the URL per
+     * document type. Every file is validated before anything is uploaded; if an upload fails, the objects already
+     * uploaded by this call are deleted.
+     *
+     * @param keyPrefix S3 folder for this upload, ending with "/"
+     */
+    public Map<String, String> uploadFiles(String keyPrefix, Map<LabDocumentType, MultipartFile> files) {
+        requireFiles(files);
+        Map<LabDocumentType, ValidatedFile> validated = new LinkedHashMap<>();
+        files.forEach((type, file) -> validated.put(type, validate(type, file)));
+
+        List<String> uploadedUrls = new ArrayList<>();
+        Map<String, String> result = new LinkedHashMap<>();
+        try {
+            for (Map.Entry<LabDocumentType, ValidatedFile> entry : validated.entrySet()) {
+                LabDocumentType type = entry.getKey();
+                ValidatedFile file = entry.getValue();
+                String key = s3StorageService.generateUniqueKey(keyPrefix + type.getFolder() + "/", file.fileName());
+                String url = s3StorageService.uploadObject(key, file.content(), file.contentType());
+                uploadedUrls.add(url);
+                result.put(type.getParam(), url);
+            }
+        } catch (RuntimeException e) {
+            uploadedUrls.forEach(s3StorageService::deleteObjectByUrl);
+            throw e;
+        }
         return result;
     }
 

@@ -38,6 +38,7 @@ public class OnboardingRequestSummaryDTO {
 
     private String labLogo;
     private String establishmentRegistrationCertificate;
+    private String organizationGstinCertificate;
     private String gstinCertificate;
     private String biomedicalWasteAuthorizationCertificate;
     private String nablAccreditationCertificate;

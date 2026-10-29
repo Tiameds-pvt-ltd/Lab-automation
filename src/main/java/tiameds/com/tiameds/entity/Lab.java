@@ -146,6 +146,9 @@ public class Lab {
     @Column(name = "organization_gstin", length = 15)
     private String organizationGstin;
 
+    @Column(name = "organization_gstin_certificate")
+    private String organizationGstinCertificate;
+
     //    ======================onboarding: additional lab info=========================
 
     // Comma-separated list of selected laboratory services

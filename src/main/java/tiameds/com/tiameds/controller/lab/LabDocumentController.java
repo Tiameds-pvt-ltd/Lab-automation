@@ -31,7 +31,7 @@ import java.util.function.Function;
  * Lab logo and certificate files stored in S3 (URL stored on the lab).
  * Covered by the existing /lab/admin/** rule (ADMIN / SUPERADMIN).
  *
- * Part names / type values: labLogo, gstinCertificate, establishmentRegistrationCertificate,
+ * Part names / type values: labLogo, organizationGstinCertificate, gstinCertificate (lab GST), establishmentRegistrationCertificate,
  * biomedicalWasteAuthorizationCertificate, nablAccreditationCertificate.
  */
 @Slf4j

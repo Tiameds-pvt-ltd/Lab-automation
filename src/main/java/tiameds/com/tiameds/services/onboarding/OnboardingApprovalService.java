@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Review of onboarding requests: a lab registered through onboarding stays inactive
@@ -63,13 +64,14 @@ public class OnboardingApprovalService {
             return;
         }
         String email = applicant.getEmail();
-        Runnable send = () -> {
+        // Sent off the request thread so a slow SMTP server never delays the admin's approve call
+        Runnable send = () -> CompletableFuture.runAsync(() -> {
             try {
                 emailService.sendApplicationApprovedEmail(email);
             } catch (Exception e) {
                 log.error("Approval email could not be sent to {}: {}", email, e.getMessage());
             }
-        };
+        });
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
@@ -144,6 +146,7 @@ public class OnboardingApprovalService {
                 .expiryDate(lab.getExpiryDate())
                 .labLogo(lab.getLabLogo())
                 .establishmentRegistrationCertificate(lab.getEstablishmentRegistrationCertificate())
+                .organizationGstinCertificate(lab.getOrganizationGstinCertificate())
                 .gstinCertificate(lab.getGstinCertificate())
                 .biomedicalWasteAuthorizationCertificate(lab.getBiomedicalWasteAuthorizationCertificate())
                 .nablAccreditationCertificate(lab.getNablAccreditationCertificate())

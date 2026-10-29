@@ -120,6 +120,9 @@ public class OnboardingRequestDTO {
 
         @Pattern(regexp = "^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$", message = "Organization GSTIN must be a valid 15-character GSTIN")
         private String gstin;
+
+        // URL returned by /public/onboarding/documents (part name: organizationGstinCertificate)
+        private String gstinCertificate;
     }
 
     @Data
