@@ -79,22 +79,23 @@ public class Lab {
     @Column(name = "director_phone",nullable = false)
     private String directorPhone;
 
-    @Column(name = "certification_body",nullable = false)
+    // Optional during onboarding (see V59 migration)
+    @Column(name = "certification_body")
     private String certificationBody;
 
-    @Column(name = "lab_certificate",nullable = false)
+    @Column(name = "lab_certificate")
     private String labCertificate;
 
-    @Column(name = "director_govt_id",nullable = false)
+    @Column(name = "director_govt_id")
     private String directorGovtId;
 
-    @Column(name = "lab_business_registration",nullable = false)
+    @Column(name = "lab_business_registration")
     private String labBusinessRegistration;
 
-    @Column(name = "lab_license",nullable = false)
+    @Column(name = "lab_license")
     private String labLicense;
 
-    @Column(name = "tax_id",nullable = false)
+    @Column(name = "tax_id")
     private String taxId;
 
     @Column(name = "lab_accreditation",nullable = false)
