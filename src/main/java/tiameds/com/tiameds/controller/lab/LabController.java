@@ -318,8 +318,14 @@ public class LabController {
             return ApiResponseHelper.successResponseWithDataAndMessage("User not found", HttpStatus.UNAUTHORIZED, null);
         }
         User currentUser = currentUserOptional.get();
-        LabService.UpdateLabResult result = labService.updateLabById(currentUser, labId, labRequestDTO);
-        return ApiResponseHelper.successResponseWithDataAndMessage(result.getMessage(), result.getStatus(), result.getData());
+        try {
+            LabService.UpdateLabResult result = labService.updateLabById(currentUser, labId, labRequestDTO);
+            return ApiResponseHelper.successResponseWithDataAndMessage(result.getMessage(), result.getStatus(), result.getData());
+        } catch (IllegalArgumentException e) {
+            // Validation error in the onboarding fields: the whole update was rolled back
+            log.warn("Lab update failed for lab {}: {}", labId, e.getMessage());
+            return ApiResponseHelper.successResponseWithDataAndMessage(e.getMessage(), HttpStatus.BAD_REQUEST, null);
+        }
     }
 
     //  get all members of a lab

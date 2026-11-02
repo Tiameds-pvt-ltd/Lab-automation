@@ -15,6 +15,7 @@ import tiameds.com.tiameds.dto.lab.LabListFullDTO;
 import tiameds.com.tiameds.dto.lab.LabLogoUploadRequestDTO;
 import tiameds.com.tiameds.dto.lab.LabLogoUploadResponseDTO;
 import tiameds.com.tiameds.dto.lab.LabMemberDTO;
+import tiameds.com.tiameds.dto.lab.LabOnboardingDetailsDTO;
 import tiameds.com.tiameds.dto.lab.LabRequestDTO;
 import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.entity.User;
@@ -34,6 +35,7 @@ public class LabService {
     private final LabRepository labRepository;
     private final LabAccessableFilter labAccessableFilter;
     private final UserRepository userRepository;
+    private final LabOnboardingDetailsService labOnboardingDetailsService;
     private final String s3Bucket;
     private final String s3Region;
     private final String s3CdnBaseUrl;
@@ -43,6 +45,7 @@ public class LabService {
             LabRepository labRepository,
             LabAccessableFilter labAccessableFilter,
             UserRepository userRepository,
+            LabOnboardingDetailsService labOnboardingDetailsService,
             @Value("${aws.s3.bucket:}") String s3Bucket,
             @Value("${aws.s3.region:}") String s3Region,
             @Value("${aws.s3.cdn-base-url:}") String s3CdnBaseUrl,
@@ -51,6 +54,7 @@ public class LabService {
         this.labRepository = labRepository;
         this.labAccessableFilter = labAccessableFilter;
         this.userRepository = userRepository;
+        this.labOnboardingDetailsService = labOnboardingDetailsService;
         this.s3Bucket = s3Bucket;
         this.s3Region = s3Region;
         this.s3CdnBaseUrl = s3CdnBaseUrl;
@@ -136,6 +140,7 @@ public class LabService {
         if (!userRepository.existsByIdAndLabsId(currentUser.getId(), labId)) {
             return new UpdateLabResult(HttpStatus.UNAUTHORIZED, "User is not a member of this lab", null);
         }
+        rejectCertificateChanges(lab, labRequestDTO);
         // Capture old logo URL so we can delete it after a successful update.
         String oldLogoUrl = lab.getLabLogo();
         lab.setName(labRequestDTO.getName());
@@ -166,6 +171,16 @@ public class LabService {
         lab.setLabAccreditation(labRequestDTO.getLabAccreditation());
         lab.setDataPrivacyAgreement(labRequestDTO.getDataPrivacyAgreement());
         labRepository.save(lab);
+
+        // Onboarding fields (organization, services, compliance...) are optional: only what is sent is changed.
+        // Same rules as PUT /lab/admin/{labId}/onboarding-details; a rule violation throws
+        // IllegalArgumentException and rolls back this whole update.
+        LabOnboardingDetailsDTO onboardingDetails = toOnboardingDetails(labRequestDTO);
+        if (onboardingDetails != null) {
+            LabRequestFormatValidator.validate(labRequestDTO);
+            labOnboardingDetailsService.updateDetails(currentUser, labId, onboardingDetails);
+        }
+
         // Best-effort cleanup: delete previous logo only after DB update succeeds.
         if (newLogoUrl != null && !newLogoUrl.isBlank()
                 && oldLogoUrl != null && !oldLogoUrl.isBlank()
@@ -174,6 +189,97 @@ public class LabService {
         }
         return new UpdateLabResult(HttpStatus.OK, "Lab updated successfully", toLabListFullDTO(lab));
     }
+
+    /**
+     * Certificates change only through an approved certificate request (same rule as the lab documents endpoint).
+     * Sending the stored URL back unchanged (a full-form save) is accepted; a different one is rejected.
+     */
+    private void rejectCertificateChanges(Lab lab, LabRequestDTO request) {
+        String orgGstinCertificate = request.getOrganization() != null ? request.getOrganization().getGstinCertificate() : null;
+        rejectIfChanged("organization.gstinCertificate", orgGstinCertificate, lab.getOrganizationGstinCertificate());
+        rejectIfChanged("gstinCertificate", request.getGstinCertificate(), lab.getGstinCertificate());
+        rejectIfChanged("establishmentRegistrationCertificate", request.getEstablishmentRegistrationCertificate(),
+                lab.getEstablishmentRegistrationCertificate());
+        rejectIfChanged("biomedicalWasteAuthorizationCertificate", request.getBiomedicalWasteAuthorizationCertificate(),
+                lab.getBiomedicalWasteAuthorizationCertificate());
+        rejectIfChanged("nablAccreditationCertificate", request.getNablAccreditationCertificate(),
+                lab.getNablAccreditationCertificate());
+    }
+
+    private void rejectIfChanged(String field, String requested, String stored) {
+        if (requested == null || requested.isBlank() || requested.trim().equals(stored)) {
+            return;
+        }
+        throw new IllegalArgumentException(field + " is a certificate and cannot be changed here. "
+                + "Submit a certificate request (POST /lab/admin/{labId}/certificate-requests); "
+                + "it takes effect once it is approved");
+    }
+
+    /**
+     * Collects the onboarding fields of the request. Returns null when none were sent, so a request that
+     * only has the older fields behaves exactly as before.
+     * Documents (certificates), terms acceptance and approval status are not edited here.
+     */
+    private LabOnboardingDetailsDTO toOnboardingDetails(LabRequestDTO request) {
+        LabOnboardingDetailsDTO.OrganizationDetails org = null;
+        LabRequestDTO.OrganizationInfo src = request.getOrganization();
+        if (src != null) {
+            org = new LabOnboardingDetailsDTO.OrganizationDetails();
+            org.setName(src.getName());
+            org.setType(src.getType());
+            org.setEmail(src.getEmail());
+            org.setPhone(src.getPhone());
+            org.setAddressLine1(src.getAddressLine1());
+            org.setAddressLine2(src.getAddressLine2());
+            org.setCountry(src.getCountry());
+            org.setState(src.getState());
+            org.setDistrict(src.getDistrict());
+            org.setCity(src.getCity());
+            org.setPinCode(src.getPinCode());
+            org.setPan(src.getPan());
+            org.setGstin(src.getGstin());
+        }
+
+        LabOnboardingDetailsDTO.LabDetails details = new LabOnboardingDetailsDTO.LabDetails();
+        details.setLabServices(request.getLabServices());
+        details.setSameAsOrganizationAddress(request.getSameAsOrganizationAddress());
+        details.setLabAddressLine2(request.getLabAddressLine2());
+        details.setLabDistrict(request.getLabDistrict());
+        details.setEstablishmentRegistrationNumber(request.getEstablishmentRegistrationNumber());
+        details.setIssuingAuthority(request.getIssuingAuthority());
+        details.setIssuingDate(request.getIssuingDate());
+        details.setExpiryDate(request.getExpiryDate());
+        details.setLabPan(request.getLabPan());
+        details.setLabPanSameAsOrganization(request.getLabPanSameAsOrganization());
+        details.setLabGstin(request.getLabGstin());
+        details.setLabGstinSameAsOrganization(request.getLabGstinSameAsOrganization());
+        details.setBiomedicalWasteGenerated(request.getBiomedicalWasteGenerated());
+        details.setBiomedicalWasteAuthorizationNumber(request.getBiomedicalWasteAuthorizationNumber());
+
+        boolean hasLabFields = details.getLabServices() != null
+                || details.getSameAsOrganizationAddress() != null
+                || details.getLabAddressLine2() != null
+                || details.getLabDistrict() != null
+                || details.getEstablishmentRegistrationNumber() != null
+                || details.getIssuingAuthority() != null
+                || details.getIssuingDate() != null
+                || details.getExpiryDate() != null
+                || details.getLabPan() != null
+                || details.getLabPanSameAsOrganization() != null
+                || details.getLabGstin() != null
+                || details.getLabGstinSameAsOrganization() != null
+                || details.getBiomedicalWasteGenerated() != null
+                || details.getBiomedicalWasteAuthorizationNumber() != null;
+
+        if (org == null && !hasLabFields) {
+            return null;
+        }
+        LabOnboardingDetailsDTO result = new LabOnboardingDetailsDTO();
+        result.setOrganization(org);
+        result.setLab(hasLabFields ? details : null);
+        return result;
+    }
+
 
     @Transactional(readOnly = true)
     public LabLogoUploadResponseDTO createLabLogoUploadUrl(User currentUser, LabLogoUploadRequestDTO request) {
