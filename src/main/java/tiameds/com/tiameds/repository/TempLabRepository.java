@@ -17,6 +17,11 @@ public interface TempLabRepository extends JpaRepository<TempLab, Long> {
 
     boolean existsByUsernameAndApprovalStatus(String username, LabApprovalStatus approvalStatus);
 
+    boolean existsByLabNameIgnoreCaseAndApprovalStatus(String labName, LabApprovalStatus approvalStatus);
+
+    // add-lab requests of one user, newest first
+    List<TempLab> findByExistingUserIdOrderByApprovalRequestedAtDesc(Long existingUserId);
+
     // Latest submission for a login identifier (username, or email ignoring case)
     Optional<TempLab> findFirstByUsernameOrEmailIgnoreCaseOrderByApprovalRequestedAtDesc(String username, String email);
 }

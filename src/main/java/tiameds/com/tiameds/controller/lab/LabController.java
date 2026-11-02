@@ -21,7 +21,7 @@ import tiameds.com.tiameds.services.auth.MyUserDetails;
 import tiameds.com.tiameds.services.auth.UserService;
 import tiameds.com.tiameds.dto.lab.LabCreationResponseDTO;
 import tiameds.com.tiameds.services.lab.LabCreationService;
-import tiameds.com.tiameds.services.lab.LabDefaultDataService;
+import tiameds.com.tiameds.services.onboarding.TempLabService;
 import tiameds.com.tiameds.services.lab.UserLabService;
 import tiameds.com.tiameds.services.lab.LabService;
 import tiameds.com.tiameds.utils.ApiResponse;
@@ -31,7 +31,6 @@ import tiameds.com.tiameds.utils.LabAccessableFilter;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 
 
 @Slf4j
@@ -42,7 +41,7 @@ public class LabController {
     private final UserLabService userLabService;
     private final LabRepository labRepository;
     private final LabAccessableFilter labAccessableFilter;
-    private final LabDefaultDataService labDefaultDataService;
+    private final TempLabService tempLabService;
     private final UserService userService;
     private final LabCreationService labCreationService;
     private final LabService labService;
@@ -50,14 +49,14 @@ public class LabController {
     public LabController(UserLabService userLabService,
                          LabRepository labRepository,
                          LabAccessableFilter labAccessableFilter,
-                         LabDefaultDataService labDefaultDataService,
+                         TempLabService tempLabService,
                          UserService userService,
                          LabCreationService labCreationService,
                          LabService labService) {
         this.userLabService = userLabService;
         this.labRepository = labRepository;
         this.labAccessableFilter = labAccessableFilter;
-        this.labDefaultDataService = labDefaultDataService;
+        this.tempLabService = tempLabService;
         this.userService = userService;
         this.labCreationService = labCreationService;
         this.labService = labService;
@@ -120,9 +119,7 @@ public class LabController {
     }
 
 
-
-
-    // ---------- Create a new lab and add the current user as a member ----------
+    // ---------- Request a new lab: it is created only after a platform admin approves it ----------
     @PostMapping("/add-lab")
     public ResponseEntity<Map<String, Object>> addLab(
             @RequestBody LabRequestDTO labRequestDTO) {
@@ -137,72 +134,43 @@ public class LabController {
         User currentUser = currentUserOptional.get();
 
         try {
-            // Create lab and associate user in a single transaction
-            LabCreationResponseDTO response = labCreationService.createLabWithUserAssociation(labRequestDTO, currentUser);
-            
-            // Safe logging with null checks
-            String username = response != null ? response.getUsername() : "unknown";
-            String labName = response != null ? response.getLabName() : "unknown";
-            log.info("Lab created successfully for user: {} (Lab: {})", username, labName);
+            // Stores the request as PENDING; the lab, its membership and the default data are created on approval
+            LabCreationResponseDTO response = labCreationService.submitLabForApproval(labRequestDTO, currentUser);
+            log.info("Lab request submitted for approval by user {} (Lab: {})",
+                    response.getUsername(), response.getLabName());
 
-            // Safe message extraction with fallback
-            String message = (response != null && response.getMessage() != null) 
-                    ? response.getMessage() 
-                    : "Lab created successfully and user added as a member";
-
-            // Return response immediately - don't wait for default data upload
-            ResponseEntity<Map<String, Object>> successResponse = ApiResponseHelper.successResponseWithDataAndMessage(
-                    message,
-                    HttpStatus.CREATED,
+            return ApiResponseHelper.successResponseWithDataAndMessage(
+                    response.getMessage(),
+                    HttpStatus.ACCEPTED,
                     response);
-            
-            // Trigger default data upload asynchronously - never block the response
-            triggerDefaultDataUploadAsync(response);
-            
-            return successResponse;
 
         } catch (IllegalArgumentException e) {
-            log.warn("Lab creation failed due to validation error: {}", e.getMessage());
+            log.warn("Lab request failed due to validation error: {}", e.getMessage());
             return ApiResponseHelper.successResponseWithDataAndMessage(
                     e.getMessage(),
                     HttpStatus.BAD_REQUEST,
                     null);
         } catch (Exception e) {
-            log.error("Unexpected error during lab creation for user {}: {}", 
+            log.error("Unexpected error during lab request for user {}: {}",
                     currentUser.getUsername(), e.getMessage(), e);
             return ApiResponseHelper.successResponseWithDataAndMessage(
-                    "An error occurred during lab creation. Please try again or contact support.",
+                    "An error occurred while submitting the lab request. Please try again or contact support.",
                     HttpStatus.INTERNAL_SERVER_ERROR,
                     null);
         }
+    }
+
+    // ---------- Status of the lab requests of the current user (pending / approved / rejected with reason) ----------
+    @GetMapping("/lab-requests")
+    public ResponseEntity<Map<String, Object>> getMyLabRequests() {
+        Optional<User> currentUserOptional = getAuthenticatedUser();
+        if (currentUserOptional.isEmpty()) {
+            return ApiResponseHelper.successResponseWithDataAndMessage("User not found", HttpStatus.UNAUTHORIZED, null);
         }
-    /**
-     * Triggers default data upload asynchronously without blocking the HTTP response.
-     * This ensures lab creation response is returned immediately even if upload takes time.
-     */
-    private void triggerDefaultDataUploadAsync(LabCreationResponseDTO response) {
-        if (response == null) {
-            return;
-        }
-        Long labId = response.getLabId();
-        Long userId = response.getUserId();
-        
-        if (labId == null || userId == null) {
-            log.warn("Skipping default data upload due to null labId or userId (labId={}, userId={})", labId, userId);
-            return;
-        }
-        // Execute asynchronously - don't block the HTTP response
-        CompletableFuture.runAsync(() -> {
-            try {
-                log.info("Starting async default data upload for lab {} (userId: {})", labId, userId);
-                labDefaultDataService.uploadDefaultData(labId, userId);
-                log.info("Completed async default data upload for lab {}", labId);
-            } catch (Exception e) {
-                // Log but never throw - lab creation succeeded, this is just a convenience feature
-                log.error("Default data upload failed but lab creation succeeded for lab {}: {}", 
-                        labId, e.getMessage(), e);
-            }
-        });
+        return ApiResponseHelper.successResponseWithDataAndMessage(
+                "Lab requests fetched successfully",
+                HttpStatus.OK,
+                tempLabService.getRequestsOfUser(currentUserOptional.get().getId()));
     }
 
     private void addMemberToLab(Long labId, Long userId) {

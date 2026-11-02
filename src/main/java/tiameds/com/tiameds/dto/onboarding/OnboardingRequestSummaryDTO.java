@@ -48,6 +48,8 @@ public class OnboardingRequestSummaryDTO {
     private String applicantEmail;
 
     private String approvalStatus;
+    // ONBOARDING (new account + lab) or ADD_LAB (an existing user asking for another lab)
+    private String requestType;
     private LocalDateTime approvalRequestedAt;
     private LocalDateTime reviewedAt;
     private Long reviewedBy;

@@ -277,22 +277,43 @@ public class TempLabService {
     }
 
     /**
-     * Creates the user and the active lab from the temp_lab row. Nothing is created if any step fails.
+     * The add-lab requests of one user (pending, approved and rejected with the reason), newest first.
+     */
+    @Transactional(readOnly = true)
+    public List<OnboardingRequestSummaryDTO> getRequestsOfUser(Long userId) {
+        return tempLabRepository.findByExistingUserIdOrderByApprovalRequestedAtDesc(userId).stream()
+                .map(this::toSummary)
+                .toList();
+    }
+
+    /**
+     * Creates the active lab from the temp_lab row, and the user too for an onboarding request
+     * (an add-lab request already has its user). Nothing is created if any step fails.
      */
     @Transactional
     public OnboardingRequestSummaryDTO approve(Long tempLabId) {
         TempLab temp = getPending(tempLabId);
 
-        // The applicant could have been created through another route since the request was submitted
-        if (userRepository.existsByEmail(temp.getEmail())) {
-            throw new IllegalStateException("A user with this email already exists");
-        }
-        if (userRepository.existsByUsername(temp.getUsername())) {
-            throw new IllegalStateException("A user with this username already exists");
-        }
+        User savedUser;
+        if (temp.getExistingUserId() != null) {
+            // add-lab request: the user already exists, only the lab is created for them
+            savedUser = userRepository.findById(temp.getExistingUserId())
+                    .orElseThrow(() -> new IllegalStateException("The user who requested this lab no longer exists"));
+            if (labRepository.existsByName(temp.getLabName())) {
+                throw new IllegalStateException("A lab with this name already exists");
+            }
+        } else {
+            // The applicant could have been created through another route since the request was submitted
+            if (userRepository.existsByEmail(temp.getEmail())) {
+                throw new IllegalStateException("A user with this email already exists");
+            }
+            if (userRepository.existsByUsername(temp.getUsername())) {
+                throw new IllegalStateException("A user with this username already exists");
+            }
 
-        User savedUser = userRepository.save(toUser(temp));
-        log.info("Created user account for approved onboarding request {}: {}", temp.getId(), savedUser.getUsername());
+            savedUser = userRepository.save(toUser(temp));
+            log.info("Created user account for approved onboarding request {}: {}", temp.getId(), savedUser.getUsername());
+        }
 
         Lab lab = toLab(temp, savedUser);
         lab.getMembers().add(savedUser);
@@ -524,10 +545,12 @@ public class TempLabService {
                 .gstinCertificate(temp.getGstinCertificate())
                 .biomedicalWasteAuthorizationCertificate(temp.getBiomedicalWasteAuthorizationCertificate())
                 .nablAccreditationCertificate(temp.getNablAccreditationCertificate())
-                .applicantUserId(temp.getApprovedUserId())
-                .applicantName((temp.getFirstName() + " " + temp.getLastName()).trim())
+                .applicantUserId(temp.getApprovedUserId() != null ? temp.getApprovedUserId() : temp.getExistingUserId())
+                .applicantName(((temp.getFirstName() == null ? "" : temp.getFirstName()) + " "
+                        + (temp.getLastName() == null ? "" : temp.getLastName())).trim())
                 .applicantEmail(temp.getEmail())
                 .approvalStatus(temp.getApprovalStatus().name())
+                .requestType(temp.getExistingUserId() != null ? "ADD_LAB" : "ONBOARDING")
                 .approvalRequestedAt(temp.getApprovalRequestedAt())
                 .reviewedAt(temp.getReviewedAt())
                 .rejectionReason(temp.getRejectionReason())

@@ -20,6 +20,9 @@ public class LabCreationResponseDTO {
     private Long labId;
     private String labName;
     private boolean labActive;
+    // Set when the lab was not created yet but is waiting for platform approval (add-lab)
+    private Long requestId;
+    private String approvalStatus;
 }
 
 

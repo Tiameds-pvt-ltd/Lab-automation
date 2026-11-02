@@ -34,31 +34,31 @@ public class TempLab {
     private String username;
 
     // BCrypt hash, never the plain password
-    @Column(name = "password_hash", nullable = false)
+    @Column(name = "password_hash")
     private String passwordHash;
 
-    @Column(name = "first_name", nullable = false)
+    @Column(name = "first_name")
     private String firstName;
 
-    @Column(name = "last_name", nullable = false)
+    @Column(name = "last_name")
     private String lastName;
 
-    @Column(name = "phone", nullable = false)
+    @Column(name = "phone")
     private String phone;
 
-    @Column(name = "address", nullable = false)
+    @Column(name = "address")
     private String address;
 
-    @Column(name = "city", nullable = false)
+    @Column(name = "city")
     private String city;
 
-    @Column(name = "state", nullable = false)
+    @Column(name = "state")
     private String state;
 
-    @Column(name = "zip", nullable = false)
+    @Column(name = "zip")
     private String zip;
 
-    @Column(name = "country", nullable = false)
+    @Column(name = "country")
     private String country;
 
     //    ======================organization=========================
@@ -263,6 +263,10 @@ public class TempLab {
     private String rejectionReason;
 
     // Set on approval: the user / lab that were created from this request
+    // Set for add-lab requests (an existing user asking for another lab); null for onboarding requests
+    @Column(name = "existing_user_id")
+    private Long existingUserId;
+
     @Column(name = "approved_user_id")
     private Long approvedUserId;
 
