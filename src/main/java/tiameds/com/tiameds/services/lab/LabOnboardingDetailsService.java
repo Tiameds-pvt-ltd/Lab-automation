@@ -157,11 +157,15 @@ public class LabOnboardingDetailsService {
         // Compliance details
         setOptional(details.getEstablishmentRegistrationNumber(), lab::setEstablishmentRegistrationNumber);
         setOptional(details.getIssuingAuthority(), lab::setIssuingAuthority);
-        if (details.getIssuingDate() != null) {
-            lab.setIssuingDate(details.getIssuingDate());
+        // The dates belong to the establishment registration certificate, so they change through an approved
+        // certificate request. Sending the stored value back unchanged (a full-form save) is still accepted.
+        if (details.getIssuingDate() != null && !details.getIssuingDate().equals(lab.getIssuingDate())) {
+            throw new IllegalArgumentException("Issuing date changes with the establishment registration certificate. "
+                    + "Submit a certificate request (POST /lab/admin/{labId}/certificate-requests)");
         }
-        if (details.getExpiryDate() != null) {
-            lab.setExpiryDate(details.getExpiryDate());
+        if (details.getExpiryDate() != null && !details.getExpiryDate().equals(lab.getExpiryDate())) {
+            throw new IllegalArgumentException("Expiry date changes with the establishment registration certificate. "
+                    + "Submit a certificate request (POST /lab/admin/{labId}/certificate-requests)");
         }
 
         if (details.getLabPanSameAsOrganization() != null) {

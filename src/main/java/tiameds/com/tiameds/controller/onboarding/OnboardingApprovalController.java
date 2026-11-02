@@ -9,7 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import tiameds.com.tiameds.dto.onboarding.OnboardingRejectRequestDTO;
 import tiameds.com.tiameds.entity.LabApprovalStatus;
-import tiameds.com.tiameds.services.onboarding.OnboardingApprovalService;
+import tiameds.com.tiameds.services.onboarding.TempLabService;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 
 import java.util.NoSuchElementException;
@@ -26,9 +26,10 @@ import java.util.function.Supplier;
 @Tag(name = "Onboarding - Approval", description = "Review (approve / reject) lab onboarding requests")
 public class OnboardingApprovalController {
 
-    private final OnboardingApprovalService approvalService;
+    // Requests are held in temp_lab; {labId} in the paths below is the temp_lab id
+    private final TempLabService approvalService;
 
-    public OnboardingApprovalController(OnboardingApprovalService approvalService) {
+    public OnboardingApprovalController(TempLabService approvalService) {
         this.approvalService = approvalService;
     }
 

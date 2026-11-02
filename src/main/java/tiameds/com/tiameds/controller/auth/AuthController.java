@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import tiameds.com.tiameds.services.onboarding.OnboardingApprovalService;
+import tiameds.com.tiameds.services.onboarding.TempLabService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -84,6 +85,7 @@ public class  AuthController {
     private final PasswordEncoder passwordEncoder;
     private final AuditLogService auditLogService;
     private final OnboardingApprovalService onboardingApprovalService;
+    private final TempLabService tempLabService;
 
     @Value("${password.reset.url:https://app.com/reset-password}")
     private String passwordResetUrl;
@@ -108,6 +110,11 @@ public class  AuthController {
                     new UsernamePasswordAuthenticationToken(usernameOrEmail, loginRequest.getPassword())
             );
         } catch (BadCredentialsException ex) {
+            // Applicants still waiting in temp_lab have no user yet; tell them why they cannot log in
+            Optional<String> pendingMessage = tempLabService.getLoginBlockedMessage(usernameOrEmail, loginRequest.getPassword());
+            if (pendingMessage.isPresent()) {
+                return errorResponse(HttpStatus.FORBIDDEN, pendingMessage.get());
+            }
             return errorResponse(HttpStatus.UNAUTHORIZED, "Incorrect username or password");
         }
 

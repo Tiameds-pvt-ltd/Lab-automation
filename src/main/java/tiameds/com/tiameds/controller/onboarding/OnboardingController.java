@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import tiameds.com.tiameds.dto.onboarding.OnboardingRequestDTO;
 import tiameds.com.tiameds.dto.onboarding.OnboardingResponseDTO;
 import tiameds.com.tiameds.services.lab.LabDefaultDataService;
-import tiameds.com.tiameds.services.onboarding.OnboardingService;
+import tiameds.com.tiameds.services.onboarding.TempLabService;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -28,12 +28,12 @@ import java.util.concurrent.CompletableFuture;
 @Tag(name = "Onboarding - Form Submission", description = "Endpoints for submitting onboarding form and creating user account with Lab")
 public class OnboardingController {
 
-    private final OnboardingService onboardingService;
+    private final TempLabService tempLabService;
     private final LabDefaultDataService labDefaultDataService;
 
-    public OnboardingController(OnboardingService onboardingService,
+    public OnboardingController(TempLabService tempLabService,
                                 LabDefaultDataService labDefaultDataService) {
-        this.onboardingService = onboardingService;
+        this.tempLabService = tempLabService;
         this.labDefaultDataService = labDefaultDataService;
     }
 
@@ -61,8 +61,8 @@ public class OnboardingController {
         log.info("Onboarding completion requested for email: {}", request.getEmail());
 
         try {
-            // Validate token and create user + lab in a single transaction
-            OnboardingResponseDTO response = onboardingService.completeOnboarding(request);
+            // Validate token and store the submission in temp_lab; user + lab are created on approval
+            OnboardingResponseDTO response = tempLabService.submit(request);
             
             // Safe logging with null checks
             String username = response != null ? response.getUsername() : "unknown";

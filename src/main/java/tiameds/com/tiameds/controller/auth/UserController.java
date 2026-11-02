@@ -25,6 +25,7 @@ import tiameds.com.tiameds.services.auth.UserDetailsServiceImpl;
 import tiameds.com.tiameds.services.auth.UserService;
 import tiameds.com.tiameds.services.lab.SequenceGeneratorService;
 import tiameds.com.tiameds.services.onboarding.OnboardingApprovalService;
+import tiameds.com.tiameds.services.onboarding.TempLabService;
 import tiameds.com.tiameds.utils.ApiResponseHelper;
 import tiameds.com.tiameds.utils.JwtUtil;
 import tiameds.com.tiameds.entity.Role;
@@ -49,9 +50,10 @@ public class UserController {
     private final RateLimitConfig.RateLimitService rateLimitService;
     private final SequenceGeneratorService sequenceGeneratorService;
     private final OnboardingApprovalService onboardingApprovalService;
+    private final TempLabService tempLabService;
 
     @Autowired
-    public UserController(UserService userService, AuthenticationManager authenticationManager, UserDetailsServiceImpl userDetailsService, PasswordEncoder passwordEncoder, JwtUtil jwtUtils, ModuleRepository moduleRepository, RateLimitConfig.RateLimitService rateLimitService, SequenceGeneratorService sequenceGeneratorService, OnboardingApprovalService onboardingApprovalService) {
+    public UserController(UserService userService, AuthenticationManager authenticationManager, UserDetailsServiceImpl userDetailsService, PasswordEncoder passwordEncoder, JwtUtil jwtUtils, ModuleRepository moduleRepository, RateLimitConfig.RateLimitService rateLimitService, SequenceGeneratorService sequenceGeneratorService, OnboardingApprovalService onboardingApprovalService, TempLabService tempLabService) {
         this.userService = userService;
         this.authenticationManager = authenticationManager;
         this.userDetailsService = userDetailsService;
@@ -61,6 +63,7 @@ public class UserController {
         this.rateLimitService = rateLimitService;
         this.sequenceGeneratorService = sequenceGeneratorService;
         this.onboardingApprovalService = onboardingApprovalService;
+        this.tempLabService = tempLabService;
     }
 
     @GetMapping("/health-check")
@@ -99,6 +102,12 @@ public class UserController {
                     new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword())
             );
         } catch (BadCredentialsException e) {
+            // Applicants still waiting in temp_lab have no user yet; tell them why they cannot log in
+            Optional<String> pendingMessage = tempLabService.getLoginBlockedMessage(username, loginRequest.getPassword());
+            if (pendingMessage.isPresent()) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(new AuthResponse(HttpStatus.FORBIDDEN, pendingMessage.get(), null, null));
+            }
             // Return error response
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new AuthResponse(HttpStatus.BAD_REQUEST, "Incorrect username or password", null, null));

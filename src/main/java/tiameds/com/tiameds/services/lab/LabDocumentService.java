@@ -70,6 +70,7 @@ public class LabDocumentService {
     public Map<String, String> addDocuments(User currentUser, Long labId, Map<LabDocumentType, MultipartFile> files) {
         Lab lab = getAccessibleLab(currentUser, labId);
         requireFiles(files);
+        rejectDirectCertificateChange(files.keySet());
         for (LabDocumentType type : files.keySet()) {
             if (hasUrl(type.getUrl(lab))) {
                 throw new IllegalArgumentException(type.getParam() + " already exists. Use update to replace it");
@@ -86,6 +87,7 @@ public class LabDocumentService {
     public Map<String, String> updateDocuments(User currentUser, Long labId, Map<LabDocumentType, MultipartFile> files) {
         Lab lab = getAccessibleLab(currentUser, labId);
         requireFiles(files);
+        rejectDirectCertificateChange(files.keySet());
         for (LabDocumentType type : files.keySet()) {
             if (!hasUrl(type.getUrl(lab))) {
                 throw new IllegalArgumentException(type.getParam() + " does not exist. Use add to upload it");
@@ -103,6 +105,7 @@ public class LabDocumentService {
         if (types == null || types.isEmpty()) {
             throw new IllegalArgumentException("At least one document type is required");
         }
+        rejectDirectCertificateChange(types);
         for (LabDocumentType type : types) {
             if (!hasUrl(type.getUrl(lab))) {
                 throw new IllegalArgumentException(type.getParam() + " does not exist");
@@ -208,6 +211,20 @@ public class LabDocumentService {
             throw new IllegalStateException("User is not a member of this lab");
         }
         return lab;
+    }
+
+    /**
+     * Certificates are reviewed by a platform admin and are never deleted, so they cannot be added, replaced or
+     * removed here; only the logo can. See {@link LabCertificateRequestService}.
+     */
+    private void rejectDirectCertificateChange(Set<LabDocumentType> types) {
+        for (LabDocumentType type : types) {
+            if (type != LabDocumentType.LAB_LOGO) {
+                throw new IllegalArgumentException(type.getParam() + " is a certificate and cannot be changed here. "
+                        + "Submit a certificate request (POST /lab/admin/{labId}/certificate-requests); "
+                        + "it takes effect once it is approved");
+            }
+        }
     }
 
     private void requireFiles(Map<LabDocumentType, MultipartFile> files) {
