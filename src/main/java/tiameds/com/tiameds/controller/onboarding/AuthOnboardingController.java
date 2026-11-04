@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import tiameds.com.tiameds.dto.onboarding.EmailRequestDTO;
+import tiameds.com.tiameds.repository.UserRepository;
 import tiameds.com.tiameds.services.email.EmailService;
 import tiameds.com.tiameds.services.onboarding.EmailRateLimitService;
 import tiameds.com.tiameds.services.onboarding.VerificationTokenService;
@@ -29,6 +30,7 @@ public class AuthOnboardingController {
     private final VerificationTokenService tokenService;
     private final EmailService emailService;
     private final EmailRateLimitService rateLimitService;
+    private final UserRepository userRepository;
 
     @Value("${onboarding.frontend.verification-url:http://localhost:3000/verify-email}")
     private String frontendVerificationUrl;
@@ -36,10 +38,12 @@ public class AuthOnboardingController {
     public AuthOnboardingController(
             VerificationTokenService tokenService,
             EmailService emailService,
-            EmailRateLimitService rateLimitService) {
+            EmailRateLimitService rateLimitService,
+            UserRepository userRepository) {
         this.tokenService = tokenService;
         this.emailService = emailService;
         this.rateLimitService = rateLimitService;
+        this.userRepository = userRepository;
     }
 
     /**
@@ -62,6 +66,14 @@ public class AuthOnboardingController {
         
         String email = request.getEmail().trim().toLowerCase();
         log.info("Verification email requested for: {}", email);
+
+        // Reject if a user with this email is already registered
+        if (userRepository.existsByEmail(email)) {
+            log.warn("Verification requested for already registered email: {}", email);
+            return ApiResponseHelper.errorResponseWithMessage(
+                    "Email already exists",
+                    HttpStatus.CONFLICT);
+        }
 
         // Check rate limit (database-based, no in-memory cache)
         if (!rateLimitService.canSendEmail(email)) {
