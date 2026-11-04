@@ -19,7 +19,8 @@ public class CorsConfig {
                 "https://lab-prod.tiameds.ai/",
                 "http://localhost:3000",
                 "https://lab-test-env.tiameds.ai/",
-                "https://lab-dev.tiameds.ai/"
+                "https://lab-dev.tiameds.ai/",
+                "https://admin-test.tiameds.ai/"
         ));
         // Allowed methods
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
