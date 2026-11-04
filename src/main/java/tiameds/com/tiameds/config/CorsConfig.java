@@ -18,7 +18,7 @@ public class CorsConfig {
         configuration.setAllowedOrigins(List.of(
                 "https://lab-prod.tiameds.ai/",
                 "http://localhost:3000",
-                "https://lab-test-env.tiameds.ai/",
+               // "https://lab-test-env.tiameds.ai/",
                 "https://lab-dev.tiameds.ai/",
                 "https://admin-test.tiameds.ai/"
         ));
