@@ -184,7 +184,7 @@ public class EmailService {
                 "<p><a href=\"%s\" style=\"background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;\">Complete Onboarding</a></p>" +
                 "<p>Or copy and paste this link into your browser:</p>" +
                 "<p style=\"word-break: break-all;\">%s</p>" +
-                "<p><strong>This link will expire in 15 minutes.</strong></p>" +
+                "<p><strong>This link will expire in 30 minutes.</strong></p>" +
                 "<p>If you did not request this, please ignore this email.</p>" +
                 "</body></html>",
                 verificationLink, verificationLink
