@@ -11,6 +11,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import tiameds.com.tiameds.dto.lab.PatientDTO;
 import tiameds.com.tiameds.entity.User;
+import tiameds.com.tiameds.notification.dto.ApproveNotificationRequest;
 import tiameds.com.tiameds.notification.dto.RejectNotificationRequest;
 import tiameds.com.tiameds.notification.entity.NotificationStatus;
 import tiameds.com.tiameds.notification.service.NotificationException;
@@ -98,9 +99,12 @@ public class NotificationController {
     @Operation(summary = "Approve a request (admin)",
             description = "Applies the proposed patient details using the existing update logic and marks the request APPROVED.")
     @PutMapping("/lab/{labId}/{notificationId}/approve")
-    public ResponseEntity<?> approve(@PathVariable Long labId, @PathVariable Long notificationId) {
+    public ResponseEntity<?> approve(@PathVariable Long labId,
+                                     @PathVariable Long notificationId,
+                                     @RequestBody(required = false) ApproveNotificationRequest body) {
+        String reason = body != null ? body.getReason() : null;
         return handle("Request approved and patient updated", HttpStatus.OK,
-                user -> notificationService.approve(user, labId, notificationId));
+                user -> notificationService.approve(user, labId, notificationId, reason));
     }
 
     @Operation(summary = "Reject a request (admin)",

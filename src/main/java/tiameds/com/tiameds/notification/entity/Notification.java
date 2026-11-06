@@ -37,6 +37,12 @@ public class Notification {
     @Column(name = "entity_id")
     private Long entityId;
 
+    @Column(name = "visit_id")
+    private Long visitId;
+
+    @Column(name = "visit_code", length = 100)
+    private String visitCode;
+
     @Column(name = "title", nullable = false, length = 200)
     private String title;
 
@@ -67,6 +73,9 @@ public class Notification {
 
     @Column(name = "rejection_reason", columnDefinition = "TEXT")
     private String rejectionReason;
+
+    @Column(name = "review_remark", columnDefinition = "TEXT")
+    private String reviewRemark;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

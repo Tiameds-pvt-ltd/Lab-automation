@@ -18,6 +18,8 @@ public class NotificationDTO {
     private String type;
     private String entityType;
     private Long entityId;
+    private Long visitId;
+    private String visitCode;
     private String title;
     private String message;
     private String status;
@@ -27,6 +29,7 @@ public class NotificationDTO {
     private String reviewedByUsername;
     private LocalDateTime reviewedAt;
     private String rejectionReason;
+    private String approvalReason;
     private LocalDateTime createdAt;
 
     // Only filled by the detail endpoint, for PATIENT_EDIT_REQUEST
@@ -41,6 +44,8 @@ public class NotificationDTO {
         dto.type = n.getType() != null ? n.getType().name() : null;
         dto.entityType = n.getEntityType();
         dto.entityId = n.getEntityId();
+        dto.visitId = n.getVisitId();
+        dto.visitCode = n.getVisitCode();
         dto.title = n.getTitle();
         dto.message = n.getMessage();
         dto.status = n.getStatus() != null ? n.getStatus().name() : null;
@@ -50,6 +55,7 @@ public class NotificationDTO {
         dto.reviewedByUsername = n.getReviewedByUsername();
         dto.reviewedAt = n.getReviewedAt();
         dto.rejectionReason = n.getRejectionReason();
+        dto.approvalReason = n.getReviewRemark();
         dto.createdAt = n.getCreatedAt();
         return dto;
     }

@@ -11,6 +11,7 @@ import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.entity.LabAuditLogs;
 import tiameds.com.tiameds.entity.PatientEntity;
 import tiameds.com.tiameds.entity.User;
+import tiameds.com.tiameds.entity.VisitEntity;
 import tiameds.com.tiameds.notification.dto.NotificationDTO;
 import tiameds.com.tiameds.notification.entity.Notification;
 import tiameds.com.tiameds.notification.entity.NotificationStatus;
@@ -18,6 +19,7 @@ import tiameds.com.tiameds.notification.entity.NotificationType;
 import tiameds.com.tiameds.notification.repository.NotificationRepository;
 import tiameds.com.tiameds.repository.LabRepository;
 import tiameds.com.tiameds.repository.PatientRepository;
+import tiameds.com.tiameds.repository.VisitRepository;
 import tiameds.com.tiameds.services.auth.UserService;
 import tiameds.com.tiameds.services.lab.UpdatePatientService;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
@@ -28,7 +30,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -55,6 +56,8 @@ public class NotificationService {
     private final UpdatePatientService updatePatientService;
     private final AuditLogService auditLogService;
     private final ObjectMapper objectMapper;
+    private final PatientChangeDescriber changeDescriber;
+    private final VisitRepository visitRepository;
 
     public NotificationService(NotificationRepository notificationRepository,
                                LabRepository labRepository,
@@ -63,7 +66,11 @@ public class NotificationService {
                                LabAccessableFilter labAccessableFilter,
                                UpdatePatientService updatePatientService,
                                AuditLogService auditLogService,
-                               ObjectMapper objectMapper) {
+                               ObjectMapper objectMapper,
+                               PatientChangeDescriber changeDescriber,
+                               VisitRepository visitRepository) {
+        this.changeDescriber = changeDescriber;
+        this.visitRepository = visitRepository;
         this.notificationRepository = notificationRepository;
         this.labRepository = labRepository;
         this.patientRepository = patientRepository;
@@ -90,10 +97,11 @@ public class NotificationService {
                     "An edit request for this patient is already waiting for admin approval");
         }
 
-        List<String> changedFields = changedFields(new PatientDTO(patient), proposed);
-        if (changedFields.isEmpty()) {
+        List<PatientChangeDescriber.Change> changes = changeDescriber.describe(new PatientDTO(patient), proposed);
+        if (changes.isEmpty()) {
             throw new NotificationException(HttpStatus.BAD_REQUEST, "No changes detected in the patient details");
         }
+        Long visitId = proposed.getVisit() != null ? proposed.getVisit().getVisitId() : null;
 
         Notification n = new Notification();
         n.setLabId(labId);
@@ -101,7 +109,10 @@ public class NotificationService {
         n.setEntityType(ENTITY_PATIENT);
         n.setEntityId(patientId);
         n.setTitle("Patient edit request: " + patientName(patient));
-        n.setMessage(user.getUsername() + " requested changes to: " + String.join(", ", changedFields));
+        n.setVisitId(visitId);
+        n.setVisitCode(visitCodeOf(visitId));
+        n.setMessage(user.getUsername() + " requested changes: "
+                + changes.stream().map(PatientChangeDescriber.Change::text).collect(Collectors.joining("; ")));
         n.setPayloadJson(toJson(proposed));
         n.setRequestedByUserId(user.getId());
         n.setRequestedByUsername(user.getUsername());
@@ -152,10 +163,16 @@ public class NotificationService {
         if (n.getType() == NotificationType.PATIENT_EDIT_REQUEST && n.getPayloadJson() != null) {
             PatientDTO proposed = fromJson(n.getPayloadJson());
             dto.setProposedPatient(proposed);
+            if (dto.getVisitId() == null && proposed.getVisit() != null) {
+                // requests raised before visit codes were stored
+                dto.setVisitId(proposed.getVisit().getVisitId());
+                dto.setVisitCode(visitCodeOf(dto.getVisitId()));
+            }
             patientRepository.findById(n.getEntityId()).ifPresent(patient -> {
                 PatientDTO current = new PatientDTO(patient);
                 dto.setCurrentPatient(current);
-                dto.setChangedFields(changedFields(current, proposed));
+                dto.setChangedFields(changeDescriber.describe(current, proposed).stream()
+                        .map(PatientChangeDescriber.Change::field).collect(Collectors.toList()));
             });
         }
         return dto;
@@ -164,8 +181,11 @@ public class NotificationService {
     // ------------------------------------------------------------------ review
 
     /** Applies the stored patient edit through the existing update logic and marks the request APPROVED. */
-    public NotificationDTO approve(User reviewer, Long labId, Long notificationId) {
+    public NotificationDTO approve(User reviewer, Long labId, Long notificationId, String remark) {
         Lab lab = requireAdminOfLab(reviewer, labId);
+        if (remark == null || remark.isBlank()) {
+            throw new NotificationException(HttpStatus.BAD_REQUEST, "An approval reason is required");
+        }
         Notification n = requirePendingForUpdate(notificationId, labId);
 
         PatientEntity patient = patientRepository.findById(n.getEntityId())
@@ -181,11 +201,15 @@ public class NotificationService {
                 patient, lab, proposed, n.getRequestedByUsername());
 
         n.setStatus(NotificationStatus.APPROVED);
+        if (remark != null && !remark.isBlank()) {
+            n.setReviewRemark(remark.trim());
+        }
         stampReview(n, reviewer);
         Notification saved = notificationRepository.save(n);
 
         writeAudit(reviewer, labId, n, "UPDATE", before, toJson(updated),
-                "Approved patient edit request #" + n.getId() + " raised by " + n.getRequestedByUsername(),
+                "Approved patient edit request #" + n.getId() + " raised by " + n.getRequestedByUsername()
+                        + (n.getReviewRemark() != null ? ": " + n.getReviewRemark() : ""),
                 LabAuditLogs.Severity.MEDIUM);
         log.info("Patient edit request {} approved by {}", n.getId(), reviewer.getUsername());
         return NotificationDTO.from(saved);
@@ -292,33 +316,11 @@ public class NotificationService {
         n.setReviewedAt(LocalDateTime.now());
     }
 
-    /** Basic fields only the way updateBasicPatientInfo treats them: a null value means "not changed". */
-    private List<String> changedFields(PatientDTO current, PatientDTO proposed) {
-        List<String> changed = new ArrayList<>();
-        compare(changed, "firstName", current, proposed, PatientDTO::getFirstName);
-        compare(changed, "lastName", current, proposed, PatientDTO::getLastName);
-        compare(changed, "email", current, proposed, PatientDTO::getEmail);
-        compare(changed, "phone", current, proposed, PatientDTO::getPhone);
-        compare(changed, "address", current, proposed, PatientDTO::getAddress);
-        compare(changed, "city", current, proposed, PatientDTO::getCity);
-        compare(changed, "state", current, proposed, PatientDTO::getState);
-        compare(changed, "zip", current, proposed, PatientDTO::getZip);
-        compare(changed, "bloodGroup", current, proposed, PatientDTO::getBloodGroup);
-        compare(changed, "dateOfBirth", current, proposed, PatientDTO::getDateOfBirth);
-        compare(changed, "gender", current, proposed, PatientDTO::getGender);
-        compare(changed, "age", current, proposed, PatientDTO::getAge);
-        if (proposed.getVisit() != null) {
-            changed.add("visit / billing details");
+    private String visitCodeOf(Long visitId) {
+        if (visitId == null) {
+            return null;
         }
-        return changed;
-    }
-
-    private <T> void compare(List<String> out, String name, PatientDTO current, PatientDTO proposed,
-                             Function<PatientDTO, T> getter) {
-        T newValue = getter.apply(proposed);
-        if (newValue != null && !Objects.equals(newValue, getter.apply(current))) {
-            out.add(name);
-        }
+        return visitRepository.findById(visitId).map(VisitEntity::getVisitCode).orElse(null);
     }
 
     private String patientName(PatientEntity patient) {
