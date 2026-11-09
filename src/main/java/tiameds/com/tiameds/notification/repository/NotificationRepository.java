@@ -24,6 +24,18 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 
     long countByLabIdAndStatus(Long labId, NotificationStatus status);
 
+    // Alerts meant only for super admins (cross-lab view)
+    List<Notification> findByTargetRoleOrderByCreatedAtDesc(String targetRole);
+
+    List<Notification> findByTargetRoleAndStatusOrderByCreatedAtDesc(String targetRole, NotificationStatus status);
+
+    long countByTargetRoleAndStatus(String targetRole, NotificationStatus status);
+
+    // What a plain ADMIN may see: everything except the alerts reserved for super admins
+    @Query("SELECT COUNT(n) FROM Notification n WHERE n.labId = :labId AND n.status = :status "
+            + "AND (n.targetRole IS NULL OR n.targetRole <> 'SUPERADMIN')")
+    long countVisibleToAdmins(@Param("labId") Long labId, @Param("status") NotificationStatus status);
+
     boolean existsByLabIdAndTypeAndEntityIdAndStatus(Long labId, NotificationType type, Long entityId,
                                                      NotificationStatus status);
 

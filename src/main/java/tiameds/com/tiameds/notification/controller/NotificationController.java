@@ -107,6 +107,40 @@ public class NotificationController {
                 user -> notificationService.approve(user, labId, notificationId, reason));
     }
 
+    @Operation(summary = "Alerts for super admins (all labs)",
+            description = "Alerts raised because an ADMIN added / updated / deleted a test or test reference. "
+                    + "SUPERADMIN only. Optional status filter: PENDING, APPROVED, REJECTED or ACKNOWLEDGED.")
+    @GetMapping("/super-admin")
+    public ResponseEntity<?> getSuperAdminNotifications(@RequestParam(value = "status", required = false) String status) {
+        NotificationStatus parsed = null;
+        if (status != null && !status.isBlank()) {
+            try {
+                parsed = NotificationStatus.valueOf(status.trim().toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                return ApiResponseHelper.errorResponseWithMessage(
+                        "Invalid status. Use PENDING, APPROVED, REJECTED or ACKNOWLEDGED", HttpStatus.BAD_REQUEST);
+            }
+        }
+        final NotificationStatus filter = parsed;
+        return handle("Notifications fetched successfully", HttpStatus.OK,
+                user -> notificationService.getSuperAdminNotifications(user, filter));
+    }
+
+    @Operation(summary = "Number of pending super admin alerts", description = "For the super admin bell icon badge.")
+    @GetMapping("/super-admin/pending-count")
+    public ResponseEntity<?> getSuperAdminPendingCount() {
+        return handle("Pending count fetched successfully", HttpStatus.OK,
+                notificationService::getSuperAdminPendingCount);
+    }
+
+    @Operation(summary = "Acknowledge an alert (super admin)",
+            description = "Works for an alert of any lab; no lab membership needed.")
+    @PutMapping("/super-admin/{notificationId}/acknowledge")
+    public ResponseEntity<?> acknowledgeAsSuperAdmin(@PathVariable Long notificationId) {
+        return handle("Alert acknowledged", HttpStatus.OK,
+                user -> notificationService.acknowledgeAsSuperAdmin(user, notificationId));
+    }
+
     @Operation(summary = "Acknowledge an alert (admin)",
             description = "For information-only alerts such as VISIT_CANCELLED. Removes it from the pending count.")
     @PutMapping("/lab/{labId}/{notificationId}/acknowledge")

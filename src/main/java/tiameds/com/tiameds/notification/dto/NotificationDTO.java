@@ -23,6 +23,7 @@ public class NotificationDTO {
     private String title;
     private String message;
     private String status;
+    private String targetRole;
     private Long requestedByUserId;
     private String requestedByUsername;
     private Long reviewedByUserId;
@@ -49,6 +50,7 @@ public class NotificationDTO {
         dto.title = n.getTitle();
         dto.message = n.getMessage();
         dto.status = n.getStatus() != null ? n.getStatus().name() : null;
+        dto.targetRole = n.getTargetRole();
         dto.requestedByUserId = n.getRequestedByUserId();
         dto.requestedByUsername = n.getRequestedByUsername();
         dto.reviewedByUserId = n.getReviewedByUserId();

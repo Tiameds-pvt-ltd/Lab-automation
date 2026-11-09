@@ -47,6 +47,7 @@ import java.util.stream.Collectors;
 public class NotificationService {
 
     private static final String ENTITY_PATIENT = "PATIENT";
+    private static final String ROLE_SUPERADMIN = "SUPERADMIN";
 
     private final NotificationRepository notificationRepository;
     private final LabRepository labRepository;
@@ -160,34 +161,110 @@ public class NotificationService {
         return NotificationDTO.from(saved);
     }
 
+    /**
+     * Raises an information-only alert after a test / test reference was changed.
+     * Audience, decided from who made the change:
+     *  - TECHNICIAN / DESKROLE -> the lab's admins (and super admins)
+     *  - ADMIN                 -> super admins only
+     *  - SUPERADMIN            -> nobody (returns null)
+     * entity_id is left empty on purpose: every change is its own alert (the one-pending-per-entity rule only
+     * applies to rows that have an entity id).
+     *
+     * @param title      e.g. "Test reference updated"
+     * @param actionText e.g. "updated test reference" (the message reads "<user> <actionText>: <name> (<code>)")
+     */
+    public NotificationDTO raiseChangeAlert(User user, Long labId, NotificationType type, String entityType,
+                                            String title, String actionText, String name, String code) {
+        if (isSuperAdmin(user)) {
+            return null;
+        }
+        String what = (name != null && !name.isBlank() ? name.trim() : null);
+        if (code != null && !code.isBlank()) {
+            what = (what != null ? what + " " : "") + "(" + code.trim() + ")";
+        }
+        boolean byAdmin = isAdmin(user);
+
+        Notification n = new Notification();
+        n.setLabId(labId);
+        n.setType(type);
+        n.setEntityType(entityType);
+        n.setTitle(title);
+        n.setMessage(user.getUsername() + (byAdmin ? " (admin) " : " ") + actionText + (what != null ? ": " + what : ""));
+        n.setTargetRole(byAdmin ? ROLE_SUPERADMIN : null);
+        n.setRequestedByUserId(user.getId());
+        n.setRequestedByUsername(user.getUsername());
+        n.setStatus(NotificationStatus.PENDING);
+        Notification saved = notificationRepository.save(n);
+        log.info("{} by {} in lab {}: alert {} raised for {}", title, user.getUsername(), labId, saved.getId(),
+                byAdmin ? "super admins" : "admins");
+        return NotificationDTO.from(saved);
+    }
+
     /** An admin has seen an information-only alert; it leaves the pending count. */
     public NotificationDTO acknowledge(User admin, Long labId, Long notificationId) {
         requireAdminOfLab(admin, labId);
         Notification n = notificationRepository.findByIdForUpdate(notificationId)
                 .filter(row -> Objects.equals(row.getLabId(), labId))
                 .orElseThrow(() -> new NotificationException(HttpStatus.NOT_FOUND, "Notification not found"));
-        if (n.getType() != NotificationType.VISIT_CANCELLED) {
+        return acknowledge(admin, n);
+    }
+
+    /** Super admin: acknowledge an alert of any lab (no lab membership needed). */
+    public NotificationDTO acknowledgeAsSuperAdmin(User superAdmin, Long notificationId) {
+        requireSuperAdmin(superAdmin);
+        Notification n = notificationRepository.findByIdForUpdate(notificationId)
+                .orElseThrow(() -> new NotificationException(HttpStatus.NOT_FOUND, "Notification not found"));
+        return acknowledge(superAdmin, n);
+    }
+
+    private NotificationDTO acknowledge(User reviewer, Notification n) {
+        if (n.getType() == NotificationType.PATIENT_EDIT_REQUEST) {
             throw new NotificationException(HttpStatus.BAD_REQUEST,
                     "This notification must be approved or rejected, not acknowledged");
+        }
+        if (ROLE_SUPERADMIN.equals(n.getTargetRole()) && !isSuperAdmin(reviewer)) {
+            throw new NotificationException(HttpStatus.FORBIDDEN, "This alert is only for super admins");
         }
         if (n.getStatus() != NotificationStatus.PENDING) {
             throw new NotificationException(HttpStatus.CONFLICT, "This alert was already acknowledged");
         }
         n.setStatus(NotificationStatus.ACKNOWLEDGED);
-        stampReview(n, admin);
+        stampReview(n, reviewer);
         return NotificationDTO.from(notificationRepository.save(n));
     }
 
     // ------------------------------------------------------------------ read
 
-    /** Admin view: every notification of the lab, optionally filtered by status. */
+    /**
+     * Admin view: every notification of the lab, optionally filtered by status.
+     * Alerts reserved for super admins (an ADMIN changed something) are hidden from plain admins.
+     */
     @Transactional(readOnly = true)
     public List<NotificationDTO> getLabNotifications(User user, Long labId, NotificationStatus status) {
         requireAdminOfLab(user, labId);
+        boolean superAdmin = isSuperAdmin(user);
         List<Notification> rows = status == null
                 ? notificationRepository.findByLabIdOrderByCreatedAtDesc(labId)
                 : notificationRepository.findByLabIdAndStatusOrderByCreatedAtDesc(labId, status);
+        return rows.stream()
+                .filter(n -> superAdmin || !ROLE_SUPERADMIN.equals(n.getTargetRole()))
+                .map(NotificationDTO::from).collect(Collectors.toList());
+    }
+
+    /** Super admin view across all labs: the alerts raised because an ADMIN changed something. */
+    @Transactional(readOnly = true)
+    public List<NotificationDTO> getSuperAdminNotifications(User user, NotificationStatus status) {
+        requireSuperAdmin(user);
+        List<Notification> rows = status == null
+                ? notificationRepository.findByTargetRoleOrderByCreatedAtDesc(ROLE_SUPERADMIN)
+                : notificationRepository.findByTargetRoleAndStatusOrderByCreatedAtDesc(ROLE_SUPERADMIN, status);
         return rows.stream().map(NotificationDTO::from).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public long getSuperAdminPendingCount(User user) {
+        requireSuperAdmin(user);
+        return notificationRepository.countByTargetRoleAndStatus(ROLE_SUPERADMIN, NotificationStatus.PENDING);
     }
 
     /** The requests the current user raised themselves, so they can see approved / rejected (with reason). */
@@ -201,7 +278,9 @@ public class NotificationService {
     @Transactional(readOnly = true)
     public long getPendingCount(User user, Long labId) {
         requireAdminOfLab(user, labId);
-        return notificationRepository.countByLabIdAndStatus(labId, NotificationStatus.PENDING);
+        return isSuperAdmin(user)
+                ? notificationRepository.countByLabIdAndStatus(labId, NotificationStatus.PENDING)
+                : notificationRepository.countVisibleToAdmins(labId, NotificationStatus.PENDING);
     }
 
     /** Detail with the current and the proposed patient values side by side. Admins, or the requester. */
@@ -211,6 +290,10 @@ public class NotificationService {
         Notification n = requireNotificationOfLab(notificationId, labId);
         if (!isAdmin(user) && !Objects.equals(n.getRequestedByUserId(), user.getId())) {
             throw new NotificationException(HttpStatus.FORBIDDEN, "You are not allowed to view this notification");
+        }
+        if (ROLE_SUPERADMIN.equals(n.getTargetRole()) && !isSuperAdmin(user)
+                && !Objects.equals(n.getRequestedByUserId(), user.getId())) {
+            throw new NotificationException(HttpStatus.FORBIDDEN, "This alert is only for super admins");
         }
 
         NotificationDTO dto = NotificationDTO.from(n);
@@ -326,15 +409,29 @@ public class NotificationService {
     }
 
     private boolean isAdmin(User user) {
-        if (user.getRoles() == null) {
-            return false;
+        Set<String> roles = roleNames(user);
+        return roles.contains("ADMIN") || roles.contains(ROLE_SUPERADMIN);
+    }
+
+    public boolean isSuperAdmin(User user) {
+        return roleNames(user).contains(ROLE_SUPERADMIN);
+    }
+
+    private void requireSuperAdmin(User user) {
+        if (!isSuperAdmin(user)) {
+            throw new NotificationException(HttpStatus.FORBIDDEN, "Only a SUPERADMIN can use this");
         }
-        Set<String> roles = user.getRoles().stream()
+    }
+
+    private Set<String> roleNames(User user) {
+        if (user.getRoles() == null) {
+            return Set.of();
+        }
+        return user.getRoles().stream()
                 .map(r -> r.getName())
                 .filter(Objects::nonNull)
                 .map(name -> name.toUpperCase(Locale.ROOT))
                 .collect(Collectors.toSet());
-        return roles.contains("ADMIN") || roles.contains("SUPERADMIN");
     }
 
     private PatientEntity requirePatientOfLab(Long patientId, Lab lab) {

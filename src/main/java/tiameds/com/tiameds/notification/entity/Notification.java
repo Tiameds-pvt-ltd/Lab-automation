@@ -58,6 +58,10 @@ public class Notification {
     @Column(name = "requested_by_username", length = 100)
     private String requestedByUsername;
 
+    /** null = the lab's admins; "SUPERADMIN" = only super admins. */
+    @Column(name = "target_role", length = 20)
+    private String targetRole;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     private NotificationStatus status = NotificationStatus.PENDING;
