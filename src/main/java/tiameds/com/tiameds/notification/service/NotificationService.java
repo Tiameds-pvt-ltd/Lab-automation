@@ -76,6 +76,7 @@ public class NotificationService {
     public static final String OP_ADD = "ADD";
     public static final String OP_UPDATE = "UPDATE";
     public static final String OP_DELETE = "DELETE";
+    public static final String OP_ACTIVATE = "ACTIVATE";
     public static final String OP_DELETE_ALL = "DELETE_ALL";
 
     public NotificationService(NotificationRepository notificationRepository,
@@ -178,7 +179,14 @@ public class NotificationService {
             }
             case OP_DELETE -> {
                 current = testChangeApplier.requireTestOfLab(lab, testId);
-                summary = "delete test " + current.getName();
+                summary = "delete (disable) test " + current.getName();
+            }
+            case OP_ACTIVATE -> {
+                current = testChangeApplier.requireTestOfLab(lab, testId);
+                if (current.isActive()) {
+                    throw new NotificationException(HttpStatus.BAD_REQUEST, "Test is already active");
+                }
+                summary = "activate (enable) test " + current.getName();
             }
             default -> throw new NotificationException(HttpStatus.BAD_REQUEST, "Unknown operation " + operation);
         }
@@ -604,6 +612,7 @@ public class NotificationService {
             case OP_ADD -> testChangeApplier.add(lab, body);
             case OP_UPDATE -> testChangeApplier.update(lab, p.getEntityId(), body);
             case OP_DELETE -> testChangeApplier.delete(lab, p.getEntityId());
+            case OP_ACTIVATE -> testChangeApplier.activate(lab, p.getEntityId());
             default -> throw new NotificationException(HttpStatus.BAD_REQUEST, "Unknown operation " + p.getOperation());
         };
         Long entityId = r.after() != null ? Long.valueOf(r.after().getId())
@@ -611,6 +620,7 @@ public class NotificationService {
         String action = switch (p.getOperation()) {
             case OP_ADD -> "TEST_CREATE";
             case OP_UPDATE -> "TEST_UPDATE";
+            case OP_ACTIVATE -> "TEST_ACTIVATE";
             default -> "TEST_DELETE";
         };
         return new Applied(entityId, action,

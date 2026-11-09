@@ -27,7 +27,8 @@ import java.util.Optional;
  * Holds test and test reference changes for approval, WITHOUT changing TestController / TestReferenceController:
  * the endpoint is intercepted and, instead of changing anything, the request is stored as a PENDING notification.
  *
- *  - Tests (ADMIN only endpoints): add / update / remove  -> a SUPERADMIN approves or rejects
+ *  - Tests (ADMIN only endpoints): add / update / remove (disable) / activate (enable)
+ *        -> a SUPERADMIN approves or rejects
  *  - Test references: add / update (both forms) / delete / delete-all
  *        TECHNICIAN / DESKROLE -> the lab's admins approve, ADMIN -> a SUPERADMIN approves
  *
@@ -90,6 +91,18 @@ public class CatalogChangeApprovalAspect {
         }
         return submit(() -> notificationService.submitTestChange(
                 user.get(), labId, NotificationService.OP_DELETE, testId, null));
+    }
+
+    // PUT /{labId}/activate/{testId}: enabling a disabled test is held like disabling it (remove)
+    @Around("execution(public * tiameds.com.tiameds.controller.lab.TestController.activateTest(..))")
+    public Object holdTestActivate(ProceedingJoinPoint pjp) throws Throwable {
+        Object[] a = pjp.getArgs();
+        Optional<User> user = holdableUser();
+        if (user.isEmpty() || a.length < 2 || !(a[0] instanceof Long labId) || !(a[1] instanceof Long testId)) {
+            return pjp.proceed();
+        }
+        return submit(() -> notificationService.submitTestChange(
+                user.get(), labId, NotificationService.OP_ACTIVATE, testId, null));
     }
 
     // ---- test references

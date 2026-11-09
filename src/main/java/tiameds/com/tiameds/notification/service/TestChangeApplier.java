@@ -85,6 +85,24 @@ public class TestChangeApplier {
         return new Result(before, null);
     }
 
+    /** Same rules as TestController.activateTest. */
+    public Result activate(Lab lab, Long testId) {
+        Test test = requireTestOfLab(lab, testId);
+        TestDTO before = toDto(test);
+        if (test.isActive()) {
+            throw new NotificationException(HttpStatus.BAD_REQUEST, "Test is already active");
+        }
+        for (Test existing : lab.getTests()) {
+            if (existing.isActive() && java.util.Objects.equals(existing.getName(), test.getName())) {
+                throw new NotificationException(HttpStatus.CONFLICT,
+                        "An active test with the same name already exists in the lab; reject this request instead");
+            }
+        }
+        test.setActive(true);
+        testRepository.save(test);
+        return new Result(before, toDto(test));
+    }
+
     public TestDTO toDto(Test test) {
         return new TestDTO(test.getId(), test.getTestCode(), test.getCategory(), test.getName(),
                 test.getPrice(), test.getCreatedAt(), test.getUpdatedAt());
