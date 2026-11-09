@@ -103,7 +103,7 @@ public class NotificationController {
                                      @PathVariable Long notificationId,
                                      @RequestBody(required = false) ApproveNotificationRequest body) {
         String reason = body != null ? body.getReason() : null;
-        return handle("Request approved and patient updated", HttpStatus.OK,
+        return handle("Request approved and applied", HttpStatus.OK,
                 user -> notificationService.approve(user, labId, notificationId, reason));
     }
 
@@ -131,6 +131,35 @@ public class NotificationController {
     public ResponseEntity<?> getSuperAdminPendingCount() {
         return handle("Pending count fetched successfully", HttpStatus.OK,
                 notificationService::getSuperAdminPendingCount);
+    }
+
+    @Operation(summary = "Request detail (super admin)",
+            description = "Any lab. Shows the proposed change (and, for tests, the current values next to it).")
+    @GetMapping("/super-admin/{notificationId}")
+    public ResponseEntity<?> getNotificationAsSuperAdmin(@PathVariable Long notificationId) {
+        return handle("Notification fetched successfully", HttpStatus.OK,
+                user -> notificationService.getNotificationAsSuperAdmin(user, notificationId));
+    }
+
+    @Operation(summary = "Approve a request (super admin)",
+            description = "Applies the held change (test / test reference / patient edit) and marks it APPROVED. "
+                    + "A reason is required. Works for a request of any lab.")
+    @PutMapping("/super-admin/{notificationId}/approve")
+    public ResponseEntity<?> approveAsSuperAdmin(@PathVariable Long notificationId,
+                                                 @RequestBody(required = false) ApproveNotificationRequest body) {
+        String reason = body != null ? body.getReason() : null;
+        return handle("Request approved and applied", HttpStatus.OK,
+                user -> notificationService.approveAsSuperAdmin(user, notificationId, reason));
+    }
+
+    @Operation(summary = "Reject a request (super admin)",
+            description = "Nothing is applied. A reason is required and is shown to the requester.")
+    @PutMapping("/super-admin/{notificationId}/reject")
+    public ResponseEntity<?> rejectAsSuperAdmin(@PathVariable Long notificationId,
+                                                @RequestBody(required = false) RejectNotificationRequest body) {
+        String reason = body != null ? body.getReason() : null;
+        return handle("Request rejected", HttpStatus.OK,
+                user -> notificationService.rejectAsSuperAdmin(user, notificationId, reason));
     }
 
     @Operation(summary = "Acknowledge an alert (super admin)",

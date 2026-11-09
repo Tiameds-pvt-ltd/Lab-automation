@@ -38,6 +38,10 @@ public class NotificationDTO {
     private PatientDTO proposedPatient;
     private List<String> changedFields;
 
+    // Only filled by the detail endpoint, for TEST_CHANGE_REQUEST / TEST_REFERENCE_CHANGE_REQUEST
+    private CatalogChangePayload proposedChange;
+    private Object currentValue;
+
     public static NotificationDTO from(Notification n) {
         NotificationDTO dto = new NotificationDTO();
         dto.id = n.getId();

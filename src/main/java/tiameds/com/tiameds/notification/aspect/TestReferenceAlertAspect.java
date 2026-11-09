@@ -27,8 +27,9 @@ import java.util.Optional;
  * is stored. Who gets it: TECHNICIAN / DESKROLE changes -> the lab's admins; ADMIN changes -> super admins only;
  * SUPERADMIN changes -> no alert (see NotificationService.raiseChangeAlert).
  *
- * Covered: POST /add, PUT /{labId}/{id}, PUT /update, DELETE /delete, DELETE /{labId}/delete-all,
- * POST /{labId}/csv/upload. A failure here is only logged.
+ * Only the CSV upload (POST /{labId}/csv/upload) is covered here: add / update / delete are held for approval by
+ * CatalogChangeApprovalAspect instead, and the upload can't be held because the file would have to be stored.
+ * A failure here is only logged.
  * Switch off with notification.test-reference-alert.enabled=false.
  *
  * Runs outside the controller's @Transactional (highest precedence), so the change is already committed and an
@@ -53,12 +54,7 @@ public class TestReferenceAlertAspect {
     }
 
     @AfterReturning(
-            pointcut = "execution(public * tiameds.com.tiameds.controller.lab.TestReferenceController.addTestReference(..)) "
-                    + "|| execution(public * tiameds.com.tiameds.controller.lab.TestReferenceController.updateTestReference(..)) "
-                    + "|| execution(public * tiameds.com.tiameds.controller.lab.TestReferenceController.updateTestReferenceByCode(..)) "
-                    + "|| execution(public * tiameds.com.tiameds.controller.lab.TestReferenceController.deleteTestReference(..)) "
-                    + "|| execution(public * tiameds.com.tiameds.controller.lab.TestReferenceController.deleteAllTestReferences(..)) "
-                    + "|| execution(public * tiameds.com.tiameds.controller.lab.TestReferenceController.uploadCsv(..))",
+            pointcut = "execution(public * tiameds.com.tiameds.controller.lab.TestReferenceController.uploadCsv(..))",
             returning = "response")
     public void alertAdmins(JoinPoint jp, Object response) {
         try {
@@ -89,23 +85,8 @@ public class TestReferenceAlertAspect {
                 return;
             }
 
-            String[] text = switch (jp.getSignature().getName()) {   // {title, message text}
-                case "addTestReference" -> new String[]{"Test reference added", "added test reference"};
-                case "updateTestReference", "updateTestReferenceByCode" ->
-                        new String[]{"Test reference updated", "updated test reference"};
-                case "deleteTestReference" -> new String[]{"Test reference deleted", "deleted test reference"};
-                case "deleteAllTestReferences" ->
-                        new String[]{"All test references deleted", "deleted all test references"};
-                case "uploadCsv" -> new String[]{"Test references uploaded", "uploaded test references (CSV)"};
-                default -> null;
-            };
-            if (text == null) {
-                return;
-            }
             notificationService.raiseChangeAlert(userOpt.get(), labId, NotificationType.TEST_REFERENCE_CHANGED,
-                    "TEST_REFERENCE", text[0], text[1],
-                    dto != null ? dto.getTestName() : null,
-                    dto != null ? dto.getTestReferenceCode() : null);
+                    "TEST_REFERENCE", "Test references uploaded", "uploaded test references (CSV)", null, null);
         } catch (Exception e) {
             log.warn("Could not raise the test-reference alert: {}", e.getMessage(), e);
         }

@@ -9,5 +9,9 @@ public enum NotificationType {
     /** Information only: a non-admin added / updated / deleted / bulk-changed test reference data. */
     TEST_REFERENCE_CHANGED,
     /** Information only: a user added / updated / deleted a lab test (price list). */
-    TEST_CHANGED
+    TEST_CHANGED,
+    /** A test add / update / delete held for approval (ADMIN proposes, a SUPERADMIN approves or rejects). */
+    TEST_CHANGE_REQUEST,
+    /** A test reference add / update / delete / delete-all held for approval (technician or desk -> admin, admin -> super admin). */
+    TEST_REFERENCE_CHANGE_REQUEST
 }
