@@ -107,6 +107,14 @@ public class NotificationController {
                 user -> notificationService.approve(user, labId, notificationId, reason));
     }
 
+    @Operation(summary = "Acknowledge an alert (admin)",
+            description = "For information-only alerts such as VISIT_CANCELLED. Removes it from the pending count.")
+    @PutMapping("/lab/{labId}/{notificationId}/acknowledge")
+    public ResponseEntity<?> acknowledge(@PathVariable Long labId, @PathVariable Long notificationId) {
+        return handle("Alert acknowledged", HttpStatus.OK,
+                user -> notificationService.acknowledge(user, labId, notificationId));
+    }
+
     @Operation(summary = "Reject a request (admin)",
             description = "The patient is left unchanged. A reason is required and is shown to the requester.")
     @PutMapping("/lab/{labId}/{notificationId}/reject")

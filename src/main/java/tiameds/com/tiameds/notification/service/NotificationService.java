@@ -124,6 +124,60 @@ public class NotificationService {
         return NotificationDTO.from(saved);
     }
 
+    // ------------------------------------------------------------------ visit cancelled alert
+
+    /**
+     * Raises an information-only alert for the lab's admins after a non-admin cancelled a visit.
+     * The cancellation itself has already happened; this only tells the admins. Returns null if nothing was created.
+     */
+    public NotificationDTO raiseVisitCancelledAlert(User user, Long labId, Long visitId, String reason) {
+        if (notificationRepository.existsByLabIdAndTypeAndEntityIdAndStatus(
+                labId, NotificationType.VISIT_CANCELLED, visitId, NotificationStatus.PENDING)) {
+            return null; // an unseen alert for this visit already exists
+        }
+        VisitEntity visit = visitRepository.findById(visitId).orElse(null);
+        String visitCode = visit != null ? visit.getVisitCode() : null;
+        String patient = visit != null && visit.getPatient() != null ? patientName(visit.getPatient()) : null;
+
+        Notification n = new Notification();
+        n.setLabId(labId);
+        n.setType(NotificationType.VISIT_CANCELLED);
+        n.setEntityType("VISIT");
+        n.setEntityId(visitId);
+        n.setVisitId(visitId);
+        n.setVisitCode(visitCode);
+        n.setTitle("Visit cancelled" + (visitCode != null ? ": " + visitCode : ""));
+        n.setMessage(user.getUsername() + " cancelled the visit"
+                + (patient != null ? " of " + patient : "")
+                + (reason != null && !reason.isBlank() ? ". Reason: " + reason.trim() : ""));
+        n.setRequestedByUserId(user.getId());
+        n.setRequestedByUsername(user.getUsername());
+        n.setStatus(NotificationStatus.PENDING);
+
+        Notification saved = notificationRepository.save(n);
+        log.info("Visit {} cancelled by {} in lab {}: admin alert {} raised",
+                visitId, user.getUsername(), labId, saved.getId());
+        return NotificationDTO.from(saved);
+    }
+
+    /** An admin has seen an information-only alert; it leaves the pending count. */
+    public NotificationDTO acknowledge(User admin, Long labId, Long notificationId) {
+        requireAdminOfLab(admin, labId);
+        Notification n = notificationRepository.findByIdForUpdate(notificationId)
+                .filter(row -> Objects.equals(row.getLabId(), labId))
+                .orElseThrow(() -> new NotificationException(HttpStatus.NOT_FOUND, "Notification not found"));
+        if (n.getType() != NotificationType.VISIT_CANCELLED) {
+            throw new NotificationException(HttpStatus.BAD_REQUEST,
+                    "This notification must be approved or rejected, not acknowledged");
+        }
+        if (n.getStatus() != NotificationStatus.PENDING) {
+            throw new NotificationException(HttpStatus.CONFLICT, "This alert was already acknowledged");
+        }
+        n.setStatus(NotificationStatus.ACKNOWLEDGED);
+        stampReview(n, admin);
+        return NotificationDTO.from(notificationRepository.save(n));
+    }
+
     // ------------------------------------------------------------------ read
 
     /** Admin view: every notification of the lab, optionally filtered by status. */
