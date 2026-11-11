@@ -6,6 +6,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tiameds.com.tiameds.audit.AuditLogService;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import tiameds.com.tiameds.dto.auth.MemberDetailsUpdate;
+import tiameds.com.tiameds.dto.auth.MemberRegisterDto;
+import tiameds.com.tiameds.repository.UserRepository;
+import tiameds.com.tiameds.services.auth.MemberUserServices;
 import tiameds.com.tiameds.dto.lab.PatientDTO;
 import tiameds.com.tiameds.dto.lab.TestDTO;
 import tiameds.com.tiameds.dto.lab.TestReferenceDTO;
@@ -66,10 +71,15 @@ public class NotificationService {
     private final VisitRepository visitRepository;
     private final TestChangeApplier testChangeApplier;
     private final TestReferenceServices testReferenceServices;
+    private final MemberUserServices memberUserServices;
+    private final PasswordEncoder passwordEncoder;
+    private final UserRepository userRepository;
 
     /** Request types an admin / super admin can approve or reject (everything else is information only). */
     private static final Set<NotificationType> REVIEWABLE = Set.of(
             NotificationType.PATIENT_EDIT_REQUEST,
+            NotificationType.USER_ADD_REQUEST,
+            NotificationType.USER_UPDATE_REQUEST,
             NotificationType.TEST_CHANGE_REQUEST,
             NotificationType.TEST_REFERENCE_CHANGE_REQUEST);
 
@@ -77,6 +87,9 @@ public class NotificationService {
     public static final String OP_UPDATE = "UPDATE";
     public static final String OP_DELETE = "DELETE";
     public static final String OP_ACTIVATE = "ACTIVATE";
+    public static final String OP_CREATE_USER = "CREATE_USER";
+    public static final String OP_ADD_MEMBER = "ADD_MEMBER";
+    public static final String OP_UPDATE_USER = "UPDATE_USER";
     public static final String OP_DELETE_ALL = "DELETE_ALL";
 
     public NotificationService(NotificationRepository notificationRepository,
@@ -90,7 +103,13 @@ public class NotificationService {
                                PatientChangeDescriber changeDescriber,
                                VisitRepository visitRepository,
                                TestChangeApplier testChangeApplier,
-                               TestReferenceServices testReferenceServices) {
+                               TestReferenceServices testReferenceServices,
+                               MemberUserServices memberUserServices,
+                               PasswordEncoder passwordEncoder,
+                               UserRepository userRepository) {
+        this.memberUserServices = memberUserServices;
+        this.passwordEncoder = passwordEncoder;
+        this.userRepository = userRepository;
         this.testChangeApplier = testChangeApplier;
         this.testReferenceServices = testReferenceServices;
         this.changeDescriber = changeDescriber;
@@ -481,8 +500,13 @@ public class NotificationService {
     private NotificationDTO detailOf(Notification n) {
         NotificationDTO dto = NotificationDTO.from(n);
         if ((n.getType() == NotificationType.TEST_CHANGE_REQUEST
-                || n.getType() == NotificationType.TEST_REFERENCE_CHANGE_REQUEST) && n.getPayloadJson() != null) {
+                || n.getType() == NotificationType.TEST_REFERENCE_CHANGE_REQUEST
+                || n.getType() == NotificationType.USER_ADD_REQUEST
+                || n.getType() == NotificationType.USER_UPDATE_REQUEST) && n.getPayloadJson() != null) {
             CatalogChangePayload payload = readPayload(n);
+            if (payload.getBody() instanceof com.fasterxml.jackson.databind.node.ObjectNode body) {
+                body.remove("password");   // never show the (hashed) password of a user waiting to be created
+            }
             dto.setProposedChange(payload);
             if (n.getType() == NotificationType.TEST_CHANGE_REQUEST && payload.getEntityId() != null) {
                 // current values of the test being changed, next to the proposed ones
@@ -551,6 +575,8 @@ public class NotificationService {
             case PATIENT_EDIT_REQUEST -> applyPatientEdit(lab, n);
             case TEST_CHANGE_REQUEST -> applyTestChange(lab, n);
             case TEST_REFERENCE_CHANGE_REQUEST -> applyTestReferenceChange(lab, n, reviewer);
+            case USER_ADD_REQUEST -> applyUserAdd(lab, n, reviewer);
+            case USER_UPDATE_REQUEST -> applyUserUpdate(lab, n, reviewer);
             default -> throw new NotificationException(HttpStatus.BAD_REQUEST, "This notification type cannot be reviewed");
         };
 
@@ -578,7 +604,7 @@ public class NotificationService {
         stampReview(n, reviewer);
         Notification saved = notificationRepository.save(n);
 
-        writeAudit(reviewer, n.getLabId(), n, n.getEntityId(), "UPDATE_REJECTED", null, n.getPayloadJson(),
+        writeAudit(reviewer, n.getLabId(), n, n.getEntityId(), "UPDATE_REJECTED", null, auditSafePayload(n),
                 "Rejected " + label(n) + " request #" + n.getId() + " raised by " + n.getRequestedByUsername()
                         + ": " + n.getRejectionReason(),
                 LabAuditLogs.Severity.LOW);
@@ -651,6 +677,230 @@ public class NotificationService {
         return new Applied(n.getEntityId(), "TEST_REFERENCE_" + p.getOperation(), null, n.getPayloadJson());
     }
 
+    /** Same work as LabAdminController.createUserInLab / LabMemberController.addMemberToLab, done on approval. */
+    private Applied applyUserAdd(Lab lab, Notification n, User reviewer) {
+        CatalogChangePayload p = readPayload(n);
+        // the requesting admin is recorded as the creator, like when they create a user directly
+        User requester = userRepository.findByUsername(n.getRequestedByUsername()).orElse(reviewer);
+
+        if (OP_CREATE_USER.equals(p.getOperation())) {
+            MemberRegisterDto dto = convert(p.getBody(), MemberRegisterDto.class);
+            if (userRepository.existsByUsername(dto.getUsername())) {
+                throw new NotificationException(HttpStatus.CONFLICT,
+                        "Username already exists; reject this request instead");
+            }
+            if (userRepository.existsByEmail(dto.getEmail())) {
+                throw new NotificationException(HttpStatus.CONFLICT,
+                        "Email already exists; reject this request instead");
+            }
+            // The stored password is already a BCrypt hash (the plain password is never kept). The service hashes
+            // whatever it gets, so put the stored hash back right after the user is created.
+            String storedHash = dto.getPassword();
+            memberUserServices.createUserAndAddToLab(dto, lab, requester);
+            User created = userRepository.findByUsername(dto.getUsername())
+                    .orElseThrow(() -> new NotificationException(HttpStatus.INTERNAL_SERVER_ERROR,
+                            "User was not created"));
+            // No save(): the user is already managed in this transaction and the change is written at commit.
+            // (save() would merge it and fail: createUserAndAddToLab gives it an immutable Set.of(lab) for labs.)
+            created.setPassword(storedHash);
+            return new Applied(created.getId(), "CREATE", null, toJson(userSummary(dto)));
+        }
+        if (OP_ADD_MEMBER.equals(p.getOperation())) {
+            User toAdd = userRepository.findById(p.getEntityId())
+                    .orElseThrow(() -> new NotificationException(HttpStatus.NOT_FOUND,
+                            "User no longer exists; reject this request instead"));
+            if (lab.getMembers().contains(toAdd)) {
+                throw new NotificationException(HttpStatus.CONFLICT, "User is already a member of this lab");
+            }
+            lab.getMembers().add(toAdd);
+            labRepository.save(lab);
+            return new Applied(toAdd.getId(), "MEMBER_ADD", null, "{\"username\":\"" + toAdd.getUsername() + "\"}");
+        }
+        throw new NotificationException(HttpStatus.BAD_REQUEST, "Unknown operation " + p.getOperation());
+    }
+
+    /** The stored request as it may appear in an audit row: without the password of a user waiting to be created. */
+    private String auditSafePayload(Notification n) {
+        if (n.getType() != NotificationType.USER_ADD_REQUEST || n.getPayloadJson() == null) {
+            return n.getPayloadJson();
+        }
+        CatalogChangePayload p = readPayload(n);
+        if (p.getBody() instanceof com.fasterxml.jackson.databind.node.ObjectNode body) {
+            body.remove("password");
+        }
+        return toJson(p);
+    }
+
+    /** Never put the password (even hashed) into an audit row or a response. */
+    private java.util.Map<String, Object> userSummary(MemberRegisterDto dto) {
+        java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+        m.put("username", dto.getUsername());
+        m.put("email", dto.getEmail());
+        m.put("firstName", dto.getFirstName());
+        m.put("lastName", dto.getLastName());
+        m.put("roles", dto.getRoles());
+        return m;
+    }
+
+    /**
+     * An ADMIN asks to create a user in a lab. Nothing is created here; a SUPERADMIN approves.
+     * Runs the same checks as LabAdminController.createUserInLab, because the controller is bypassed.
+     * The password is hashed now, so the plain text is never stored.
+     */
+    public NotificationDTO submitUserCreate(User admin, Long labId, MemberRegisterDto dto) {
+        Lab lab = requireAccessibleLab(labId);
+        if (dto == null || isBlank(dto.getUsername()) || isBlank(dto.getEmail()) || isBlank(dto.getPassword())) {
+            throw new NotificationException(HttpStatus.BAD_REQUEST, "Username, email and password are required");
+        }
+        if (lab.getMembers().stream().anyMatch(u -> dto.getUsername().equals(u.getUsername())
+                || dto.getEmail().equals(u.getEmail()))) {
+            throw new NotificationException(HttpStatus.CONFLICT, "User is already a member of this lab");
+        }
+        if (userRepository.existsByUsername(dto.getUsername())) {
+            throw new NotificationException(HttpStatus.CONFLICT, "Username already exists");
+        }
+        if (userRepository.existsByEmail(dto.getEmail())) {
+            throw new NotificationException(HttpStatus.CONFLICT, "Email already exists");
+        }
+        Set<String> allowed = Set.of("ADMIN", "TECHNICIAN", "DESKROLE");   // what an ADMIN may create
+        boolean invalidRole = dto.getRoles() != null && dto.getRoles().stream()
+                .filter(Objects::nonNull)
+                .map(r -> r.toUpperCase(Locale.ROOT))
+                .anyMatch(r -> !allowed.contains(r));
+        if (invalidRole) {
+            throw new NotificationException(HttpStatus.FORBIDDEN,
+                    "Invalid role selection. Allowed: ADMIN, TECHNICIAN, DESKROLE");
+        }
+
+        MemberRegisterDto stored = objectMapper.convertValue(dto, MemberRegisterDto.class);
+        stored.setPassword(passwordEncoder.encode(dto.getPassword()));
+
+        String roles = dto.getRoles() != null && !dto.getRoles().isEmpty() ? String.join(", ", dto.getRoles()) : "no role";
+        return saveChangeRequest(admin, labId, NotificationType.USER_ADD_REQUEST, "USER", null,
+                "User create request: " + dto.getUsername(),
+                admin.getUsername() + " requested to create user " + dto.getUsername() + " (" + roles + ") in the lab",
+                OP_CREATE_USER, stored);
+    }
+
+    /** An ADMIN asks to add an existing user to a lab; a SUPERADMIN approves. Same checks as addMemberToLab. */
+    public NotificationDTO submitAddMember(User admin, Long labId, Long userId) {
+        Lab lab = requireAccessibleLab(labId);
+        User toAdd = userRepository.findById(userId)
+                .orElseThrow(() -> new NotificationException(HttpStatus.NOT_FOUND, "User to be added not found"));
+        if (lab.getCreatedBy() == null || !lab.getCreatedBy().equals(admin)) {
+            throw new NotificationException(HttpStatus.UNAUTHORIZED,
+                    "You are not authorized to get members of this lab");
+        }
+        if (lab.getMembers().contains(toAdd)) {
+            throw new NotificationException(HttpStatus.CONFLICT, "User is already a member of this lab");
+        }
+        return saveChangeRequest(admin, labId, NotificationType.USER_ADD_REQUEST, "USER", userId,
+                "Add member request: " + toAdd.getUsername(),
+                admin.getUsername() + " requested to add existing user " + toAdd.getUsername() + " to the lab",
+                OP_ADD_MEMBER, null);
+    }
+
+    /**
+     * An ADMIN asks to update a user (details and / or roles); nothing changes until a SUPERADMIN approves.
+     * Same checks as LabAdminController.updateUserInLab (lab accessible, user exists), plus a clash check on the
+     * new username / email so an approval cannot fail on a database constraint.
+     */
+    public NotificationDTO submitUserUpdate(User admin, Long labId, Long userId, MemberDetailsUpdate dto) {
+        requireAccessibleLab(labId);
+        User current = userRepository.findById(userId)
+                .orElseThrow(() -> new NotificationException(HttpStatus.NOT_FOUND, "User not found"));
+        if (dto == null || isBlank(dto.getUsername()) || isBlank(dto.getEmail()) || dto.getRoles() == null) {
+            throw new NotificationException(HttpStatus.BAD_REQUEST, "Username, email and roles are required");
+        }
+        if (userRepository.findByUsername(dto.getUsername()).filter(u -> !u.getId().equals(userId)).isPresent()) {
+            throw new NotificationException(HttpStatus.CONFLICT, "Username already exists");
+        }
+        if (userService.findByEmail(dto.getEmail()).filter(u -> !u.getId().equals(userId)).isPresent()) {
+            throw new NotificationException(HttpStatus.CONFLICT, "Email already exists");
+        }
+        return saveChangeRequest(admin, labId, NotificationType.USER_UPDATE_REQUEST, "USER", userId,
+                "User update request: " + current.getUsername(),
+                admin.getUsername() + " requested to update user " + current.getUsername() + ": "
+                        + describeUserChange(current, dto),
+                OP_UPDATE_USER, dto);
+    }
+
+    private String describeUserChange(User current, MemberDetailsUpdate dto) {
+        List<String> changes = new ArrayList<>();
+        addChange(changes, "username", current.getUsername(), dto.getUsername());
+        addChange(changes, "email", current.getEmail(), dto.getEmail());
+        addChange(changes, "first name", current.getFirstName(), dto.getFirstName());
+        addChange(changes, "last name", current.getLastName(), dto.getLastName());
+        addChange(changes, "phone", current.getPhone(), dto.getPhone());
+        addChange(changes, "city", current.getCity(), dto.getCity());
+        if (current.isEnabled() != Boolean.TRUE.equals(dto.getEnabled())) {
+            changes.add("enabled " + current.isEnabled() + " -> " + Boolean.TRUE.equals(dto.getEnabled()));
+        }
+        Set<String> oldRoles = current.getRoles() == null ? Set.of()
+                : current.getRoles().stream().map(r -> r.getName()).collect(Collectors.toCollection(java.util.TreeSet::new));
+        Set<String> newRoles = new java.util.TreeSet<>(dto.getRoles());
+        if (!oldRoles.equals(newRoles)) {
+            changes.add("roles " + oldRoles + " -> " + newRoles);
+        }
+        return changes.isEmpty() ? "no field changes" : String.join("; ", changes);
+    }
+
+    private void addChange(List<String> changes, String field, String oldValue, String newValue) {
+        if (!Objects.equals(oldValue, newValue)) {
+            changes.add(field + " '" + oldValue + "' -> '" + newValue + "'");
+        }
+    }
+
+    /** Same work as LabAdminController.updateUserInLab, done on approval (the requester is recorded as the editor). */
+    private Applied applyUserUpdate(Lab lab, Notification n, User reviewer) {
+        CatalogChangePayload p = readPayload(n);
+        MemberDetailsUpdate dto = convert(p.getBody(), MemberDetailsUpdate.class);
+        User user = userRepository.findById(p.getEntityId())
+                .orElseThrow(() -> new NotificationException(HttpStatus.NOT_FOUND,
+                        "User no longer exists; reject this request instead"));
+        if (userRepository.findByUsername(dto.getUsername()).filter(u -> !u.getId().equals(user.getId())).isPresent()) {
+            throw new NotificationException(HttpStatus.CONFLICT, "Username already exists; reject this request instead");
+        }
+        if (userService.findByEmail(dto.getEmail()).filter(u -> !u.getId().equals(user.getId())).isPresent()) {
+            throw new NotificationException(HttpStatus.CONFLICT, "Email already exists; reject this request instead");
+        }
+        User requester = userRepository.findByUsername(n.getRequestedByUsername()).orElse(reviewer);
+
+        java.util.Map<String, Object> before = new java.util.LinkedHashMap<>();
+        before.put("username", user.getUsername());
+        before.put("email", user.getEmail());
+        before.put("firstName", user.getFirstName());
+        before.put("lastName", user.getLastName());
+        before.put("phone", user.getPhone());
+        before.put("city", user.getCity());
+        before.put("enabled", user.isEnabled());
+        before.put("roles", user.getRoles() == null ? List.of()
+                : user.getRoles().stream().map(r -> r.getName()).sorted().collect(Collectors.toList()));
+        String beforeJson = toJson(before);
+
+        memberUserServices.updateUserInLab(dto, user, lab, requester);
+
+        java.util.Map<String, Object> after = new java.util.LinkedHashMap<>();
+        after.put("username", dto.getUsername());
+        after.put("email", dto.getEmail());
+        after.put("firstName", dto.getFirstName());
+        after.put("lastName", dto.getLastName());
+        after.put("phone", dto.getPhone());
+        after.put("city", dto.getCity());
+        after.put("enabled", dto.getEnabled());
+        after.put("roles", dto.getRoles());
+        return new Applied(user.getId(), "UPDATE", beforeJson, toJson(after));
+    }
+
+    private Lab requireAccessibleLab(Long labId) {
+        Lab lab = labRepository.findById(labId)
+                .orElseThrow(() -> new NotificationException(HttpStatus.NOT_FOUND, "Lab not found"));
+        if (!labAccessableFilter.isLabAccessible(labId)) {
+            throw new NotificationException(HttpStatus.UNAUTHORIZED, "Lab is not accessible");
+        }
+        return lab;
+    }
+
     /** Who may approve / reject: requests meant for super admins need a SUPERADMIN. */
     private void requireMayReview(User reviewer, Notification n) {
         if (ROLE_SUPERADMIN.equals(n.getTargetRole()) && !isSuperAdmin(reviewer)) {
@@ -662,6 +912,8 @@ public class NotificationService {
         return switch (n.getType()) {
             case TEST_CHANGE_REQUEST -> "test change";
             case TEST_REFERENCE_CHANGE_REQUEST -> "test reference change";
+            case USER_ADD_REQUEST -> "user add";
+            case USER_UPDATE_REQUEST -> "user update";
             default -> "patient edit";
         };
     }
@@ -815,6 +1067,7 @@ public class NotificationService {
         return switch (n.getType()) {
             case TEST_CHANGE_REQUEST -> "Test";
             case TEST_REFERENCE_CHANGE_REQUEST -> "TestReference";
+            case USER_ADD_REQUEST, USER_UPDATE_REQUEST -> "User";
             default -> "Patient";
         };
     }

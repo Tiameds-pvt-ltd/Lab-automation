@@ -12,6 +12,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
+import tiameds.com.tiameds.dto.auth.MemberDetailsUpdate;
+import tiameds.com.tiameds.dto.auth.MemberRegisterDto;
 import tiameds.com.tiameds.dto.lab.TestDTO;
 import tiameds.com.tiameds.dto.lab.TestReferenceDTO;
 import tiameds.com.tiameds.entity.User;
@@ -28,6 +30,8 @@ import java.util.Optional;
  * the endpoint is intercepted and, instead of changing anything, the request is stored as a PENDING notification.
  *
  *  - Tests (ADMIN only endpoints): add / update / remove (disable) / activate (enable)
+ *        -> a SUPERADMIN approves or rejects
+ *  - Users (ADMIN only): create user in a lab / add an existing member / update a user
  *        -> a SUPERADMIN approves or rejects
  *  - Test references: add / update (both forms) / delete / delete-all
  *        TECHNICIAN / DESKROLE -> the lab's admins approve, ADMIN -> a SUPERADMIN approves
@@ -105,6 +109,46 @@ public class CatalogChangeApprovalAspect {
                 user.get(), labId, NotificationService.OP_ACTIVATE, testId, null));
     }
 
+    // ---- users: only an ADMIN is held. Anyone else goes straight to the controller, which answers with its own
+    //      403 for technician / desk, and a SUPERADMIN creates users directly.
+
+    // POST /user-management/create-user/{labId}  (MemberRegisterDto body, Long labId, HttpServletRequest)
+    @Around("execution(public * tiameds.com.tiameds.controller.lab.LabAdminController.createUserInLab(..))")
+    public Object holdUserCreate(ProceedingJoinPoint pjp) throws Throwable {
+        Object[] a = pjp.getArgs();
+        Optional<User> admin = holdableAdmin();
+        if (admin.isEmpty() || a.length < 2 || !(a[0] instanceof MemberRegisterDto body) || !(a[1] instanceof Long labId)) {
+            return pjp.proceed();
+        }
+        return submit(() -> notificationService.submitUserCreate(admin.get(), labId, body),
+                "The new user will be created once a super admin approves it.");
+    }
+
+    // PUT /user-management/update-user/{labId}/{userId}  (Long labId, Long userId, MemberDetailsUpdate body, request)
+    @Around("execution(public * tiameds.com.tiameds.controller.lab.LabAdminController.updateUserInLab(..))")
+    public Object holdUserUpdate(ProceedingJoinPoint pjp) throws Throwable {
+        Object[] a = pjp.getArgs();
+        Optional<User> admin = holdableAdmin();
+        if (admin.isEmpty() || a.length < 3 || !(a[0] instanceof Long labId) || !(a[1] instanceof Long userId)
+                || !(a[2] instanceof MemberDetailsUpdate body)) {
+            return pjp.proceed();
+        }
+        return submit(() -> notificationService.submitUserUpdate(admin.get(), labId, userId, body),
+                "The user update will be applied once a super admin approves it.");
+    }
+
+    // POST /lab/admin/add-member/{labId}/member/{userId}  (Long labId, Long userId, HttpServletRequest)
+    @Around("execution(public * tiameds.com.tiameds.controller.lab.LabMemberController.addMemberToLab(..))")
+    public Object holdAddMember(ProceedingJoinPoint pjp) throws Throwable {
+        Object[] a = pjp.getArgs();
+        Optional<User> admin = holdableAdmin();
+        if (admin.isEmpty() || a.length < 2 || !(a[0] instanceof Long labId) || !(a[1] instanceof Long userId)) {
+            return pjp.proceed();
+        }
+        return submit(() -> notificationService.submitAddMember(admin.get(), labId, userId),
+                "The user will be added to the lab once a super admin approves it.");
+    }
+
     // ---- test references
 
     @Around("execution(public * tiameds.com.tiameds.controller.lab.TestReferenceController.addTestReference(..))")
@@ -170,12 +214,21 @@ public class CatalogChangeApprovalAspect {
     // ----
 
     private Object submit(java.util.function.Supplier<Object> action) {
+        return submit(action, MSG);
+    }
+
+    private Object submit(java.util.function.Supplier<Object> action, String message) {
         try {
             Object result = action.get();
-            return ApiResponseHelper.successResponseWithDataAndMessage(MSG, HttpStatus.ACCEPTED, result);
+            return ApiResponseHelper.successResponseWithDataAndMessage(message, HttpStatus.ACCEPTED, result);
         } catch (NotificationException e) {
             return ApiResponseHelper.errorResponse(e.getMessage(), e.getStatus());
         }
+    }
+
+    /** The caller only if they are an ADMIN (not a SUPERADMIN, not a technician / desk user). */
+    private Optional<User> holdableAdmin() {
+        return holdableUser().filter(u -> !notificationService.requiresAdminApproval(u));
     }
 
     /** The caller, unless they are a SUPERADMIN (who is never held) or not logged in. */
