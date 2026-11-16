@@ -12,7 +12,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
+import tiameds.com.tiameds.entity.ReportEntity;
 import tiameds.com.tiameds.entity.User;
+import tiameds.com.tiameds.repository.ReportRepository;
 import tiameds.com.tiameds.notification.service.NotificationService;
 import tiameds.com.tiameds.services.auth.MyUserDetails;
 import tiameds.com.tiameds.services.auth.UserService;
@@ -41,10 +43,13 @@ public class ReportUpdateAlertAspect {
 
     private final NotificationService notificationService;
     private final UserService userService;
+    private final ReportRepository reportRepository;
 
-    public ReportUpdateAlertAspect(NotificationService notificationService, UserService userService) {
+    public ReportUpdateAlertAspect(NotificationService notificationService, UserService userService,
+                                   ReportRepository reportRepository) {
         this.notificationService = notificationService;
         this.userService = userService;
+        this.reportRepository = reportRepository;
     }
 
     // Arguments: (Long labId, Long reportId, List<ReportDto> body, HttpServletRequest request)
@@ -65,7 +70,12 @@ public class ReportUpdateAlertAspect {
             if (userOpt.isEmpty() || notificationService.isSuperAdmin(userOpt.get())) {
                 return;
             }
-            notificationService.raiseReportUpdatedAlert(userOpt.get(), labId, reportId);
+            // visit code and patient name live on the report row itself
+            ReportEntity report = reportRepository.findById(reportId).orElse(null);
+            notificationService.raiseReportUpdatedAlert(userOpt.get(), labId, reportId,
+                    report != null ? report.getVisitId() : null,
+                    report != null ? report.getVisitCode() : null,
+                    report != null ? report.getPatientName() : null);
         } catch (Exception e) {
             log.warn("Could not raise the report-updated alert: {}", e.getMessage(), e);
         }

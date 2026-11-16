@@ -36,8 +36,10 @@ import tiameds.com.tiameds.utils.LabAccessableFilter;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -395,13 +397,30 @@ public class NotificationService {
      * (PUT /lab/{labId}/report/by-id/{reportId}). Nothing to approve or reject. Returns null if nothing was created.
      * entity_id is left empty on purpose so every update is its own alert.
      */
-    public NotificationDTO raiseReportUpdatedAlert(User user, Long labId, Long reportId) {
+    public NotificationDTO raiseReportUpdatedAlert(User user, Long labId, Long reportId,
+                                                   Long visitId, String visitCode, String patientName) {
+        String labName = labRepository.findById(labId).map(Lab::getName).orElse(null);
+        if (isBlank(visitCode) && visitId != null) {
+            visitCode = visitCodeOf(visitId); // the report row does not always carry the visit code
+        }
+
         Notification n = new Notification();
         n.setLabId(labId);
         n.setType(NotificationType.REPORT_UPDATED);
         n.setEntityType("REPORT");
-        n.setTitle("Report updated: " + reportId);
-        n.setMessage(user.getUsername() + " updated report " + reportId);
+        n.setVisitId(visitId);
+        n.setVisitCode(visitCode);
+        n.setTitle("Report updated" + (visitCode != null ? ": " + visitCode : ": " + reportId));
+        n.setMessage(user.getUsername() + " updated the report"
+                + (patientName != null && !patientName.isBlank() ? " of " + patientName.trim() : "")
+                + (visitCode != null ? " (visit " + visitCode + ")" : "")
+                + (labName != null ? " in lab " + labName : ""));
+        // labName / patientName have no column of their own; NotificationDTO reads them back from here
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("reportId", reportId);
+        details.put("labName", labName);
+        details.put("patientName", patientName);
+        n.setPayloadJson(toJson(details));
         n.setTargetRole(ROLE_SUPERADMIN);
         n.setRequestedByUserId(user.getId());
         n.setRequestedByUsername(user.getUsername());
