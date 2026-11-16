@@ -19,5 +19,7 @@ public enum NotificationType {
     /** A test add / update / delete held for approval (ADMIN proposes, a SUPERADMIN approves or rejects). */
     TEST_CHANGE_REQUEST,
     /** A test reference add / update / delete / delete-all held for approval (technician or desk -> admin, admin -> super admin). */
-    TEST_REFERENCE_CHANGE_REQUEST
+    TEST_REFERENCE_CHANGE_REQUEST,
+    /** Information only: a user updated a report; super admins are told. Nothing to approve or reject. */
+    REPORT_UPDATED
 }

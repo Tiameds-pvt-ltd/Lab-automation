@@ -389,6 +389,28 @@ public class NotificationService {
         return NotificationDTO.from(saved);
     }
 
+    /**
+     * Raises an information-only alert for super admins after a report was updated
+     * (PUT /lab/{labId}/report/by-id/{reportId}). Nothing to approve or reject. Returns null if nothing was created.
+     * entity_id is left empty on purpose so every update is its own alert.
+     */
+    public NotificationDTO raiseReportUpdatedAlert(User user, Long labId, Long reportId) {
+        Notification n = new Notification();
+        n.setLabId(labId);
+        n.setType(NotificationType.REPORT_UPDATED);
+        n.setEntityType("REPORT");
+        n.setTitle("Report updated: " + reportId);
+        n.setMessage(user.getUsername() + " updated report " + reportId);
+        n.setTargetRole(ROLE_SUPERADMIN);
+        n.setRequestedByUserId(user.getId());
+        n.setRequestedByUsername(user.getUsername());
+        n.setStatus(NotificationStatus.PENDING);
+        Notification saved = notificationRepository.save(n);
+        log.info("Report {} updated by {} in lab {}: super admin alert {} raised",
+                reportId, user.getUsername(), labId, saved.getId());
+        return NotificationDTO.from(saved);
+    }
+
     /** An admin has seen an information-only alert; it leaves the pending count. */
     public NotificationDTO acknowledge(User admin, Long labId, Long notificationId) {
         requireAdminOfLab(admin, labId);
