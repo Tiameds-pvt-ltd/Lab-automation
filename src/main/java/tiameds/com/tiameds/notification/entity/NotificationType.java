@@ -21,5 +21,7 @@ public enum NotificationType {
     /** A test reference add / update / delete / delete-all held for approval (technician or desk -> admin, admin -> super admin). */
     TEST_REFERENCE_CHANGE_REQUEST,
     /** Information only: a user updated a report; super admins are told. Nothing to approve or reject. */
-    REPORT_UPDATED
+    REPORT_UPDATED,
+    /** Information only: results were added and the report is ready; the lab's DESKROLE users are told to print it. */
+    REPORT_COMPLETED
 }

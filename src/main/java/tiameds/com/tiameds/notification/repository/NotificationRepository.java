@@ -31,9 +31,17 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 
     long countByTargetRoleAndStatus(String targetRole, NotificationStatus status);
 
-    // What a plain ADMIN may see: everything except the alerts reserved for super admins
+    // Alerts meant for the lab's desk users (e.g. "report completed, please print")
+    List<Notification> findByLabIdAndTargetRoleOrderByCreatedAtDesc(Long labId, String targetRole);
+
+    List<Notification> findByLabIdAndTargetRoleAndStatusOrderByCreatedAtDesc(Long labId, String targetRole,
+                                                                             NotificationStatus status);
+
+    long countByLabIdAndTargetRoleAndStatus(Long labId, String targetRole, NotificationStatus status);
+
+    // What a plain ADMIN may see: everything except the alerts reserved for super admins and for desk users
     @Query("SELECT COUNT(n) FROM Notification n WHERE n.labId = :labId AND n.status = :status "
-            + "AND (n.targetRole IS NULL OR n.targetRole <> 'SUPERADMIN')")
+            + "AND (n.targetRole IS NULL OR n.targetRole NOT IN ('SUPERADMIN', 'DESKROLE'))")
     long countVisibleToAdmins(@Param("labId") Long labId, @Param("status") NotificationStatus status);
 
     boolean existsByLabIdAndTypeAndEntityIdAndStatus(Long labId, NotificationType type, Long entityId,

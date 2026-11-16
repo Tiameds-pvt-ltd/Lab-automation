@@ -80,6 +80,41 @@ public class NotificationController {
                 user -> notificationService.getPendingCount(user, labId));
     }
 
+    @Operation(summary = "Report-completed alerts of the lab (desk)",
+            description = "Raised when results were added and the report is ready to print. DESKROLE members of the lab only. "
+                    + "Newest first. Optional status filter: PENDING or ACKNOWLEDGED.")
+    @GetMapping("/lab/{labId}/desk")
+    public ResponseEntity<?> getDeskNotifications(@PathVariable Long labId,
+                                                  @RequestParam(value = "status", required = false) String status) {
+        NotificationStatus parsed = null;
+        if (status != null && !status.isBlank()) {
+            try {
+                parsed = NotificationStatus.valueOf(status.trim().toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                return ApiResponseHelper.errorResponseWithMessage(
+                        "Invalid status. Use PENDING or ACKNOWLEDGED", HttpStatus.BAD_REQUEST);
+            }
+        }
+        final NotificationStatus filter = parsed;
+        return handle("Notifications fetched successfully", HttpStatus.OK,
+                user -> notificationService.getDeskNotifications(user, labId, filter));
+    }
+
+    @Operation(summary = "Number of pending desk alerts", description = "For the desk bell icon badge.")
+    @GetMapping("/lab/{labId}/desk/pending-count")
+    public ResponseEntity<?> getDeskPendingCount(@PathVariable Long labId) {
+        return handle("Pending count fetched successfully", HttpStatus.OK,
+                user -> notificationService.getDeskPendingCount(user, labId));
+    }
+
+    @Operation(summary = "Acknowledge a report-completed alert (desk)",
+            description = "The report was printed / seen. Removes the alert from the pending count.")
+    @PutMapping("/lab/{labId}/desk/{notificationId}/acknowledge")
+    public ResponseEntity<?> acknowledgeAsDesk(@PathVariable Long labId, @PathVariable Long notificationId) {
+        return handle("Alert acknowledged", HttpStatus.OK,
+                user -> notificationService.acknowledgeAsDesk(user, labId, notificationId));
+    }
+
     @Operation(summary = "My requests",
             description = "The requests the logged-in user raised in this lab, with their status and rejection reason.")
     @GetMapping("/lab/{labId}/my-requests")

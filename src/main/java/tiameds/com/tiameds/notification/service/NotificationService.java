@@ -58,6 +58,7 @@ public class NotificationService {
 
     private static final String ENTITY_PATIENT = "PATIENT";
     private static final String ROLE_SUPERADMIN = "SUPERADMIN";
+    private static final String ROLE_DESKROLE = "DESKROLE";
 
     private final NotificationRepository notificationRepository;
     private final LabRepository labRepository;
@@ -411,6 +412,74 @@ public class NotificationService {
         return NotificationDTO.from(saved);
     }
 
+    /**
+     * Raises an information-only alert for the lab's DESKROLE users after results were added successfully
+     * (POST /lab/{labId}/report): the report is completed, please take the print. Nothing to approve or reject.
+     * One open alert per visit: if the desk has not acknowledged the previous one yet, nothing new is created
+     * (returns null).
+     */
+    public NotificationDTO raiseReportCompletedAlert(User user, Long labId, Long visitId) {
+        if (visitId != null && notificationRepository.existsByLabIdAndTypeAndEntityIdAndStatus(
+                labId, NotificationType.REPORT_COMPLETED, visitId, NotificationStatus.PENDING)) {
+            return null; // the desk has not seen the previous alert for this visit yet
+        }
+        VisitEntity visit = visitId != null ? visitRepository.findById(visitId).orElse(null) : null;
+        String visitCode = visit != null ? visit.getVisitCode() : null;
+        String patient = visit != null && visit.getPatient() != null ? patientName(visit.getPatient()) : null;
+
+        Notification n = new Notification();
+        n.setLabId(labId);
+        n.setType(NotificationType.REPORT_COMPLETED);
+        n.setEntityType("VISIT");
+        n.setEntityId(visitId);
+        n.setVisitId(visitId);
+        n.setVisitCode(visitCode);
+        n.setTitle("Report completed" + (visitCode != null ? ": " + visitCode : ""));
+        n.setMessage("Report" + (patient != null ? " of " + patient : "")
+                + (visitCode != null ? " (visit " + visitCode + ")" : "")
+                + " is completed. Please take the print.");
+        n.setTargetRole(ROLE_DESKROLE);
+        n.setRequestedByUserId(user.getId());
+        n.setRequestedByUsername(user.getUsername());
+        n.setStatus(NotificationStatus.PENDING);
+        Notification saved = notificationRepository.save(n);
+        log.info("Report completed for visit {} by {} in lab {}: desk alert {} raised",
+                visitId, user.getUsername(), labId, saved.getId());
+        return NotificationDTO.from(saved);
+    }
+
+    /** Desk view: the "report completed" alerts of the lab, optionally filtered by status. DESKROLE members only. */
+    @Transactional(readOnly = true)
+    public List<NotificationDTO> getDeskNotifications(User user, Long labId, NotificationStatus status) {
+        requireDeskOfLab(user, labId);
+        List<Notification> rows = status == null
+                ? notificationRepository.findByLabIdAndTargetRoleOrderByCreatedAtDesc(labId, ROLE_DESKROLE)
+                : notificationRepository.findByLabIdAndTargetRoleAndStatusOrderByCreatedAtDesc(
+                        labId, ROLE_DESKROLE, status);
+        return rows.stream().map(NotificationDTO::from).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public long getDeskPendingCount(User user, Long labId) {
+        requireDeskOfLab(user, labId);
+        return notificationRepository.countByLabIdAndTargetRoleAndStatus(
+                labId, ROLE_DESKROLE, NotificationStatus.PENDING);
+    }
+
+    /** A desk user has seen (printed) the report alert; it leaves the pending count. */
+    public NotificationDTO acknowledgeAsDesk(User user, Long labId, Long notificationId) {
+        requireDeskOfLab(user, labId);
+        Notification n = notificationRepository.findByIdForUpdate(notificationId)
+                .filter(row -> Objects.equals(row.getLabId(), labId) && ROLE_DESKROLE.equals(row.getTargetRole()))
+                .orElseThrow(() -> new NotificationException(HttpStatus.NOT_FOUND, "Notification not found"));
+        if (n.getStatus() != NotificationStatus.PENDING) {
+            throw new NotificationException(HttpStatus.CONFLICT, "This alert was already acknowledged");
+        }
+        n.setStatus(NotificationStatus.ACKNOWLEDGED);
+        stampReview(n, user);
+        return NotificationDTO.from(notificationRepository.save(n));
+    }
+
     /** An admin has seen an information-only alert; it leaves the pending count. */
     public NotificationDTO acknowledge(User admin, Long labId, Long notificationId) {
         requireAdminOfLab(admin, labId);
@@ -436,6 +505,9 @@ public class NotificationService {
         if (ROLE_SUPERADMIN.equals(n.getTargetRole()) && !isSuperAdmin(reviewer)) {
             throw new NotificationException(HttpStatus.FORBIDDEN, "This alert is only for super admins");
         }
+        if (ROLE_DESKROLE.equals(n.getTargetRole()) && !isSuperAdmin(reviewer)) {
+            throw new NotificationException(HttpStatus.FORBIDDEN, "This alert is only for desk users");
+        }
         if (n.getStatus() != NotificationStatus.PENDING) {
             throw new NotificationException(HttpStatus.CONFLICT, "This alert was already acknowledged");
         }
@@ -458,7 +530,8 @@ public class NotificationService {
                 ? notificationRepository.findByLabIdOrderByCreatedAtDesc(labId)
                 : notificationRepository.findByLabIdAndStatusOrderByCreatedAtDesc(labId, status);
         return rows.stream()
-                .filter(n -> superAdmin || !ROLE_SUPERADMIN.equals(n.getTargetRole()))
+                .filter(n -> superAdmin
+                        || (!ROLE_SUPERADMIN.equals(n.getTargetRole()) && !ROLE_DESKROLE.equals(n.getTargetRole())))
                 .map(NotificationDTO::from).collect(Collectors.toList());
     }
 
@@ -958,6 +1031,15 @@ public class NotificationService {
         if (!userService.isUserMemberOfLab(user.getId(), labId)) {
             throw new NotificationException(HttpStatus.UNAUTHORIZED, "User is not a member of this lab");
         }
+    }
+
+    /** Desk alerts: a DESKROLE user who is a member of the lab. */
+    private Lab requireDeskOfLab(User user, Long labId) {
+        Lab lab = requireAccessibleLabMember(user, labId);
+        if (!roleNames(user).contains(ROLE_DESKROLE)) {
+            throw new NotificationException(HttpStatus.FORBIDDEN, "Only a DESKROLE user can use this");
+        }
+        return lab;
     }
 
     /** Reviewer = ADMIN (or SUPERADMIN) who is a member of the lab the request belongs to. */
