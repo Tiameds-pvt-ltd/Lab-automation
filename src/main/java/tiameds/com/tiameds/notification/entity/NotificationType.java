@@ -23,5 +23,7 @@ public enum NotificationType {
     /** Information only: a user updated a report; super admins are told. Nothing to approve or reject. */
     REPORT_UPDATED,
     /** Information only: results were added and the report is ready; the lab's DESKROLE users are told to print it. */
-    REPORT_COMPLETED
+    REPORT_COMPLETED,
+    /** Information only: a non-admin updated / deleted a visit's samples after results were entered; admins are told. */
+    VISIT_SAMPLE_CHANGED
 }

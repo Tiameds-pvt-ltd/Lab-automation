@@ -29,6 +29,7 @@ import tiameds.com.tiameds.notification.entity.NotificationType;
 import tiameds.com.tiameds.notification.repository.NotificationRepository;
 import tiameds.com.tiameds.repository.LabRepository;
 import tiameds.com.tiameds.repository.PatientRepository;
+import tiameds.com.tiameds.repository.ReportRepository;
 import tiameds.com.tiameds.repository.VisitRepository;
 import tiameds.com.tiameds.services.auth.UserService;
 import tiameds.com.tiameds.services.lab.UpdatePatientService;
@@ -77,6 +78,7 @@ public class NotificationService {
     private final MemberUserServices memberUserServices;
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
+    private final ReportRepository reportRepository;
 
     /** Request types an admin / super admin can approve or reject (everything else is information only). */
     private static final Set<NotificationType> REVIEWABLE = Set.of(
@@ -109,7 +111,9 @@ public class NotificationService {
                                TestReferenceServices testReferenceServices,
                                MemberUserServices memberUserServices,
                                PasswordEncoder passwordEncoder,
-                               UserRepository userRepository) {
+                               UserRepository userRepository,
+                               ReportRepository reportRepository) {
+        this.reportRepository = reportRepository;
         this.memberUserServices = memberUserServices;
         this.passwordEncoder = passwordEncoder;
         this.userRepository = userRepository;
@@ -464,6 +468,80 @@ public class NotificationService {
         Notification saved = notificationRepository.save(n);
         log.info("Report completed for visit {} by {} in lab {}: desk alert {} raised",
                 visitId, user.getUsername(), labId, saved.getId());
+        return NotificationDTO.from(saved);
+    }
+
+    /**
+     * Raises an information-only alert for the lab's admins after a non-admin updated or deleted a visit's samples
+     * AFTER results had already been entered for that visit (PUT /lab/update-samples, DELETE /lab/delete-samples).
+     * Nothing to approve or reject. Returns null when the visit has no results yet (a normal sample correction).
+     * entity_id is left empty on purpose so every change is its own alert.
+     *
+     * @param action      OP_UPDATE or OP_DELETE
+     * @param sampleNames the sample names sent to the endpoint
+     */
+    public NotificationDTO raiseVisitSampleChangedAlert(User user, Long visitId, String action,
+                                                        List<String> sampleNames) {
+        if (visitId == null) {
+            return null;
+        }
+        VisitEntity visit = visitRepository.findById(visitId).orElse(null);
+        if (visit == null || visit.getLabs() == null || visit.getLabs().isEmpty()) {
+            return null;
+        }
+        Long labId = visit.getLabs().iterator().next().getId();   // same lab the sample endpoint uses
+        // "results entered" = report rows exist for the visit (visit_test_result rows are created at registration)
+        if (reportRepository.findByVisitIdAndLabId(visitId, labId).isEmpty()) {
+            return null;
+        }
+        PatientEntity patient = visit.getPatient();
+        String patientName = patient != null ? patientName(patient) : null;
+        String visitCode = visit.getVisitCode();
+        String labName = labRepository.findById(labId).map(Lab::getName).orElse(null);
+        boolean deleted = OP_DELETE.equals(action);
+        List<String> samples = sampleNames == null ? List.of() : sampleNames.stream()
+                .filter(s -> s != null && !s.isBlank()).map(String::trim).collect(Collectors.toList());
+        String samplesText = samples.isEmpty() ? "samples" : String.join(", ", samples);
+
+        Notification n = new Notification();
+        n.setLabId(labId);
+        n.setType(NotificationType.VISIT_SAMPLE_CHANGED);
+        n.setEntityType("VISIT");
+        n.setVisitId(visitId);
+        n.setVisitCode(visitCode);
+        n.setTitle("Sample " + (deleted ? "deleted" : "updated") + " after results"
+                + (visitCode != null ? ": " + visitCode : ""));
+        n.setMessage(user.getUsername() + (deleted ? " deleted " : " updated ") + "sample(s) [" + samplesText + "]"
+                + " after results were entered"
+                + (patientName != null ? " for patient " + patientName : "")
+                + (patient != null && patient.getPatientId() != null ? " (patient id " + patient.getPatientId() + ")" : "")
+                + (visitCode != null ? ", visit " + visitCode : "")
+                + (labName != null ? ", lab " + labName : ""));
+
+        // patient / lab / sample details have no column of their own; NotificationDTO reads them back from here
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("labName", labName);
+        details.put("patientName", patientName);
+        details.put("sampleAction", deleted ? "DELETED" : "UPDATED");
+        details.put("samples", samples);
+        if (patient != null) {
+            Map<String, Object> p = new LinkedHashMap<>();
+            p.put("patientId", patient.getPatientId());
+            p.put("name", patientName);
+            p.put("gender", patient.getGender());
+            p.put("age", patient.getAge());
+            p.put("dateOfBirth", patient.getDateOfBirth() != null ? patient.getDateOfBirth().toString() : null);
+            p.put("phone", patient.getPhone());
+            p.put("email", patient.getEmail());
+            details.put("patient", p);
+        }
+        n.setPayloadJson(toJson(details));
+        n.setRequestedByUserId(user.getId());
+        n.setRequestedByUsername(user.getUsername());
+        n.setStatus(NotificationStatus.PENDING);
+        Notification saved = notificationRepository.save(n);
+        log.info("Samples {} after results for visit {} by {} in lab {}: admin alert {} raised",
+                deleted ? "deleted" : "updated", visitId, user.getUsername(), labId, saved.getId());
         return NotificationDTO.from(saved);
     }
 

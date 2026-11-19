@@ -38,10 +38,15 @@ public class NotificationDTO {
     private String approvalReason;
     private LocalDateTime createdAt;
 
-    // Only filled for REPORT_UPDATED (read back from the stored details)
+    // Only filled for REPORT_UPDATED / VISIT_SAMPLE_CHANGED (read back from the stored details)
     private String labName;
     private String patientName;
     private Long reportId;
+
+    // Only filled for VISIT_SAMPLE_CHANGED
+    private String sampleAction;          // UPDATED / DELETED
+    private List<String> samples;
+    private JsonNode patientDetails;      // patientId, name, gender, age, dateOfBirth, phone, email
 
     // Only filled by the detail endpoint, for PATIENT_EDIT_REQUEST
     private PatientDTO currentPatient;
@@ -73,12 +78,22 @@ public class NotificationDTO {
         dto.rejectionReason = n.getRejectionReason();
         dto.approvalReason = n.getReviewRemark();
         dto.createdAt = n.getCreatedAt();
-        if (n.getType() == NotificationType.REPORT_UPDATED && n.getPayloadJson() != null) {
+        if ((n.getType() == NotificationType.REPORT_UPDATED || n.getType() == NotificationType.VISIT_SAMPLE_CHANGED)
+                && n.getPayloadJson() != null) {
             try {
                 JsonNode details = MAPPER.readTree(n.getPayloadJson());
                 dto.labName = details.hasNonNull("labName") ? details.get("labName").asText() : null;
                 dto.patientName = details.hasNonNull("patientName") ? details.get("patientName").asText() : null;
                 dto.reportId = details.hasNonNull("reportId") ? details.get("reportId").asLong() : null;
+                if (n.getType() == NotificationType.VISIT_SAMPLE_CHANGED) {
+                    dto.sampleAction = details.hasNonNull("sampleAction") ? details.get("sampleAction").asText() : null;
+                    if (details.hasNonNull("samples") && details.get("samples").isArray()) {
+                        List<String> names = new java.util.ArrayList<>();
+                        details.get("samples").forEach(s -> names.add(s.asText()));
+                        dto.samples = names;
+                    }
+                    dto.patientDetails = details.hasNonNull("patient") ? details.get("patient") : null;
+                }
             } catch (Exception ignored) {
                 // details are optional; the title / message still tell the story
             }
