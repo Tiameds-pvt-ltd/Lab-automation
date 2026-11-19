@@ -17,6 +17,7 @@ import tiameds.com.tiameds.dto.lab.TestReferenceDTO;
 import tiameds.com.tiameds.entity.Test;
 import tiameds.com.tiameds.notification.dto.CatalogChangePayload;
 import tiameds.com.tiameds.services.lab.TestReferenceServices;
+import tiameds.com.tiameds.entity.BillingEntity;
 import tiameds.com.tiameds.entity.Lab;
 import tiameds.com.tiameds.entity.LabAuditLogs;
 import tiameds.com.tiameds.entity.PatientEntity;
@@ -35,6 +36,7 @@ import tiameds.com.tiameds.services.auth.UserService;
 import tiameds.com.tiameds.services.lab.UpdatePatientService;
 import tiameds.com.tiameds.utils.LabAccessableFilter;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -525,15 +527,7 @@ public class NotificationService {
         details.put("sampleAction", deleted ? "DELETED" : "UPDATED");
         details.put("samples", samples);
         if (patient != null) {
-            Map<String, Object> p = new LinkedHashMap<>();
-            p.put("patientId", patient.getPatientId());
-            p.put("name", patientName);
-            p.put("gender", patient.getGender());
-            p.put("age", patient.getAge());
-            p.put("dateOfBirth", patient.getDateOfBirth() != null ? patient.getDateOfBirth().toString() : null);
-            p.put("phone", patient.getPhone());
-            p.put("email", patient.getEmail());
-            details.put("patient", p);
+            details.put("patient", patientDetails(patient));
         }
         n.setPayloadJson(toJson(details));
         n.setRequestedByUserId(user.getId());
@@ -542,6 +536,160 @@ public class NotificationService {
         Notification saved = notificationRepository.save(n);
         log.info("Samples {} after results for visit {} by {} in lab {}: admin alert {} raised",
                 deleted ? "deleted" : "updated", visitId, user.getUsername(), labId, saved.getId());
+        return NotificationDTO.from(saved);
+    }
+
+    private Map<String, Object> patientDetails(PatientEntity patient) {
+        Map<String, Object> p = new LinkedHashMap<>();
+        p.put("patientId", patient.getPatientId());
+        p.put("name", patientName(patient));
+        p.put("gender", patient.getGender());
+        p.put("age", patient.getAge());
+        p.put("dateOfBirth", patient.getDateOfBirth() != null ? patient.getDateOfBirth().toString() : null);
+        p.put("phone", patient.getPhone());
+        p.put("email", patient.getEmail());
+        return p;
+    }
+
+    // ------------------------------------------------------------------ discount applied alert
+
+    public static final String NO_DISCOUNT = "NONE";
+
+    /**
+     * A short fingerprint of the discount a visit currently carries (NO_DISCOUNT when there is none). Taken before an
+     * update and compared afterwards, so only a real discount change raises an alert. The package's own discount is
+     * not counted: it comes from the package price list, nobody "applies" it.
+     */
+    @Transactional(readOnly = true)
+    public String discountKeyOfVisit(Long visitId) {
+        VisitEntity visit = visitId != null ? visitRepository.findById(visitId).orElse(null) : null;
+        return discountKey(visit);
+    }
+
+    private String discountKey(VisitEntity visit) {
+        BillingEntity billing = visit != null ? visit.getBilling() : null;
+        if (billing == null) {
+            return NO_DISCOUNT;
+        }
+        List<String> parts = new ArrayList<>();
+        if (positive(billing.getDiscount())) {
+            parts.add("G:" + plain(billing.getDiscount()));
+        }
+        if (billing.getTestDiscounts() != null) {
+            billing.getTestDiscounts().stream()
+                    .filter(d -> positive(d.getDiscountAmount()) || positive(d.getDiscountPercent()))
+                    .map(d -> "T" + d.getTestId() + ":" + plain(d.getDiscountAmount()) + ":" + plain(d.getDiscountPercent()))
+                    .sorted()
+                    .forEach(parts::add);
+        }
+        return parts.isEmpty() ? NO_DISCOUNT : String.join("|", parts);
+    }
+
+    private boolean positive(BigDecimal value) {
+        return value != null && value.signum() > 0;
+    }
+
+    private String plain(BigDecimal value) {
+        return value == null ? "0" : value.stripTrailingZeros().toPlainString();
+    }
+
+    /**
+     * Raises an information-only alert for the lab's admins after a non-admin saved a visit with a discount
+     * (POST add-patient, POST add-visit, PUT update-visit). Nothing to approve or reject. Returns null when the saved
+     * bill carries no discount, or (update-visit) when the discount did not change.
+     * entity_id is left empty on purpose so every discount is its own alert.
+     *
+     * @param visitId     the visit when known (update-visit, add-patient response); otherwise the patient's latest visit
+     * @param previousKey discountKeyOfVisit() taken before an update; null for a newly created visit
+     */
+    public NotificationDTO raiseDiscountAppliedAlert(User user, Long labId, Long visitId, Long patientId,
+                                                     String previousKey) {
+        VisitEntity visit = null;
+        if (visitId != null) {
+            visit = visitRepository.findById(visitId).orElse(null);
+        } else if (patientId != null) {
+            visit = visitRepository.findByPatientId(patientId).stream()
+                    .filter(v -> v.getVisitId() != null)
+                    .max(java.util.Comparator.comparing(VisitEntity::getVisitId))
+                    .orElse(null);
+        }
+        if (visit == null || visit.getBilling() == null) {
+            return null;
+        }
+        String key = discountKey(visit);
+        if (NO_DISCOUNT.equals(key) || key.equals(previousKey)) {
+            return null;
+        }
+        BillingEntity billing = visit.getBilling();
+        PatientEntity patient = visit.getPatient();
+        String patientName = patient != null ? patientName(patient) : null;
+        String visitCode = visit.getVisitCode();
+        String labName = labRepository.findById(labId).map(Lab::getName).orElse(null);
+
+        Map<Long, String> testNames = new java.util.HashMap<>();
+        if (visit.getTests() != null) {
+            visit.getTests().forEach(t -> testNames.put(t.getId(), t.getName()));
+        }
+        List<Map<String, Object>> testDiscounts = new ArrayList<>();
+        if (billing.getTestDiscounts() != null) {
+            billing.getTestDiscounts().stream()
+                    .filter(d -> positive(d.getDiscountAmount()) || positive(d.getDiscountPercent()))
+                    .sorted(java.util.Comparator.comparing(d -> d.getTestId() == null ? 0L : d.getTestId()))
+                    .forEach(d -> {
+                        Map<String, Object> t = new LinkedHashMap<>();
+                        t.put("testId", d.getTestId());
+                        t.put("testName", testNames.get(d.getTestId()));
+                        t.put("discountAmount", d.getDiscountAmount());
+                        t.put("discountPercent", d.getDiscountPercent());
+                        t.put("finalPrice", d.getFinalPrice());
+                        testDiscounts.add(t);
+                    });
+        }
+        Map<String, Object> discount = new LinkedHashMap<>();
+        discount.put("billingCode", billing.getBillingCode());
+        discount.put("totalAmount", billing.getTotalAmount());
+        discount.put("discountAmount", billing.getDiscount());
+        discount.put("discountReason", billing.getDiscountReason());
+        discount.put("netAmount", billing.getNetAmount());
+        discount.put("testDiscounts", testDiscounts);
+
+        List<String> what = new ArrayList<>();
+        if (positive(billing.getDiscount())) {
+            what.add("bill discount " + plain(billing.getDiscount())
+                    + (!isBlank(billing.getDiscountReason()) ? " (reason: " + billing.getDiscountReason().trim() + ")" : ""));
+        }
+        if (!testDiscounts.isEmpty()) {
+            what.add(testDiscounts.size() + " test-level discount(s)");
+        }
+
+        Notification n = new Notification();
+        n.setLabId(labId);
+        n.setType(NotificationType.DISCOUNT_APPLIED);
+        n.setEntityType("VISIT");
+        n.setVisitId(visit.getVisitId());
+        n.setVisitCode(visitCode);
+        n.setTitle("Discount applied" + (visitCode != null ? ": " + visitCode : ""));
+        n.setMessage(user.getUsername() + " applied a discount: " + String.join(", ", what)
+                + (patientName != null ? " for patient " + patientName : "")
+                + (patient != null && patient.getPatientId() != null ? " (patient id " + patient.getPatientId() + ")" : "")
+                + (visitCode != null ? ", visit " + visitCode : "")
+                + (labName != null ? ", lab " + labName : "")
+                + ". Total " + plain(billing.getTotalAmount()) + ", net " + plain(billing.getNetAmount()));
+
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("labName", labName);
+        details.put("patientName", patientName);
+        if (patient != null) {
+            details.put("patient", patientDetails(patient));
+        }
+        details.put("discount", discount);
+        n.setPayloadJson(toJson(details));
+        n.setRequestedByUserId(user.getId());
+        n.setRequestedByUsername(user.getUsername());
+        n.setStatus(NotificationStatus.PENDING);
+        Notification saved = notificationRepository.save(n);
+        log.info("Discount applied on visit {} by {} in lab {}: admin alert {} raised",
+                visit.getVisitId(), user.getUsername(), labId, saved.getId());
         return NotificationDTO.from(saved);
     }
 

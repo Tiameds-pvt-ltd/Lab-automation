@@ -46,7 +46,10 @@ public class NotificationDTO {
     // Only filled for VISIT_SAMPLE_CHANGED
     private String sampleAction;          // UPDATED / DELETED
     private List<String> samples;
-    private JsonNode patientDetails;      // patientId, name, gender, age, dateOfBirth, phone, email
+    private JsonNode patientDetails;      // patientId, name, gender, age, dateOfBirth, phone, email (also DISCOUNT_APPLIED)
+
+    // Only filled for DISCOUNT_APPLIED: billingCode, totalAmount, discountAmount, discountReason, netAmount, testDiscounts[]
+    private JsonNode discountDetails;
 
     // Only filled by the detail endpoint, for PATIENT_EDIT_REQUEST
     private PatientDTO currentPatient;
@@ -78,7 +81,8 @@ public class NotificationDTO {
         dto.rejectionReason = n.getRejectionReason();
         dto.approvalReason = n.getReviewRemark();
         dto.createdAt = n.getCreatedAt();
-        if ((n.getType() == NotificationType.REPORT_UPDATED || n.getType() == NotificationType.VISIT_SAMPLE_CHANGED)
+        if ((n.getType() == NotificationType.REPORT_UPDATED || n.getType() == NotificationType.VISIT_SAMPLE_CHANGED
+                || n.getType() == NotificationType.DISCOUNT_APPLIED)
                 && n.getPayloadJson() != null) {
             try {
                 JsonNode details = MAPPER.readTree(n.getPayloadJson());
@@ -93,6 +97,10 @@ public class NotificationDTO {
                         dto.samples = names;
                     }
                     dto.patientDetails = details.hasNonNull("patient") ? details.get("patient") : null;
+                }
+                if (n.getType() == NotificationType.DISCOUNT_APPLIED) {
+                    dto.patientDetails = details.hasNonNull("patient") ? details.get("patient") : null;
+                    dto.discountDetails = details.hasNonNull("discount") ? details.get("discount") : null;
                 }
             } catch (Exception ignored) {
                 // details are optional; the title / message still tell the story
