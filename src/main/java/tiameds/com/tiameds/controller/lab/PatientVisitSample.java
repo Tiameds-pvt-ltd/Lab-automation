@@ -336,7 +336,7 @@ public class PatientVisitSample {
                             visit.getVisitId(),
                             visit.getPatient().getFirstName() + " " + visit.getPatient().getLastName(),
                             visit.getPatient().getGender(),
-                            visit.getPatient().getDateOfBirth().toString(),
+                            visit.getPatient().getDateOfBirth() != null ? visit.getPatient().getDateOfBirth().toString() : null,
                             visit.getPatient().getPhone(),
                             visit.getPatient().getEmail(),
                             visit.getVisitDate(),
