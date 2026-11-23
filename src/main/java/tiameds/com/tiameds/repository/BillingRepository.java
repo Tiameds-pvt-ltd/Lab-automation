@@ -332,6 +332,47 @@ public interface BillingRepository extends JpaRepository<BillingEntity, Long> {
         BigDecimal getTotalDue();
     }
 
+    // Lab-wise billed / paid / due breakdown (used for the Billing Summary hover tooltip)
+    @Query(value =
+        "SELECT l.lab_id AS labId, l.name AS labName, COUNT(DISTINCT b.billing_id) AS totalBillings, " +
+        "ROUND(COALESCE(SUM(b.net_amount::numeric), 0), 2) AS netRevenue, " +
+        "ROUND(COALESCE(SUM(b.actual_received_amount::numeric), 0), 2) AS totalPaid, " +
+        "ROUND(COALESCE(SUM(b.due_amount::numeric), 0), 2) AS totalDue " +
+        "FROM billing b " +
+        "JOIN lab_billing lb ON b.billing_id = lb.billing_id " +
+        "JOIN labs l ON lb.lab_id = l.lab_id " +
+        "JOIN patient_visits pv ON pv.billing_id = b.billing_id " +
+        "WHERE l.created_by = :createdById AND LOWER(pv.visit_status) != 'cancelled' " +
+        "GROUP BY l.lab_id, l.name " +
+        "ORDER BY totalDue DESC", nativeQuery = true)
+    List<BillingByLabProjection> getBillingByLab(@Param("createdById") Long createdById);
+
+    @Query(value =
+        "SELECT l.lab_id AS labId, l.name AS labName, COUNT(DISTINCT b.billing_id) AS totalBillings, " +
+        "ROUND(COALESCE(SUM(b.net_amount::numeric), 0), 2) AS netRevenue, " +
+        "ROUND(COALESCE(SUM(b.actual_received_amount::numeric), 0), 2) AS totalPaid, " +
+        "ROUND(COALESCE(SUM(b.due_amount::numeric), 0), 2) AS totalDue " +
+        "FROM billing b " +
+        "JOIN lab_billing lb ON b.billing_id = lb.billing_id " +
+        "JOIN labs l ON lb.lab_id = l.lab_id " +
+        "JOIN patient_visits pv ON pv.billing_id = b.billing_id " +
+        "WHERE l.created_by = :createdById AND b.created_at BETWEEN :startDate AND :endDate AND LOWER(pv.visit_status) != 'cancelled' " +
+        "GROUP BY l.lab_id, l.name " +
+        "ORDER BY totalDue DESC", nativeQuery = true)
+    List<BillingByLabProjection> getBillingByLabWithDateRange(
+            @Param("createdById") Long createdById,
+            @Param("startDate") Instant startDate,
+            @Param("endDate") Instant endDate);
+
+    interface BillingByLabProjection {
+        Long getLabId();
+        String getLabName();
+        Long getTotalBillings();
+        BigDecimal getNetRevenue();
+        BigDecimal getTotalPaid();
+        BigDecimal getTotalDue();
+    }
+
     // Revenue by collection method (Cash / UPI / Card / Credit-due) for a specific lab
     @Query(value =
         "SELECT " +

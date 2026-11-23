@@ -974,6 +974,25 @@ public class SuperAdminDashboardController {
             statusBreakdown.add(row);
         }
 
+        // Lab-wise breakdown (for the Billing Summary hover tooltip). Only meaningful when
+        // viewing all labs; a single-lab filter already is the lab-wise view.
+        List<Map<String, Object>> byLab = new ArrayList<>();
+        if (labId == null) {
+            List<BillingRepository.BillingByLabProjection> labRows = hasDates
+                    ? billingRepository.getBillingByLabWithDateRange(userId, toInstantStart(startDate), toInstantEnd(endDate))
+                    : billingRepository.getBillingByLab(userId);
+            for (BillingRepository.BillingByLabProjection r : labRows) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("labId",         r.getLabId());
+                row.put("labName",       r.getLabName());
+                row.put("totalBillings", r.getTotalBillings());
+                row.put("netBilled",     safe(r.getNetRevenue()));
+                row.put("paid",          safe(r.getTotalPaid()));
+                row.put("due",           safe(r.getTotalDue()));
+                byLab.add(row);
+            }
+        }
+
         BigDecimal tcRevenue  = sumField(testCategories, VisitTestResultRepository.TestsByCategoryDetailedProjection::getRevenue);
         BigDecimal tcDiscount = sumField(testCategories, VisitTestResultRepository.TestsByCategoryDetailedProjection::getDiscount);
         BigDecimal tcPaid     = sumField(testCategories, VisitTestResultRepository.TestsByCategoryDetailedProjection::getPaidRevenue);
@@ -1009,6 +1028,7 @@ public class SuperAdminDashboardController {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("summary",         summary);
         result.put("byPaymentStatus", statusBreakdown);
+        result.put("byLab",           byLab);
         result.put("testsSummary",    testsSummary);
         result.put("testCategories",  testCategories);
         result.put("packageSummary",  packageSummary);
