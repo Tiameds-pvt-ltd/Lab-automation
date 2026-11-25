@@ -750,6 +750,9 @@ public class NotificationService {
         if (ROLE_SUPERADMIN.equals(n.getTargetRole()) && !isSuperAdmin(reviewer)) {
             throw new NotificationException(HttpStatus.FORBIDDEN, "This alert is only for super admins");
         }
+        if (!isRespectiveSuperAdmin(reviewer, n)) {
+            throw new NotificationException(HttpStatus.FORBIDDEN, "This alert is for another super admin");
+        }
         if (ROLE_DESKROLE.equals(n.getTargetRole()) && !isSuperAdmin(reviewer)) {
             throw new NotificationException(HttpStatus.FORBIDDEN, "This alert is only for desk users");
         }
@@ -785,15 +788,27 @@ public class NotificationService {
     public List<NotificationDTO> getSuperAdminNotifications(User user, NotificationStatus status) {
         requireSuperAdmin(user);
         List<Notification> rows = status == null
-                ? notificationRepository.findByTargetRoleOrderByCreatedAtDesc(ROLE_SUPERADMIN)
-                : notificationRepository.findByTargetRoleAndStatusOrderByCreatedAtDesc(ROLE_SUPERADMIN, status);
+                ? notificationRepository.findSuperAdminAlerts(user.getId())
+                : notificationRepository.findSuperAdminAlertsByStatus(user.getId(), status);
         return rows.stream().map(NotificationDTO::from).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public long getSuperAdminPendingCount(User user) {
         requireSuperAdmin(user);
-        return notificationRepository.countByTargetRoleAndStatus(ROLE_SUPERADMIN, NotificationStatus.PENDING);
+        return notificationRepository.countSuperAdminAlertsByStatus(user.getId(), NotificationStatus.PENDING);
+    }
+
+    /**
+     * A SUPERADMIN-targeted alert is only for the super admin(s) who are members of its lab; when the lab has no
+     * super admin member, any super admin may handle it. Alerts with another target are not restricted here.
+     */
+    private boolean isRespectiveSuperAdmin(User user, Notification n) {
+        if (!ROLE_SUPERADMIN.equals(n.getTargetRole())) {
+            return true;
+        }
+        return notificationRepository.isMemberOfLab(n.getLabId(), user.getId())
+                || !notificationRepository.labHasSuperAdminMember(n.getLabId());
     }
 
     /** The requests the current user raised themselves, so they can see approved / rejected (with reason). */
@@ -834,6 +849,9 @@ public class NotificationService {
         requireSuperAdmin(user);
         Notification n = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new NotificationException(HttpStatus.NOT_FOUND, "Notification not found"));
+        if (!isRespectiveSuperAdmin(user, n)) {
+            throw new NotificationException(HttpStatus.FORBIDDEN, "This alert is for another super admin");
+        }
         return detailOf(n);
     }
 
@@ -1245,6 +1263,9 @@ public class NotificationService {
     private void requireMayReview(User reviewer, Notification n) {
         if (ROLE_SUPERADMIN.equals(n.getTargetRole()) && !isSuperAdmin(reviewer)) {
             throw new NotificationException(HttpStatus.FORBIDDEN, "Only a SUPERADMIN can review this request");
+        }
+        if (!isRespectiveSuperAdmin(reviewer, n)) {
+            throw new NotificationException(HttpStatus.FORBIDDEN, "This request is for another super admin");
         }
     }
 

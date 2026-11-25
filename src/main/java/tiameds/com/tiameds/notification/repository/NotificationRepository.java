@@ -24,12 +24,33 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 
     long countByLabIdAndStatus(Long labId, NotificationStatus status);
 
-    // Alerts meant only for super admins (cross-lab view)
-    List<Notification> findByTargetRoleOrderByCreatedAtDesc(String targetRole);
+    // Alerts meant only for super admins (cross-lab view).
+    // A SUPERADMIN-targeted alert belongs to the super admin(s) who are members of the alert's lab; when the lab has
+    // no super admin member at all, every super admin still sees it (so it can never be lost).
+    String RESPECTIVE_SUPERADMIN =
+            "n.targetRole = 'SUPERADMIN' AND ("
+            + "EXISTS (SELECT 1 FROM Lab l JOIN l.members m WHERE l.id = n.labId AND m.id = :userId) "
+            + "OR NOT EXISTS (SELECT 1 FROM Lab l2 JOIN l2.members m2 JOIN m2.roles r2 "
+            + "WHERE l2.id = n.labId AND UPPER(r2.name) = 'SUPERADMIN'))";
 
-    List<Notification> findByTargetRoleAndStatusOrderByCreatedAtDesc(String targetRole, NotificationStatus status);
+    @Query("SELECT n FROM Notification n WHERE " + RESPECTIVE_SUPERADMIN + " ORDER BY n.createdAt DESC")
+    List<Notification> findSuperAdminAlerts(@Param("userId") Long userId);
 
-    long countByTargetRoleAndStatus(String targetRole, NotificationStatus status);
+    @Query("SELECT n FROM Notification n WHERE " + RESPECTIVE_SUPERADMIN
+            + " AND n.status = :status ORDER BY n.createdAt DESC")
+    List<Notification> findSuperAdminAlertsByStatus(@Param("userId") Long userId,
+                                                    @Param("status") NotificationStatus status);
+
+    @Query("SELECT COUNT(n) FROM Notification n WHERE " + RESPECTIVE_SUPERADMIN + " AND n.status = :status")
+    long countSuperAdminAlertsByStatus(@Param("userId") Long userId, @Param("status") NotificationStatus status);
+
+    // Is this super admin a member of the lab (used to check a single alert)
+    @Query("SELECT COUNT(m) > 0 FROM Lab l JOIN l.members m WHERE l.id = :labId AND m.id = :userId")
+    boolean isMemberOfLab(@Param("labId") Long labId, @Param("userId") Long userId);
+
+    @Query("SELECT COUNT(m) > 0 FROM Lab l JOIN l.members m JOIN m.roles r "
+            + "WHERE l.id = :labId AND UPPER(r.name) = 'SUPERADMIN'")
+    boolean labHasSuperAdminMember(@Param("labId") Long labId);
 
     // Alerts meant for the lab's desk users (e.g. "report completed, please print")
     List<Notification> findByLabIdAndTargetRoleOrderByCreatedAtDesc(Long labId, String targetRole);
