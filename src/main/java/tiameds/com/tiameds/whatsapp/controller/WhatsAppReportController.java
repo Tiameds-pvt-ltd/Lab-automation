@@ -48,24 +48,42 @@ public class WhatsAppReportController {
     }
 
     @Auditable(module = "Lab", action = "SEND_WHATSAPP_REPORT")
-    @Operation(summary = "Send the visit's lab report PDF to the patient on WhatsApp")
+    @Operation(summary = "Send the visit's lab report PDF(s) to the patient on WhatsApp",
+            description = "Repeat the multipart part `file` to send several PDFs at once (max 10, each its own message). "
+                    + "One file returns a single result object (as before); several files return a list of results.")
     @PostMapping(value = "/{labId}/visits/{visitId}/whatsapp-report", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> sendReport(@PathVariable Long labId,
                                         @PathVariable Long visitId,
-                                        @RequestPart("file") MultipartFile file) {
+                                        @RequestPart("file") List<MultipartFile> files) {
         ResponseEntity<?> denied = checkAccess(labId);
         if (denied != null) {
             return denied;
         }
         try {
             User user = getAuthenticatedUser().orElseThrow();
-            WhatsAppReportLog entry = service.sendVisitReport(labId, visitId, file, user);
-            if (entry.getStatus() == WhatsAppSendStatus.FAILED) {
+            List<WhatsAppReportLog> entries = service.sendVisitReports(labId, visitId, files, user);
+            List<WhatsAppReportResponse> rows = entries.stream().map(WhatsAppReportResponse::from).toList();
+            long failed = entries.stream().filter(e -> e.getStatus() == WhatsAppSendStatus.FAILED).count();
+
+            if (entries.size() == 1) {
+                if (failed > 0) {
+                    return ApiResponseHelper.successResponseWithDataAndMessage(
+                            "WhatsApp message could not be sent", HttpStatus.BAD_GATEWAY, rows.get(0));
+                }
                 return ApiResponseHelper.successResponseWithDataAndMessage(
-                        "WhatsApp message could not be sent", HttpStatus.BAD_GATEWAY, WhatsAppReportResponse.from(entry));
+                        "Report sent on WhatsApp", HttpStatus.OK, rows.get(0));
+            }
+            if (failed == entries.size()) {
+                return ApiResponseHelper.successResponseWithDataAndMessage(
+                        "WhatsApp messages could not be sent", HttpStatus.BAD_GATEWAY, rows);
+            }
+            if (failed > 0) {
+                return ApiResponseHelper.successResponseWithDataAndMessage(
+                        (entries.size() - failed) + " of " + entries.size() + " reports sent on WhatsApp",
+                        HttpStatus.MULTI_STATUS, rows);
             }
             return ApiResponseHelper.successResponseWithDataAndMessage(
-                    "Report sent on WhatsApp", HttpStatus.OK, WhatsAppReportResponse.from(entry));
+                    entries.size() + " reports sent on WhatsApp", HttpStatus.OK, rows);
         } catch (ResponseStatusException e) {
             return ApiResponseHelper.errorResponse(e.getReason(), HttpStatus.valueOf(e.getStatusCode().value()));
         } catch (Exception e) {

@@ -21,6 +21,7 @@ import tiameds.com.tiameds.whatsapp.repository.WhatsAppVisitLookupRepository;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -39,6 +40,7 @@ public class WhatsAppReportService {
 
     private static final Logger log = LoggerFactory.getLogger(WhatsAppReportService.class);
     private static final int DUPLICATE_GUARD_SECONDS = 60;
+    private static final int MAX_FILES_PER_REQUEST = 10;
 
     private final WhatsAppProperties props;
     private final AwsWhatsAppClient client;
@@ -59,11 +61,27 @@ public class WhatsAppReportService {
     }
 
     public WhatsAppReportLog sendVisitReport(Long labId, Long visitId, MultipartFile file, User sender) {
+        return sendVisitReports(labId, visitId, List.of(file), sender).get(0);
+    }
+
+    /**
+     * Sends several report PDFs of one visit, each as its own WhatsApp message with its own log row.
+     * Every file is validated before anything is sent, and the duplicate guard is checked once for the
+     * whole request (so the files of one request never block each other).
+     */
+    public List<WhatsAppReportLog> sendVisitReports(Long labId, Long visitId, List<MultipartFile> files, User sender) {
         if (!props.isUsable()) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                     "WhatsApp report delivery is not enabled or not fully configured");
         }
-        byte[] pdf = readAndValidatePdf(file);
+        if (files == null || files.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "PDF file is required");
+        }
+        if (files.size() > MAX_FILES_PER_REQUEST) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "At most " + MAX_FILES_PER_REQUEST + " reports can be sent at a time");
+        }
+        List<byte[]> pdfs = files.stream().map(this::readAndValidatePdf).toList();
 
         VisitEntity visit = visitLookup.findVisitInLab(visitId, labId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Visit not found in this lab"));
@@ -83,7 +101,21 @@ public class WhatsAppReportService {
                 ? visit.getVisitCode() : "VISIT-" + visit.getVisitId();
         String patientName = ((patient.getFirstName() == null ? "" : patient.getFirstName()) + " "
                 + (patient.getLastName() == null ? "" : patient.getLastName())).trim();
-        String fileName = "Lab-Report-" + reportRef.replaceAll("[^a-zA-Z0-9._-]", "_") + ".pdf";
+        String baseName = "Lab-Report-" + reportRef.replaceAll("[^a-zA-Z0-9._-]", "_");
+
+        List<WhatsAppReportLog> results = new ArrayList<>();
+        for (int i = 0; i < pdfs.size(); i++) {
+            // single file keeps the old name; several files get -1, -2... so the patient can tell them apart
+            String fileName = pdfs.size() == 1 ? baseName + ".pdf" : baseName + "-" + (i + 1) + ".pdf";
+            results.add(sendOne(labId, visitId, patient, phone, patientName, reportRef, labName,
+                    fileName, pdfs.get(i), sender));
+        }
+        return results;
+    }
+
+    private WhatsAppReportLog sendOne(Long labId, Long visitId, PatientEntity patient, String phone,
+                                      String patientName, String reportRef, String labName,
+                                      String fileName, byte[] pdf, User sender) {
         String s3Key = props.getS3Prefix() + labId + "/" + visitId + "/" + UUID.randomUUID() + "-" + fileName;
 
         WhatsAppReportLog entry = new WhatsAppReportLog();
